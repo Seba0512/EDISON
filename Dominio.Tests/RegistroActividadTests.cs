@@ -9,10 +9,20 @@ public class RegistroActividadTests
     private const string Usuario = "jferreiro";
     private const string NombreModelo = "Edison S1";
 
+    private static readonly DateTime Momento = new DateTime(2026, 8, 31, 10, 0, 0, DateTimeKind.Utc);
+
+    private RelojFalso reloj = null!;
+
+    [TestInitialize]
+    public void Inicializar()
+    {
+        reloj = new RelojFalso(Momento);
+    }
+
     [TestMethod]
     public void InicioSesionRegistraElTipoYElUsuario()
     {
-        RegistroActividad actividad = RegistroActividad.InicioSesion(Usuario);
+        RegistroActividad actividad = RegistroActividad.InicioSesion(Usuario, reloj);
 
         Assert.AreEqual(TipoActividad.InicioSesion, actividad.Tipo);
         Assert.AreEqual(Usuario, actividad.NombreUsuario);
@@ -21,7 +31,7 @@ public class RegistroActividadTests
     [TestMethod]
     public void ModeloCreadoIncluyeElNombreDelModeloEnElDetalle()
     {
-        RegistroActividad actividad = RegistroActividad.ModeloCreado(Usuario, NombreModelo);
+        RegistroActividad actividad = RegistroActividad.ModeloCreado(Usuario, NombreModelo, reloj);
 
         Assert.AreEqual(TipoActividad.ModeloCreado, actividad.Tipo);
         StringAssert.Contains(actividad.Detalle, NombreModelo);
@@ -30,7 +40,7 @@ public class RegistroActividadTests
     [TestMethod]
     public void CompraQuedaRegistradaComoTalCuandoSeConfirmaLaReserva()
     {
-        RegistroActividad actividad = RegistroActividad.Compra(Usuario, NombreModelo);
+        RegistroActividad actividad = RegistroActividad.Compra(Usuario, NombreModelo, reloj);
 
         Assert.AreEqual(TipoActividad.Compra, actividad.Tipo);
         StringAssert.Contains(actividad.Detalle, NombreModelo);
@@ -39,16 +49,27 @@ public class RegistroActividadTests
     [TestMethod]
     public void CadaActividadTieneIdentidadPropia()
     {
-        RegistroActividad primera = RegistroActividad.InicioSesion(Usuario);
-        RegistroActividad segunda = RegistroActividad.InicioSesion(Usuario);
+        RegistroActividad primera = RegistroActividad.InicioSesion(Usuario, reloj);
+        RegistroActividad segunda = RegistroActividad.InicioSesion(Usuario, reloj);
 
         Assert.AreNotEqual(primera.Id, segunda.Id);
     }
 
     [TestMethod]
+    public void CadaActividadSeSellaConLaHoraDelReloj()
+    {
+        RegistroActividad primera = RegistroActividad.InicioSesion(Usuario, reloj);
+        reloj.Avanzar(TimeSpan.FromMinutes(5));
+        RegistroActividad segunda = RegistroActividad.CierreSesion(Usuario, reloj);
+
+        Assert.AreEqual(Momento, primera.FechaHora);
+        Assert.IsTrue(segunda.FechaHora > primera.FechaHora);
+    }
+
+    [TestMethod]
     public void EsDeReconoceAlUsuarioIgnorandoMayusculas()
     {
-        RegistroActividad actividad = RegistroActividad.ReservaCreada(Usuario, NombreModelo);
+        RegistroActividad actividad = RegistroActividad.ReservaCreada(Usuario, NombreModelo, reloj);
 
         Assert.IsTrue(actividad.EsDe("JFerreiro"));
         Assert.IsFalse(actividad.EsDe("otro"));
@@ -57,8 +78,8 @@ public class RegistroActividadTests
     [TestMethod]
     public void LasActividadesDeReservaYCancelacionSeDistinguen()
     {
-        RegistroActividad creada = RegistroActividad.ReservaCreada(Usuario, NombreModelo);
-        RegistroActividad cancelada = RegistroActividad.ReservaCancelada(Usuario, NombreModelo);
+        RegistroActividad creada = RegistroActividad.ReservaCreada(Usuario, NombreModelo, reloj);
+        RegistroActividad cancelada = RegistroActividad.ReservaCancelada(Usuario, NombreModelo, reloj);
 
         Assert.AreEqual(TipoActividad.ReservaCreada, creada.Tipo);
         Assert.AreEqual(TipoActividad.ReservaCancelada, cancelada.Tipo);
@@ -68,6 +89,6 @@ public class RegistroActividadTests
     [ExpectedException(typeof(DominioException))]
     public void CrearUnaActividadSinUsuarioFalla()
     {
-        _ = RegistroActividad.InicioSesion("  ");
+        _ = RegistroActividad.InicioSesion("  ", reloj);
     }
 }

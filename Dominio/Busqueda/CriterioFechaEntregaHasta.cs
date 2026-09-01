@@ -10,8 +10,8 @@ public class CriterioFechaEntregaHasta : ICriterioBusqueda
         this.fechaLimite = fechaLimite;
     }
 
-    public bool Cumple(Modelo modelo)
+    public bool Cumple(IVehiculoBuscable vehiculo)
     {
-        return modelo.FechaEntregaPrometida <= fechaLimite;
+        return vehiculo.FechaEntregaPrometida <= fechaLimite;
     }
 }

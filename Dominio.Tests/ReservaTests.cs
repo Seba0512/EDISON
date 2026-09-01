@@ -9,12 +9,16 @@ public class ReservaTests
     private const string Usuario = "jferreiro";
     private const string NombreModelo = "Edison S1";
 
+    private static readonly DateTime Momento = new DateTime(2026, 8, 31, 10, 0, 0, DateTimeKind.Utc);
+
+    private RelojFalso reloj = null!;
     private Reserva reserva = null!;
 
     [TestInitialize]
     public void Inicializar()
     {
-        reserva = new Reserva(Usuario, NombreModelo);
+        reloj = new RelojFalso(Momento);
+        reserva = new Reserva(Usuario, NombreModelo, reloj);
     }
 
     [TestMethod]
@@ -30,6 +34,12 @@ public class ReservaTests
     public void LaReservaNaceConLasDosFechasIguales()
     {
         Assert.AreEqual(reserva.FechaCreacion, reserva.UltimaActualizacion);
+    }
+
+    [TestMethod]
+    public void LaReservaTomaLaHoraDelRelojQueRecibe()
+    {
+        Assert.AreEqual(Momento, reserva.FechaCreacion);
     }
 
     [TestMethod]
@@ -110,10 +120,11 @@ public class ReservaTests
     public void ConfirmarActualizaLaUltimaModificacion()
     {
         DateTime antes = reserva.UltimaActualizacion;
+        reloj.Avanzar(TimeSpan.FromSeconds(30));
 
         reserva.Confirmar();
 
-        Assert.IsTrue(reserva.UltimaActualizacion >= antes);
+        Assert.IsTrue(reserva.UltimaActualizacion > antes);
         Assert.AreEqual(reserva.FechaCreacion, antes);
     }
 
@@ -127,6 +138,18 @@ public class ReservaTests
     public void VencioElPlazoEsFalsoSiTodaviaFaltaTiempo()
     {
         Assert.IsFalse(reserva.VencioElPlazo(60));
+    }
+
+    [TestMethod]
+    public void ElPlazoVenceRecienCuandoElRelojPasaLosSegundosDeEspera()
+    {
+        Assert.IsFalse(reserva.VencioElPlazo(30));
+
+        reloj.Avanzar(TimeSpan.FromSeconds(29));
+        Assert.IsFalse(reserva.VencioElPlazo(30));
+
+        reloj.Avanzar(TimeSpan.FromSeconds(1));
+        Assert.IsTrue(reserva.VencioElPlazo(30));
     }
 
     [TestMethod]
@@ -155,13 +178,13 @@ public class ReservaTests
     [ExpectedException(typeof(DominioException))]
     public void CrearReservaSinUsuarioFalla()
     {
-        _ = new Reserva("  ", NombreModelo);
+        _ = new Reserva("  ", NombreModelo, reloj);
     }
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
     public void CrearReservaSinModeloFalla()
     {
-        _ = new Reserva(Usuario, "  ");
+        _ = new Reserva(Usuario, "  ", reloj);
     }
 }
