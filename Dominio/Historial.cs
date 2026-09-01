@@ -13,7 +13,7 @@ namespace Dominio;
 /// </summary>
 public class Historial
 {
-    private readonly List<RegistroActividad> actividades = new();
+    private readonly List<Actividad> actividades = new();
     private readonly string nombreUsuario;
 
     public Historial(string nombreUsuario)
@@ -21,14 +21,14 @@ public class Historial
         this.nombreUsuario = NombreDeUsuarioValidado(nombreUsuario);
     }
 
-    public IReadOnlyList<RegistroActividad> Actividades => actividades;
+    public IReadOnlyList<Actividad> Actividades => actividades;
 
     public bool EsDe(string nombreUsuario)
     {
         return this.nombreUsuario.Equals(nombreUsuario?.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
-    public void Registrar(RegistroActividad actividad)
+    public void Registrar(Actividad actividad)
     {
         if (!actividad.EsDe(nombreUsuario))
         {
