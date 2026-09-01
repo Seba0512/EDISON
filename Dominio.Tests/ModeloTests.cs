@@ -73,7 +73,7 @@ public class ModeloTests
         Reserva excedente = ReservaRegistrada();
         excedente.Resolver();
 
-        Assert.AreEqual(EstadoReserva.Rechazada, excedente.Estado);
+        Assert.AreEqual("Rechazada", excedente.NombreDelEstado());
         Assert.AreEqual(0, modelo.UnidadesDisponibles);
     }
 
