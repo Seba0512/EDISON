@@ -29,7 +29,6 @@ public class StockDeUnidadesTests
 
         Assert.AreEqual(0, vacio.Total);
         Assert.IsFalse(vacio.HayAlgunaDisponible);
-        Assert.IsTrue(vacio.NoHayNingunaReservada);
     }
 
     [TestMethod]
@@ -48,55 +47,63 @@ public class StockDeUnidadesTests
     }
 
     [TestMethod]
-    public void AsignarMueveUnaUnidadDeDisponibleAReservada()
+    public void TomarMueveUnaUnidadDeDisponibleAReservada()
     {
-        Guid reserva = Guid.NewGuid();
-
-        stock.AsignarUnaA(reserva);
+        stock.TomarUna();
 
         Assert.AreEqual(CantidadInicial - 1, stock.Disponibles);
         Assert.AreEqual(1, stock.Reservadas);
-        Assert.IsTrue(stock.TieneUnaAsignadaA(reserva));
-    }
-
-    [TestMethod]
-    public void LiberarDevuelveLaUnidadAlStockDisponible()
-    {
-        Guid reserva = Guid.NewGuid();
-        stock.AsignarUnaA(reserva);
-
-        stock.LiberarLaDe(reserva);
-
-        Assert.AreEqual(CantidadInicial, stock.Disponibles);
-        Assert.IsFalse(stock.TieneUnaAsignadaA(reserva));
+        Assert.AreEqual(CantidadInicial, stock.Total);
     }
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
-    public void LiberarUnaReservaSinUnidadAsignadaFalla()
+    public void TomarSinUnidadesDisponiblesFalla()
     {
-        stock.LiberarLaDe(Guid.NewGuid());
+        for (int tomadas = 0; tomadas < CantidadInicial; tomadas++)
+        {
+            stock.TomarUna();
+        }
+
+        stock.TomarUna();
+    }
+
+    [TestMethod]
+    public void LiberarDevuelveUnaUnidadAlPool()
+    {
+        stock.TomarUna();
+
+        stock.LiberarUna();
+
+        Assert.AreEqual(CantidadInicial, stock.Disponibles);
+        Assert.AreEqual(0, stock.Reservadas);
+    }
+
+    [TestMethod]
+    [ExpectedException(typeof(DominioException))]
+    public void LiberarSinUnidadesReservadasFalla()
+    {
+        stock.LiberarUna();
     }
 
     [TestMethod]
     public void AjustarHaciaAbajoSoloQuitaUnidadesDisponibles()
     {
-        Guid reserva = Guid.NewGuid();
-        stock.AsignarUnaA(reserva);
+        stock.TomarUna();
 
         stock.AjustarA(1);
 
         Assert.AreEqual(1, stock.Total);
         Assert.AreEqual(1, stock.Reservadas);
-        Assert.IsTrue(stock.TieneUnaAsignadaA(reserva));
+        Assert.AreEqual(0, stock.Disponibles);
     }
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
     public void AjustarPorDebajoDeLasReservadasFalla()
     {
-        stock.AsignarUnaA(Guid.NewGuid());
-        stock.AsignarUnaA(Guid.NewGuid());
+        stock.TomarUna();
+        stock.TomarUna();
 
         stock.AjustarA(1);
     }

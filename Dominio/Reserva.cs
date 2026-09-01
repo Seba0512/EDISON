@@ -7,24 +7,22 @@ namespace Dominio;
 /// Solicitud de reserva de una unidad (CR5, CR6, CR9). Nace pendiente y un proceso diferido la
 /// confirma o la rechaza pasados los segundos configurados.
 ///
-/// El plazo se mide contra el <see cref="IReloj"/> que se le inyecta y no contra
-/// <c>DateTime.UtcNow</c> (DIP): "ya vencio el plazo" es una regla de negocio, y con el reloj
-/// inyectado se puede verificar sin dormir el hilo de prueba.
+/// Vive dentro de su <see cref="Modelo"/> y lo referencia: <see cref="Resolver"/> es un doble
+/// despacho que delega en <c>modelo.ResolverReserva(this)</c>, para que la decision de confirmar o
+/// rechazar ocurra donde estan las unidades. Los datos del modelo y del usuario se exponen con
+/// accesores delegados (<see cref="NombreDelModelo"/>) para que ningun llamador escriba un choque
+/// de trenes como <c>reserva.Modelo.Nombre</c> (Ley de Demeter).
 ///
-/// La reserva no guarda que unidad ocupa: la unidad se asigna recien al confirmar y el vinculo vive
-/// del lado de <see cref="UnidadVehiculo"/>. Con asignacion tardia el rechazo de CR5 es alcanzable
-/// (dos pendientes sobre la ultima unidad, solo una confirma); con asignacion temprana nunca
-/// ocurriria. Que el stock no baje por debajo de las pendientes lo cubre el caso de uso de CR3.
+/// El plazo se mide contra el <see cref="IReloj"/> inyectado y no contra <c>DateTime.UtcNow</c>
+/// (DIP): "ya vencio el plazo" es una regla de negocio verificable sin dormir el hilo de prueba.
 /// </summary>
 public class Reserva
 {
+    private readonly Usuario solicitante;
+    private readonly Modelo modelo;
     private readonly IReloj reloj;
 
     public Guid Id { get; }
-
-    public string NombreUsuario { get; }
-
-    public string NombreModelo { get; }
 
     public EstadoReserva Estado { get; private set; }
 
@@ -32,12 +30,12 @@ public class Reserva
 
     public DateTime UltimaActualizacion { get; private set; }
 
-    public Reserva(string nombreUsuario, string nombreModelo, IReloj reloj)
+    public Reserva(Usuario solicitante, Modelo modelo, IReloj reloj)
     {
+        this.solicitante = solicitante;
+        this.modelo = modelo;
         this.reloj = reloj;
         Id = Guid.NewGuid();
-        NombreUsuario = TextoValidado(nombreUsuario, "El usuario de la reserva no puede estar vacio");
-        NombreModelo = TextoValidado(nombreModelo, "El modelo de la reserva no puede estar vacio");
         Estado = EstadoReserva.Pendiente;
         FechaCreacion = reloj.Ahora;
         UltimaActualizacion = FechaCreacion;
@@ -55,22 +53,38 @@ public class Reserva
     /// <summary>Una reserva rechazada no se puede cancelar (CR6); una terminal tampoco.</summary>
     public bool PuedeCancelarse => EstaActiva;
 
-    /// <summary>Solo una reserva confirmada tiene una unidad tomada que haya que devolver (CR6).</summary>
-    public bool OcupaUnaUnidad => EstaConfirmada;
+    public string NombreDelUsuario()
+    {
+        return solicitante.NombreUsuario;
+    }
+
+    public string NombreDelModelo()
+    {
+        return modelo.Nombre;
+    }
 
     public bool FueHechaPor(string nombreUsuario)
     {
-        return NombreUsuario.Equals(nombreUsuario?.Trim(), StringComparison.OrdinalIgnoreCase);
+        return solicitante.SeLlama(nombreUsuario);
     }
 
     public bool EsDelModelo(string nombreModelo)
     {
-        return NombreModelo.Equals(nombreModelo?.Trim(), StringComparison.OrdinalIgnoreCase);
+        return modelo.SeLlama(nombreModelo);
     }
 
     public bool VencioElPlazo(int segundosDeEspera)
     {
         return EstaPendiente && reloj.Ahora >= FechaCreacion.AddSeconds(segundosDeEspera);
+    }
+
+    /// <summary>
+    /// Doble despacho de CR5: la reserva no sabe si quedan unidades, su modelo si. El modelo
+    /// termina llamando a <see cref="Confirmar"/> o <see cref="Rechazar"/> segun el stock.
+    /// </summary>
+    public void Resolver()
+    {
+        modelo.ResolverReserva(this);
     }
 
     public void Confirmar()
@@ -85,6 +99,10 @@ public class Reserva
         PasarA(EstadoReserva.Rechazada);
     }
 
+    /// <summary>
+    /// Cancelacion de CR6. Solo una confirmada tiene una unidad tomada que devolverle al modelo;
+    /// una pendiente todavia no ocupa nada.
+    /// </summary>
     public void Cancelar()
     {
         if (!PuedeCancelarse)
@@ -92,14 +110,20 @@ public class Reserva
             throw new DominioException($"Una reserva {Estado} no se puede cancelar");
         }
 
+        bool teniaUnaUnidadTomada = EstaConfirmada;
         PasarA(EstadoReserva.Cancelada);
+        if (teniaUnaUnidadTomada)
+        {
+            modelo.LiberarUnidad();
+        }
     }
 
     private void ExigirQueEstePendiente(string operacion)
     {
         if (!EstaPendiente)
         {
-            throw new DominioException($"Solo se puede {operacion} una reserva pendiente, y esta esta {Estado}");
+            throw new DominioException(
+                $"Solo se puede {operacion} una reserva pendiente, y esta esta {Estado}");
         }
     }
 
@@ -107,15 +131,5 @@ public class Reserva
     {
         Estado = estadoNuevo;
         UltimaActualizacion = reloj.Ahora;
-    }
-
-    private static string TextoValidado(string texto, string mensajeDeError)
-    {
-        if (string.IsNullOrWhiteSpace(texto))
-        {
-            throw new DominioException(mensajeDeError);
-        }
-
-        return texto.Trim();
     }
 }
