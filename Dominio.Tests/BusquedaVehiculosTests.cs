@@ -22,10 +22,12 @@ public class BusquedaVehiculosTests
         };
     }
 
+    private static readonly Usuario Duenia = new Usuario("jferreiro", "edison2026");
+
     private static Modelo ModeloCon(string nombre, decimal precio, DateTime entrega, int stock)
     {
         FichaModelo ficha = new FichaModelo(nombre, "Vehiculo electrico", precio, entrega, string.Empty);
-        Modelo modelo = new Modelo(ficha, "jferreiro");
+        Modelo modelo = new Modelo(ficha, Duenia);
         if (stock > 0)
         {
             modelo.AgregarUnidades(stock);
@@ -122,8 +124,15 @@ public class BusquedaVehiculosTests
     [TestMethod]
     public void LasUnidadesReservadasDejanDeContarComoDisponibles()
     {
-        catalogo[0].AsignarUnidadA(Guid.NewGuid());
-        catalogo[0].AsignarUnidadA(Guid.NewGuid());
+        RelojFalso reloj = new RelojFalso(new DateTime(2026, 8, 31, 10, 0, 0, DateTimeKind.Utc));
+        Modelo edisonS1 = catalogo[0];
+        for (int confirmadas = 0; confirmadas < 2; confirmadas++)
+        {
+            Reserva reserva = new Reserva(Duenia, edisonS1, reloj);
+            edisonS1.RegistrarReserva(reserva);
+            reserva.Resolver();
+        }
+
         busqueda.AgregarCriterio(new CriterioUnidadesDisponibles(1));
 
         Assert.IsFalse(Resultado().Exists(modelo => modelo.SeLlama("Edison S1")));

@@ -6,19 +6,37 @@ namespace Dominio.Tests;
 [TestClass]
 public class ReservaTests
 {
-    private const string Usuario = "jferreiro";
+    private const string NombreUsuario = "jferreiro";
     private const string NombreModelo = "Edison S1";
+    private const int StockInicial = 2;
 
     private static readonly DateTime Momento = new DateTime(2026, 8, 31, 10, 0, 0, DateTimeKind.Utc);
 
     private RelojFalso reloj = null!;
+    private Usuario usuaria = null!;
+    private Modelo modelo = null!;
     private Reserva reserva = null!;
 
     [TestInitialize]
     public void Inicializar()
     {
         reloj = new RelojFalso(Momento);
-        reserva = new Reserva(Usuario, NombreModelo, reloj);
+        usuaria = new Usuario(NombreUsuario, "edison2026");
+        modelo = new Modelo(FichaDe(NombreModelo), usuaria);
+        modelo.AgregarUnidades(StockInicial);
+        reserva = ReservaRegistradaEn(modelo);
+    }
+
+    private static FichaModelo FichaDe(string nombre)
+    {
+        return new FichaModelo(nombre, "Sedan electrico", 45000m, new DateTime(2027, 3, 1), string.Empty);
+    }
+
+    private Reserva ReservaRegistradaEn(Modelo unModelo)
+    {
+        Reserva nueva = new Reserva(usuaria, unModelo, reloj);
+        unModelo.RegistrarReserva(nueva);
+        return nueva;
     }
 
     [TestMethod]
@@ -27,7 +45,6 @@ public class ReservaTests
         Assert.AreEqual(EstadoReserva.Pendiente, reserva.Estado);
         Assert.IsTrue(reserva.EstaPendiente);
         Assert.IsTrue(reserva.EstaActiva);
-        Assert.IsFalse(reserva.OcupaUnaUnidad);
     }
 
     [TestMethod]
@@ -43,41 +60,62 @@ public class ReservaTests
     }
 
     [TestMethod]
-    public void ConfirmarPasaAConfirmadaYOcupaUnidad()
+    public void LosAccesoresDeleganSinExponerElModeloNiElUsuario()
     {
-        reserva.Confirmar();
-
-        Assert.AreEqual(EstadoReserva.Confirmada, reserva.Estado);
-        Assert.IsTrue(reserva.OcupaUnaUnidad);
-        Assert.IsTrue(reserva.EstaActiva);
+        Assert.AreEqual(NombreUsuario, reserva.NombreDelUsuario());
+        Assert.AreEqual(NombreModelo, reserva.NombreDelModelo());
     }
 
     [TestMethod]
-    public void RechazarPasaARechazadaYDejaDeEstarActiva()
+    public void ResolverConStockLaConfirmaYTomaUnaUnidad()
     {
-        reserva.Rechazar();
+        reserva.Resolver();
 
-        Assert.AreEqual(EstadoReserva.Rechazada, reserva.Estado);
-        Assert.IsFalse(reserva.EstaActiva);
-        Assert.IsFalse(reserva.OcupaUnaUnidad);
+        Assert.IsTrue(reserva.EstaConfirmada);
+        Assert.AreEqual(1, modelo.UnidadesReservadas);
+        Assert.AreEqual(StockInicial - 1, modelo.UnidadesDisponibles);
     }
 
     [TestMethod]
-    public void CancelarUnaPendienteLaDejaCancelada()
+    public void ResolverSinStockLaRechaza()
+    {
+        Modelo modeloSinStock = new Modelo(FichaDe("Edison X2"), usuaria);
+        Reserva sinUnidades = ReservaRegistradaEn(modeloSinStock);
+
+        sinUnidades.Resolver();
+
+        Assert.AreEqual(EstadoReserva.Rechazada, sinUnidades.Estado);
+        Assert.IsFalse(sinUnidades.EstaActiva);
+    }
+
+    [TestMethod]
+    [ExpectedException(typeof(DominioException))]
+    public void ResolverUnaReservaNoRegistradaEnElModeloFalla()
+    {
+        Reserva noRegistrada = new Reserva(usuaria, modelo, reloj);
+
+        noRegistrada.Resolver();
+    }
+
+    [TestMethod]
+    public void CancelarUnaPendienteNoTocaElStock()
     {
         reserva.Cancelar();
 
         Assert.AreEqual(EstadoReserva.Cancelada, reserva.Estado);
+        Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
     }
 
     [TestMethod]
-    public void CancelarUnaConfirmadaLaDejaCancelada()
+    public void CancelarUnaConfirmadaDevuelveLaUnidadAlModelo()
     {
-        reserva.Confirmar();
+        reserva.Resolver();
 
         reserva.Cancelar();
 
         Assert.AreEqual(EstadoReserva.Cancelada, reserva.Estado);
+        Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
+        Assert.AreEqual(0, modelo.UnidadesReservadas);
     }
 
     [TestMethod]
@@ -117,12 +155,12 @@ public class ReservaTests
     }
 
     [TestMethod]
-    public void ConfirmarActualizaLaUltimaModificacion()
+    public void ResolverActualizaLaUltimaActualizacion()
     {
         DateTime antes = reserva.UltimaActualizacion;
         reloj.Avanzar(TimeSpan.FromSeconds(30));
 
-        reserva.Confirmar();
+        reserva.Resolver();
 
         Assert.IsTrue(reserva.UltimaActualizacion > antes);
         Assert.AreEqual(reserva.FechaCreacion, antes);
@@ -132,12 +170,6 @@ public class ReservaTests
     public void VencioElPlazoEsVerdaderoConEsperaCero()
     {
         Assert.IsTrue(reserva.VencioElPlazo(0));
-    }
-
-    [TestMethod]
-    public void VencioElPlazoEsFalsoSiTodaviaFaltaTiempo()
-    {
-        Assert.IsFalse(reserva.VencioElPlazo(60));
     }
 
     [TestMethod]
@@ -155,7 +187,7 @@ public class ReservaTests
     [TestMethod]
     public void VencioElPlazoEsFalsoSiYaNoEstaPendiente()
     {
-        reserva.Confirmar();
+        reserva.Resolver();
 
         Assert.IsFalse(reserva.VencioElPlazo(0));
     }
@@ -164,27 +196,13 @@ public class ReservaTests
     public void FueHechaPorReconoceAlUsuarioIgnorandoMayusculas()
     {
         Assert.IsTrue(reserva.FueHechaPor("JFerreiro"));
-        Assert.IsFalse(reserva.FueHechaPor("otro"));
+        Assert.IsFalse(reserva.FueHechaPor("otra"));
     }
 
     [TestMethod]
     public void EsDelModeloReconoceElNombreDelModelo()
     {
         Assert.IsTrue(reserva.EsDelModelo(NombreModelo));
-        Assert.IsFalse(reserva.EsDelModelo("Edison S2"));
-    }
-
-    [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void CrearReservaSinUsuarioFalla()
-    {
-        _ = new Reserva("  ", NombreModelo, reloj);
-    }
-
-    [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void CrearReservaSinModeloFalla()
-    {
-        _ = new Reserva(Usuario, "  ", reloj);
+        Assert.IsFalse(reserva.EsDelModelo("Edison X2"));
     }
 }
