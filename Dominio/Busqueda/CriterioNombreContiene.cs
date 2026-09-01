@@ -17,8 +17,8 @@ public class CriterioNombreContiene : ICriterioBusqueda
         this.textoBuscado = textoBuscado.Trim();
     }
 
-    public bool Cumple(Modelo modelo)
+    public bool Cumple(IVehiculoBuscable vehiculo)
     {
-        return modelo.Nombre.Contains(textoBuscado, StringComparison.OrdinalIgnoreCase);
+        return vehiculo.Nombre.Contains(textoBuscado, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -17,8 +17,8 @@ public class CriterioPrecioMinimo : ICriterioBusqueda
         this.precioMinimo = precioMinimo;
     }
 
-    public bool Cumple(Modelo modelo)
+    public bool Cumple(IVehiculoBuscable vehiculo)
     {
-        return modelo.Precio >= precioMinimo;
+        return vehiculo.Precio >= precioMinimo;
     }
 }

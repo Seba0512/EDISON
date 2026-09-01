@@ -17,8 +17,8 @@ public class CriterioPrecioMaximo : ICriterioBusqueda
         this.precioMaximo = precioMaximo;
     }
 
-    public bool Cumple(Modelo modelo)
+    public bool Cumple(IVehiculoBuscable vehiculo)
     {
-        return modelo.Precio <= precioMaximo;
+        return vehiculo.Precio <= precioMaximo;
     }
 }

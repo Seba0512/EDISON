@@ -20,8 +20,8 @@ public class CriterioUnidadesDisponibles : ICriterioBusqueda
         this.minimoDeUnidades = minimoDeUnidades;
     }
 
-    public bool Cumple(Modelo modelo)
+    public bool Cumple(IVehiculoBuscable vehiculo)
     {
-        return modelo.UnidadesDisponibles >= minimoDeUnidades;
+        return vehiculo.UnidadesDisponibles >= minimoDeUnidades;
     }
 }

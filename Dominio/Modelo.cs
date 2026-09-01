@@ -1,3 +1,4 @@
+using Dominio.Busqueda;
 using Dominio.Excepciones;
 
 namespace Dominio;
@@ -6,8 +7,11 @@ namespace Dominio;
 /// Modelo del catalogo: su ficha descriptiva y quien lo dio de alta (CR2, CR3, CR4).
 /// La letra separa el catalogo, que es permanente, del stock, que varia; por eso las unidades no
 /// viven aca sino en un <see cref="StockDeUnidades"/> al que el modelo delega (SRP).
+///
+/// Implementa <see cref="IVehiculoBuscable"/> para que los criterios de CR7 puedan filtrarlo sin
+/// conocer esta clase concreta.
 /// </summary>
-public class Modelo
+public class Modelo : IVehiculoBuscable
 {
     private readonly StockDeUnidades stock;
     private FichaModelo ficha;

@@ -6,5 +6,5 @@ namespace Dominio.Busqueda;
 /// </summary>
 public interface ICriterioBusqueda
 {
-    bool Cumple(Modelo modelo);
+    bool Cumple(IVehiculoBuscable vehiculo);
 }
