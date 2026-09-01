@@ -1,10 +1,15 @@
 using Dominio.Excepciones;
+using Dominio.Tiempo;
 
 namespace Dominio;
 
 /// <summary>
 /// Solicitud de reserva de una unidad (CR5, CR6, CR9). Nace pendiente y un proceso diferido la
 /// confirma o la rechaza pasados los segundos configurados.
+///
+/// El plazo se mide contra el <see cref="IReloj"/> que se le inyecta y no contra
+/// <c>DateTime.UtcNow</c> (DIP): "ya vencio el plazo" es una regla de negocio, y con el reloj
+/// inyectado se puede verificar sin dormir el hilo de prueba.
 ///
 /// La reserva no guarda que unidad ocupa: la unidad se asigna recien al confirmar y el vinculo vive
 /// del lado de <see cref="UnidadVehiculo"/>. Con asignacion tardia el rechazo de CR5 es alcanzable
@@ -13,6 +18,8 @@ namespace Dominio;
 /// </summary>
 public class Reserva
 {
+    private readonly IReloj reloj;
+
     public Guid Id { get; }
 
     public string NombreUsuario { get; }
@@ -25,13 +32,14 @@ public class Reserva
 
     public DateTime UltimaActualizacion { get; private set; }
 
-    public Reserva(string nombreUsuario, string nombreModelo)
+    public Reserva(string nombreUsuario, string nombreModelo, IReloj reloj)
     {
+        this.reloj = reloj;
         Id = Guid.NewGuid();
         NombreUsuario = TextoValidado(nombreUsuario, "El usuario de la reserva no puede estar vacio");
         NombreModelo = TextoValidado(nombreModelo, "El modelo de la reserva no puede estar vacio");
         Estado = EstadoReserva.Pendiente;
-        FechaCreacion = DateTime.UtcNow;
+        FechaCreacion = reloj.Ahora;
         UltimaActualizacion = FechaCreacion;
     }
 
@@ -62,7 +70,7 @@ public class Reserva
 
     public bool VencioElPlazo(int segundosDeEspera)
     {
-        return EstaPendiente && DateTime.UtcNow >= FechaCreacion.AddSeconds(segundosDeEspera);
+        return EstaPendiente && reloj.Ahora >= FechaCreacion.AddSeconds(segundosDeEspera);
     }
 
     public void Confirmar()
@@ -98,7 +106,7 @@ public class Reserva
     private void PasarA(EstadoReserva estadoNuevo)
     {
         Estado = estadoNuevo;
-        UltimaActualizacion = DateTime.UtcNow;
+        UltimaActualizacion = reloj.Ahora;
     }
 
     private static string TextoValidado(string texto, string mensajeDeError)
