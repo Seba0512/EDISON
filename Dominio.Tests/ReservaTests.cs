@@ -42,7 +42,7 @@ public class ReservaTests
     [TestMethod]
     public void LaReservaNacePendienteYActiva()
     {
-        Assert.AreEqual(EstadoReserva.Pendiente, reserva.Estado);
+        Assert.AreEqual("Pendiente", reserva.NombreDelEstado());
         Assert.IsTrue(reserva.EstaPendiente);
         Assert.IsTrue(reserva.EstaActiva);
     }
@@ -84,7 +84,7 @@ public class ReservaTests
 
         sinUnidades.Resolver();
 
-        Assert.AreEqual(EstadoReserva.Rechazada, sinUnidades.Estado);
+        Assert.AreEqual("Rechazada", sinUnidades.NombreDelEstado());
         Assert.IsFalse(sinUnidades.EstaActiva);
     }
 
@@ -102,7 +102,7 @@ public class ReservaTests
     {
         reserva.Cancelar();
 
-        Assert.AreEqual(EstadoReserva.Cancelada, reserva.Estado);
+        Assert.AreEqual("Cancelada", reserva.NombreDelEstado());
         Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
     }
 
@@ -113,13 +113,13 @@ public class ReservaTests
 
         reserva.Cancelar();
 
-        Assert.AreEqual(EstadoReserva.Cancelada, reserva.Estado);
+        Assert.AreEqual("Cancelada", reserva.NombreDelEstado());
         Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
         Assert.AreEqual(0, modelo.UnidadesReservadas);
     }
 
     [TestMethod]
-    [ExpectedException(typeof(DominioException))]
+    [ExpectedException(typeof(TransicionDeReservaInvalidaException))]
     public void CancelarUnaRechazadaFalla()
     {
         reserva.Rechazar();
@@ -128,7 +128,7 @@ public class ReservaTests
     }
 
     [TestMethod]
-    [ExpectedException(typeof(DominioException))]
+    [ExpectedException(typeof(TransicionDeReservaInvalidaException))]
     public void CancelarDosVecesFalla()
     {
         reserva.Cancelar();
@@ -137,7 +137,7 @@ public class ReservaTests
     }
 
     [TestMethod]
-    [ExpectedException(typeof(DominioException))]
+    [ExpectedException(typeof(TransicionDeReservaInvalidaException))]
     public void ConfirmarUnaReservaYaConfirmadaFalla()
     {
         reserva.Confirmar();
@@ -146,7 +146,7 @@ public class ReservaTests
     }
 
     [TestMethod]
-    [ExpectedException(typeof(DominioException))]
+    [ExpectedException(typeof(TransicionDeReservaInvalidaException))]
     public void RechazarUnaReservaCanceladaFalla()
     {
         reserva.Cancelar();
