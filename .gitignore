@@ -1,1 +1,25 @@
-﻿.idea
+# IDE
+.idea
+.vs/
+*.user
+*.suo
+
+# Compilados
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.dll
+*.exe
+*.pdb
+
+# NuGet
+packages/
+*.nupkg
+
+# Resultados de tests
+TestResults/
+*.trx
+
+# Archivos locales de configuracion (los de ejemplo si se versionan)
+appsettings.local.json
