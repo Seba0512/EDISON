@@ -3,14 +3,13 @@ using Dominio.Excepciones;
 namespace Dominio;
 
 /// <summary>
-/// Modelo del catalogo y raiz de la composicion con sus <see cref="UnidadVehiculo"/>.
-/// La letra separa las dos cosas: el catalogo es permanente y lo que varia es el stock de unidades.
-/// Por eso el modelo no guarda un contador de stock; las cantidades de CR8 se responden contando
-/// unidades por estado (GRASP Experto en informacion), y asi no hay contadores que se desincronicen.
+/// Modelo del catalogo: su ficha descriptiva y quien lo dio de alta (CR2, CR3, CR4).
+/// La letra separa el catalogo, que es permanente, del stock, que varia; por eso las unidades no
+/// viven aca sino en un <see cref="StockDeUnidades"/> al que el modelo delega (SRP).
 /// </summary>
 public class Modelo
 {
-    private readonly List<UnidadVehiculo> unidades = new();
+    private readonly StockDeUnidades stock;
     private FichaModelo ficha;
 
     public string CreadoPor { get; }
@@ -19,6 +18,7 @@ public class Modelo
     {
         this.ficha = ficha;
         CreadoPor = NombreDeCreadorValidado(creadoPor);
+        stock = new StockDeUnidades(ficha.Nombre);
     }
 
     public string Nombre => ficha.Nombre;
@@ -33,20 +33,20 @@ public class Modelo
 
     public bool TieneImagen => ficha.TieneImagen;
 
-    public int StockTotal => unidades.Count;
+    public int StockTotal => stock.Total;
 
-    public int UnidadesDisponibles => unidades.Count(unidad => unidad.EstaDisponible);
+    public int UnidadesDisponibles => stock.Disponibles;
 
-    public int UnidadesReservadas => StockTotal - UnidadesDisponibles;
+    public int UnidadesReservadas => stock.Reservadas;
 
-    public bool TieneUnidadDisponible => UnidadesDisponibles > 0;
+    public bool TieneUnidadDisponible => stock.HayAlgunaDisponible;
 
     /// <summary>
     /// Condicion de baja que el modelo puede responder por si mismo (CR4). El caso de uso debe
     /// ademas verificar que no queden reservas pendientes, porque una pendiente todavia no ocupa
     /// unidad y el modelo no las conoce.
     /// </summary>
-    public bool NoTieneUnidadesReservadas => UnidadesReservadas == 0;
+    public bool NoTieneUnidadesReservadas => stock.NoHayNingunaReservada;
 
     public bool FueCreadoPor(string nombreUsuario)
     {
@@ -60,15 +60,7 @@ public class Modelo
 
     public void AgregarUnidades(int cantidad)
     {
-        if (cantidad <= 0)
-        {
-            throw new DominioException("La cantidad de unidades a agregar debe ser mayor a cero");
-        }
-
-        for (int agregadas = 0; agregadas < cantidad; agregadas++)
-        {
-            unidades.Add(new UnidadVehiculo(Nombre));
-        }
+        stock.Agregar(cantidad);
     }
 
     /// <summary>Modificacion de los datos descriptivos (CR3), permitida mientras haya stock libre.</summary>
@@ -88,59 +80,24 @@ public class Modelo
         ficha = fichaNueva;
     }
 
-    /// <summary>Ajuste de stock (CR3): nunca por debajo de las unidades que ya estan reservadas.</summary>
     public void AjustarStock(int stockNuevo)
     {
-        if (stockNuevo < UnidadesReservadas)
-        {
-            throw new DominioException(
-                $"El stock no puede quedar por debajo de las {UnidadesReservadas} unidades reservadas");
-        }
-
-        if (stockNuevo > StockTotal)
-        {
-            AgregarUnidades(stockNuevo - StockTotal);
-            return;
-        }
-
-        QuitarUnidadesDisponibles(StockTotal - stockNuevo);
+        stock.AjustarA(stockNuevo);
     }
 
-    /// <summary>
-    /// Toma una unidad libre para una reserva que se confirma (CR5). Es un comando: no devuelve la
-    /// unidad, el vinculo queda del lado de la unidad y evita la referencia cruzada con la reserva.
-    /// </summary>
     public void AsignarUnidadA(Guid reservaId)
     {
-        UnidadVehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)
-                                     ?? throw new DominioException(
-                                         $"El modelo {Nombre} no tiene unidades disponibles");
-
-        unidadLibre.AsignarA(reservaId);
+        stock.AsignarUnaA(reservaId);
     }
 
-    /// <summary>Devuelve al stock la unidad de una reserva cancelada (CR6).</summary>
     public void LiberarUnidadDe(Guid reservaId)
     {
-        UnidadVehiculo unidadOcupada = unidades.Find(unidad => unidad.EstaOcupadaPor(reservaId))
-                                       ?? throw new DominioException(
-                                           $"La reserva {reservaId} no tiene una unidad asignada en {Nombre}");
-
-        unidadOcupada.Liberar();
+        stock.LiberarLaDe(reservaId);
     }
 
     public bool TieneUnidadAsignadaA(Guid reservaId)
     {
-        return unidades.Exists(unidad => unidad.EstaOcupadaPor(reservaId));
-    }
-
-    private void QuitarUnidadesDisponibles(int cantidad)
-    {
-        for (int quitadas = 0; quitadas < cantidad; quitadas++)
-        {
-            UnidadVehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)!;
-            unidades.Remove(unidadLibre);
-        }
+        return stock.TieneUnaAsignadaA(reservaId);
     }
 
     private static string NombreDeCreadorValidado(string creadoPor)
