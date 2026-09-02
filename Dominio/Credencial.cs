@@ -1,54 +1,32 @@
-using System.Security.Cryptography;
-using System.Text;
 using Dominio.Excepciones;
 
 namespace Dominio;
 
 /// <summary>
-/// Clave de acceso de un usuario (CR1). Guarda un hash SHA-256 con salt en lugar del texto plano:
-/// si el estado del servidor termina en un log o en disco, la clave original no aparece. El salt
-/// hace que dos usuarios con la misma clave tengan hashes distintos. Todo con la criptografia de la
-/// BCL: la letra prohibe parsers de serializacion, no <c>System.Security.Cryptography</c>.
-///
-/// La comparacion usa <see cref="CryptographicOperations.FixedTimeEquals"/> para no filtrar por
-/// tiempo de respuesta cuantos bytes coincidieron.
+/// Clave de acceso de un usuario (CR1). Valida el largo minimo al crearse y es la unica que puede
+/// compararla: el texto de la clave no sale de aca. Separarla de <see cref="Usuario"/> deja al
+/// usuario con la identidad y a la credencial con el secreto; si maniana se decide hashear, cambia
+/// esta clase y nadie mas se entera (Variaciones Protegidas).
 /// </summary>
 public class Credencial
 {
     private const int LargoMinimoDeLaClave = 4;
-    private const int LargoDelSalt = 16;
 
-    private readonly byte[] salt;
-    private readonly byte[] hash;
+    private readonly string clave;
 
-    public Credencial(string claveEnTextoPlano)
+    public Credencial(string clave)
     {
-        if (string.IsNullOrWhiteSpace(claveEnTextoPlano) || claveEnTextoPlano.Length < LargoMinimoDeLaClave)
+        if (string.IsNullOrWhiteSpace(clave) || clave.Length < LargoMinimoDeLaClave)
         {
             throw new DominioException(
                 $"La clave debe tener al menos {LargoMinimoDeLaClave} caracteres");
         }
 
-        salt = RandomNumberGenerator.GetBytes(LargoDelSalt);
-        hash = HashDe(claveEnTextoPlano, salt);
+        this.clave = clave;
     }
 
     public bool Verifica(string claveIngresada)
     {
-        if (string.IsNullOrEmpty(claveIngresada))
-        {
-            return false;
-        }
-
-        return CryptographicOperations.FixedTimeEquals(hash, HashDe(claveIngresada, salt));
-    }
-
-    private static byte[] HashDe(string clave, byte[] salt)
-    {
-        byte[] bytesDeLaClave = Encoding.UTF8.GetBytes(clave);
-        byte[] bytesConSalt = new byte[salt.Length + bytesDeLaClave.Length];
-        salt.CopyTo(bytesConSalt, 0);
-        bytesDeLaClave.CopyTo(bytesConSalt, salt.Length);
-        return SHA256.HashData(bytesConSalt);
+        return clave.Equals(claveIngresada, StringComparison.Ordinal);
     }
 }
