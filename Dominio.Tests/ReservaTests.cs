@@ -22,14 +22,14 @@ public class ReservaTests
     {
         reloj = new RelojFalso(Momento);
         usuaria = new Usuario(NombreUsuario, "edison2026");
-        modelo = new Modelo(FichaDe(NombreModelo), usuaria);
+        modelo = new Modelo(DatosDe(NombreModelo), usuaria);
         modelo.AgregarUnidades(StockInicial);
         reserva = ReservaRegistradaEn(modelo);
     }
 
-    private static FichaModelo FichaDe(string nombre)
+    private static DatosDeModelo DatosDe(string nombre)
     {
-        return new FichaModelo(nombre, "Sedan electrico", 45000m, new DateTime(2027, 3, 1), string.Empty);
+        return new DatosDeModelo(nombre, "Sedan electrico", 45000m, new DateTime(2027, 3, 1), string.Empty);
     }
 
     private Reserva ReservaRegistradaEn(Modelo unModelo)
@@ -79,7 +79,7 @@ public class ReservaTests
     [TestMethod]
     public void ResolverSinStockLaRechaza()
     {
-        Modelo modeloSinStock = new Modelo(FichaDe("Edison X2"), usuaria);
+        Modelo modeloSinStock = new Modelo(DatosDe("Edison X2"), usuaria);
         Reserva sinUnidades = ReservaRegistradaEn(modeloSinStock);
 
         sinUnidades.Resolver();
