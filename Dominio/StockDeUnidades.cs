@@ -6,18 +6,18 @@ namespace Dominio;
 /// Pool de unidades fisicas de un modelo: las crea, las cuenta por estado, toma una libre cuando
 /// una reserva se confirma y la devuelve cuando se cancela (CR3, CR5, CR6, CR8).
 ///
-/// Se separa de <see cref="Modelo"/> por SRP: la ficha del catalogo cambia cuando el vendedor
+/// Se separa de <see cref="Modelo"/> por SRP: los datos del catalogo cambian cuando el vendedor
 /// corrige precio, descripcion o fecha de entrega; el stock cambia cuando se reserva, se cancela o
 /// se ajusta la cantidad de unidades. Son dos motivos de cambio distintos, entonces son dos clases.
 ///
 /// No guarda que unidad corresponde a que reserva: las unidades de un pool son indistinguibles y
 /// la cantidad de reservadas coincide siempre con la de reservas confirmadas. Es el Creador (GRASP)
-/// de sus <see cref="UnidadVehiculo"/> y cuenta por estado en lugar de llevar contadores (Experto en
+/// de sus <see cref="Vehiculo"/> y cuenta por estado en lugar de llevar contadores (Experto en
 /// informacion), asi no hay totales que se desincronicen del estado real.
 /// </summary>
 public class StockDeUnidades
 {
-    private readonly List<UnidadVehiculo> unidades = new();
+    private readonly List<Vehiculo> unidades = new();
     private readonly string nombreModelo;
 
     public StockDeUnidades(string nombreModelo)
@@ -42,7 +42,7 @@ public class StockDeUnidades
 
         for (int agregadas = 0; agregadas < cantidad; agregadas++)
         {
-            unidades.Add(new UnidadVehiculo(nombreModelo));
+            unidades.Add(new Vehiculo(nombreModelo));
         }
     }
 
@@ -67,7 +67,7 @@ public class StockDeUnidades
     /// <summary>Toma cualquier unidad libre para una reserva que se confirma (CR5).</summary>
     public void TomarUna()
     {
-        UnidadVehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)
+        Vehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)
                                      ?? throw new DominioException(
                                          $"El modelo {nombreModelo} no tiene unidades disponibles");
 
@@ -77,7 +77,7 @@ public class StockDeUnidades
     /// <summary>Devuelve una unidad al pool cuando una reserva confirmada se cancela (CR6).</summary>
     public void LiberarUna()
     {
-        UnidadVehiculo unidadOcupada = unidades.Find(unidad => !unidad.EstaDisponible)
+        Vehiculo unidadOcupada = unidades.Find(unidad => !unidad.EstaDisponible)
                                        ?? throw new DominioException(
                                            $"El modelo {nombreModelo} no tiene unidades reservadas para liberar");
 
@@ -88,7 +88,7 @@ public class StockDeUnidades
     {
         for (int quitadas = 0; quitadas < cantidad; quitadas++)
         {
-            UnidadVehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)!;
+            Vehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)!;
             unidades.Remove(unidadLibre);
         }
     }

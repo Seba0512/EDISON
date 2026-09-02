@@ -4,12 +4,12 @@ using Dominio.Excepciones;
 namespace Dominio;
 
 /// <summary>
-/// Raiz del agregado del catalogo (CR2, CR3, CR4): su ficha descriptiva, su creador, sus unidades
+/// Raiz del agregado del catalogo (CR2, CR3, CR4): sus datos descriptivos, su creador, sus unidades
 /// fisicas y sus reservas. Contener las reservas lo vuelve el Experto en Informacion de todas las
 /// reglas que cruzan reservas con stock: cuantas reservas activas pesan sobre el modelo (CR3), si
 /// puede eliminarse (CR4) y si una solicitud vencida se confirma o se rechaza (CR5).
 ///
-/// Las unidades viven en un <see cref="StockDeUnidades"/> al que el modelo delega (SRP): la ficha
+/// Las unidades viven en un <see cref="StockDeUnidades"/> al que el modelo delega (SRP): los datos
 /// cambia cuando el vendedor corrige datos, el stock cambia cuando se reserva o se ajusta.
 /// Implementa <see cref="IVehiculoBuscable"/> para que los criterios de CR7 puedan filtrarlo sin
 /// conocer esta clase concreta.
@@ -19,26 +19,26 @@ public class Modelo : IVehiculoBuscable
     private readonly StockDeUnidades stock;
     private readonly List<Reserva> reservas = new();
     private readonly Usuario creador;
-    private FichaModelo ficha;
+    private DatosDeModelo datos;
 
-    public Modelo(FichaModelo ficha, Usuario creador)
+    public Modelo(DatosDeModelo datos, Usuario creador)
     {
-        this.ficha = ficha;
+        this.datos = datos;
         this.creador = creador;
-        stock = new StockDeUnidades(ficha.Nombre);
+        stock = new StockDeUnidades(datos.Nombre);
     }
 
-    public string Nombre => ficha.Nombre;
+    public string Nombre => datos.Nombre;
 
-    public string Descripcion => ficha.Descripcion;
+    public string Descripcion => datos.Descripcion;
 
-    public decimal Precio => ficha.Precio;
+    public decimal Precio => datos.Precio;
 
-    public DateTime FechaEntregaPrometida => ficha.FechaEntregaPrometida;
+    public DateTime FechaEntregaPrometida => datos.FechaEntregaPrometida;
 
-    public string NombreArchivoImagen => ficha.NombreArchivoImagen;
+    public string NombreArchivoImagen => datos.NombreArchivoImagen;
 
-    public bool TieneImagen => ficha.TieneImagen;
+    public bool TieneImagen => datos.TieneImagen;
 
     public int StockTotal => stock.Total;
 
@@ -79,9 +79,9 @@ public class Modelo : IVehiculoBuscable
     }
 
     /// <summary>Modificacion de los datos descriptivos (CR3), permitida mientras haya stock libre.</summary>
-    public void ActualizarFicha(FichaModelo fichaNueva)
+    public void ActualizarDatos(DatosDeModelo datosNuevos)
     {
-        if (!ficha.DescribeAlMismoModeloQue(fichaNueva))
+        if (!datos.DescribeAlMismoModeloQue(datosNuevos))
         {
             throw new DominioException("El nombre del modelo no se puede modificar");
         }
@@ -92,7 +92,7 @@ public class Modelo : IVehiculoBuscable
                 $"No se puede modificar el modelo {Nombre} porque no quedan unidades disponibles");
         }
 
-        ficha = fichaNueva;
+        datos = datosNuevos;
     }
 
     /// <summary>

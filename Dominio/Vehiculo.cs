@@ -8,22 +8,22 @@ namespace Dominio;
 /// composicion que encabeza <see cref="Modelo"/>, por eso solo el stock puede crearla y cambiarle
 /// el estado (GRASP Creador: el contenedor crea a sus partes).
 /// </summary>
-public class UnidadVehiculo
+public class Vehiculo
 {
     public Guid Id { get; }
 
     public string NombreModelo { get; }
 
-    public EstadoUnidad Estado { get; private set; }
+    public EstadoDeVehiculo Estado { get; private set; }
 
-    internal UnidadVehiculo(string nombreModelo)
+    internal Vehiculo(string nombreModelo)
     {
         Id = Guid.NewGuid();
         NombreModelo = nombreModelo;
-        Estado = EstadoUnidad.Disponible;
+        Estado = EstadoDeVehiculo.Disponible;
     }
 
-    public bool EstaDisponible => Estado == EstadoUnidad.Disponible;
+    public bool EstaDisponible => Estado == EstadoDeVehiculo.Disponible;
 
     internal void Reservar()
     {
@@ -32,7 +32,7 @@ public class UnidadVehiculo
             throw new DominioException($"La unidad {Id} ya esta reservada");
         }
 
-        Estado = EstadoUnidad.Reservada;
+        Estado = EstadoDeVehiculo.Reservada;
     }
 
     internal void Liberar()
@@ -42,6 +42,6 @@ public class UnidadVehiculo
             throw new DominioException($"La unidad {Id} ya estaba disponible");
         }
 
-        Estado = EstadoUnidad.Disponible;
+        Estado = EstadoDeVehiculo.Disponible;
     }
 }
