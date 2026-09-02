@@ -20,13 +20,13 @@ public class ModeloTests
     {
         reloj = new RelojFalso(Momento);
         creadora = new Usuario("jferreiro", "edison2026");
-        modelo = new Modelo(FichaCon(NombreModelo, 45000m), creadora);
+        modelo = new Modelo(DatosCon(NombreModelo, 45000m), creadora);
         modelo.AgregarUnidades(StockInicial);
     }
 
-    private static FichaModelo FichaCon(string nombre, decimal precio)
+    private static DatosDeModelo DatosCon(string nombre, decimal precio)
     {
-        return new FichaModelo(nombre, "Sedan electrico", precio, new DateTime(2027, 3, 1), string.Empty);
+        return new DatosDeModelo(nombre, "Sedan electrico", precio, new DateTime(2027, 3, 1), string.Empty);
     }
 
     private Reserva ReservaRegistrada()
@@ -99,7 +99,7 @@ public class ModeloTests
     [ExpectedException(typeof(DominioException))]
     public void RegistrarUnaReservaDeOtroModeloFalla()
     {
-        Modelo otroModelo = new Modelo(FichaCon("Edison X2", 72000m), creadora);
+        Modelo otroModelo = new Modelo(DatosCon("Edison X2", 72000m), creadora);
         Reserva ajena = new Reserva(creadora, otroModelo, reloj);
 
         modelo.RegistrarReserva(ajena);
@@ -167,30 +167,30 @@ public class ModeloTests
     }
 
     [TestMethod]
-    public void ActualizarFichaCambiaLosDatosDescriptivos()
+    public void ActualizarDatosCambiaLosDatosDescriptivos()
     {
-        modelo.ActualizarFicha(FichaCon(NombreModelo, 39990m));
+        modelo.ActualizarDatos(DatosCon(NombreModelo, 39990m));
 
         Assert.AreEqual(39990m, modelo.Precio);
     }
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
-    public void ActualizarFichaSinUnidadesDisponiblesFalla()
+    public void ActualizarDatosSinUnidadesDisponiblesFalla()
     {
         for (int confirmadas = 0; confirmadas < StockInicial; confirmadas++)
         {
             ReservaConfirmada();
         }
 
-        modelo.ActualizarFicha(FichaCon(NombreModelo, 39990m));
+        modelo.ActualizarDatos(DatosCon(NombreModelo, 39990m));
     }
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
-    public void ActualizarFichaConOtroNombreFalla()
+    public void ActualizarDatosConOtroNombreFalla()
     {
-        modelo.ActualizarFicha(FichaCon("Edison X2", 39990m));
+        modelo.ActualizarDatos(DatosCon("Edison X2", 39990m));
     }
 
     [TestMethod]
@@ -212,13 +212,13 @@ public class ModeloTests
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
-    public void CrearFichaConPrecioNoPositivoFalla()
+    public void CrearDatosConPrecioNoPositivoFalla()
     {
-        _ = FichaCon(NombreModelo, 0m);
+        _ = DatosCon(NombreModelo, 0m);
     }
 
     [TestMethod]
-    public void LaFichaSinImagenQuedaConCadenaVaciaYNoTieneImagen()
+    public void ElModeloSinImagenQuedaConCadenaVaciaYNoTieneImagen()
     {
         Assert.AreEqual(string.Empty, modelo.NombreArchivoImagen);
         Assert.IsFalse(modelo.TieneImagen);

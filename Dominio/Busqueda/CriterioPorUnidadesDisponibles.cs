@@ -6,11 +6,11 @@ namespace Dominio.Busqueda;
 /// Filtra por cantidad minima de unidades libres (CR7). Con minimo 1 responde el caso mas usado:
 /// "mostrar solo los vehiculos disponibles".
 /// </summary>
-public class CriterioUnidadesDisponibles : ICriterioBusqueda
+public class CriterioPorUnidadesDisponibles : ICriterioDeBusqueda
 {
     private readonly int minimoDeUnidades;
 
-    public CriterioUnidadesDisponibles(int minimoDeUnidades)
+    public CriterioPorUnidadesDisponibles(int minimoDeUnidades)
     {
         if (minimoDeUnidades < 0)
         {

@@ -21,21 +21,22 @@ public class CriteriosBusquedaTests
     [TestMethod]
     public void CadaCriterioAceptaCualquierVehiculoBuscable()
     {
-        Assert.IsTrue(new CriterioNombreContiene("edison").Cumple(Vehiculo));
-        Assert.IsTrue(new CriterioPrecioMaximo(50000m).Cumple(Vehiculo));
-        Assert.IsTrue(new CriterioPrecioMinimo(40000m).Cumple(Vehiculo));
-        Assert.IsTrue(new CriterioUnidadesDisponibles(1).Cumple(Vehiculo));
-        Assert.IsTrue(new CriterioFechaEntregaHasta(new DateTime(2027, 4, 1)).Cumple(Vehiculo));
+        Assert.IsTrue(new CriterioPorNombre("edison").Cumple(Vehiculo));
+        Assert.IsTrue(new CriterioPorPrecioMaximo(50000m).Cumple(Vehiculo));
+        Assert.IsTrue(new CriterioPorPrecioMinimo(40000m).Cumple(Vehiculo));
+        Assert.IsTrue(new CriterioPorUnidadesDisponibles(1).Cumple(Vehiculo));
+        Assert.IsTrue(new CriterioPorFechaDeEntregaMaxima(new DateTime(2027, 4, 1)).Cumple(Vehiculo));
     }
 
     [TestMethod]
-    public void LaBusquedaFiltraUnaColeccionQueNoContieneModelos()
+    public void ElCriterioCompuestoFiltraUnaColeccionQueNoContieneModelos()
     {
-        BusquedaVehiculos busqueda = new BusquedaVehiculos();
-        busqueda.AgregarCriterio(new CriterioPrecioMaximo(30000m));
+        CriterioCompuesto criterio = new CriterioCompuesto();
+        criterio.Agregar(new CriterioPorPrecioMaximo(30000m));
 
-        List<VehiculoDePrueba> encontrados =
-            busqueda.Filtrar(new List<VehiculoDePrueba> { Vehiculo }).ToList();
+        List<VehiculoDePrueba> encontrados = new List<VehiculoDePrueba> { Vehiculo }
+            .Where(vehiculo => criterio.Cumple(vehiculo))
+            .ToList();
 
         Assert.AreEqual(0, encontrados.Count);
     }

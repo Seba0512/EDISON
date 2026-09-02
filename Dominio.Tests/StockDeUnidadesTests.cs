@@ -4,7 +4,7 @@ using Dominio.Excepciones;
 namespace Dominio.Tests;
 
 /// <summary>
-/// El stock se prueba solo, sin construir una <see cref="FichaModelo"/> ni un <see cref="Modelo"/>:
+/// El stock se prueba solo, sin construir una <see cref="DatosDeModelo"/> ni un <see cref="Modelo"/>:
 /// esa independencia es la ganancia de haberlo separado del catalogo (SRP).
 /// </summary>
 [TestClass]

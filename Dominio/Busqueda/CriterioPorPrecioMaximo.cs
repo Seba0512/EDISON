@@ -3,11 +3,11 @@ using Dominio.Excepciones;
 namespace Dominio.Busqueda;
 
 /// <summary>Filtra los modelos que no superan el precio pedido (CR7).</summary>
-public class CriterioPrecioMaximo : ICriterioBusqueda
+public class CriterioPorPrecioMaximo : ICriterioDeBusqueda
 {
     private readonly decimal precioMaximo;
 
-    public CriterioPrecioMaximo(decimal precioMaximo)
+    public CriterioPorPrecioMaximo(decimal precioMaximo)
     {
         if (precioMaximo <= 0)
         {
