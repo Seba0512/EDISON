@@ -1,0 +1,152 @@
+using Dominio;
+using Dominio.Busqueda;
+using Dominio.Excepciones;
+using Dominio.Tests.Dobles;
+
+namespace Dominio.Tests;
+
+[TestClass]
+public class CatalogoDeModelosTests
+{
+    private const string NombreModelo = "Edison S1";
+    private const string Imagen = "edison-s1.png";
+    private const int StockInicial = 3;
+
+    private static readonly DateTime Momento = new DateTime(2026, 8, 31, 10, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime FechaEntrega = new DateTime(2027, 3, 1);
+
+    private RelojFalso reloj = null!;
+    private AlmacenDeImagenesFalso almacen = null!;
+    private CatalogoDeModelos catalogo = null!;
+    private Usuario creadora = null!;
+    private Usuario otroUsuario = null!;
+
+    [TestInitialize]
+    public void Inicializar()
+    {
+        reloj = new RelojFalso(Momento);
+        almacen = new AlmacenDeImagenesFalso();
+        catalogo = new CatalogoDeModelos(new RepositorioDeModelosEnMemoria(), almacen, reloj);
+        creadora = new Usuario("jferreiro", "edison2026");
+        otroUsuario = new Usuario("sgomez", "edison2026");
+    }
+
+    private static FichaDeModelo Ficha(decimal precio, int stock, string imagen)
+    {
+        DatosDeModelo datos = new DatosDeModelo(
+            NombreModelo, "Sedan electrico", precio, FechaEntrega, imagen);
+
+        return new FichaDeModelo(datos, stock);
+    }
+
+    private void DarDeAlta()
+    {
+        catalogo.AltaDeModelo(Ficha(45000m, StockInicial, string.Empty), creadora);
+    }
+
+    [TestMethod]
+    public void AltaDeModeloDejaElModeloConSuStockInicial()
+    {
+        DarDeAlta();
+
+        Modelo modelo = catalogo.Consultar(NombreModelo);
+
+        Assert.AreEqual(StockInicial, modelo.StockTotal);
+        Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
+        Assert.AreEqual(TipoActividad.ModeloCreado, creadora.Actividades()[0].Tipo);
+    }
+
+    [TestMethod]
+    [ExpectedException(typeof(DominioException))]
+    public void AltaDeUnNombreYaExistenteFalla()
+    {
+        DarDeAlta();
+
+        catalogo.AltaDeModelo(Ficha(72000m, 1, string.Empty), otroUsuario);
+    }
+
+    [TestMethod]
+    [ExpectedException(typeof(ModeloInexistenteException))]
+    public void ConsultarUnModeloInexistenteFalla()
+    {
+        catalogo.Consultar("Edison X2");
+    }
+
+    [TestMethod]
+    public void ModificarCambiaLosDatosYElStock()
+    {
+        DarDeAlta();
+
+        catalogo.ModificarModelo(Ficha(39990m, StockInicial + 2, string.Empty), creadora);
+
+        Modelo modelo = catalogo.Consultar(NombreModelo);
+        Assert.AreEqual(39990m, modelo.Precio);
+        Assert.AreEqual(StockInicial + 2, modelo.StockTotal);
+        Assert.AreEqual(TipoActividad.ModeloModificado, creadora.Actividades()[1].Tipo);
+    }
+
+    [TestMethod]
+    [ExpectedException(typeof(DominioException))]
+    public void ModificarUnModeloAjenoFalla()
+    {
+        DarDeAlta();
+
+        catalogo.ModificarModelo(Ficha(39990m, StockInicial, string.Empty), otroUsuario);
+    }
+
+    [TestMethod]
+    public void EliminarSacaElModeloDelCatalogo()
+    {
+        DarDeAlta();
+
+        catalogo.EliminarModelo(NombreModelo, creadora);
+
+        Assert.AreEqual(0, catalogo.Buscar(new CriterioQueAceptaTodo()).Count);
+        Assert.AreEqual(TipoActividad.ModeloEliminado, creadora.Actividades()[1].Tipo);
+    }
+
+    /// <summary>SR3: al eliminar un modelo con imagen, la imagen se borra del servidor.</summary>
+    [TestMethod]
+    public void EliminarUnModeloConImagenBorraTambienLaImagen()
+    {
+        catalogo.AltaDeModelo(Ficha(45000m, StockInicial, Imagen), creadora);
+
+        catalogo.EliminarModelo(NombreModelo, creadora);
+
+        CollectionAssert.AreEqual(new[] { Imagen }, almacen.Borrados.ToArray());
+    }
+
+    [TestMethod]
+    public void EliminarUnModeloSinImagenNoTocaElAlmacen()
+    {
+        DarDeAlta();
+
+        catalogo.EliminarModelo(NombreModelo, creadora);
+
+        Assert.AreEqual(0, almacen.Borrados.Count);
+    }
+
+    [TestMethod]
+    [ExpectedException(typeof(DominioException))]
+    public void EliminarUnModeloAjenoFalla()
+    {
+        DarDeAlta();
+
+        catalogo.EliminarModelo(NombreModelo, otroUsuario);
+    }
+
+    [TestMethod]
+    public void BuscarDevuelveSoloLosModelosQueCumplenElCriterio()
+    {
+        DarDeAlta();
+
+        Assert.AreEqual(1, catalogo.Buscar(new CriterioPorPrecioMaximo(50000m)).Count);
+        Assert.AreEqual(0, catalogo.Buscar(new CriterioPorPrecioMaximo(1000m)).Count);
+    }
+
+    [TestMethod]
+    public void BuscarSinCoincidenciasDevuelveUnaListaVaciaYNoNull()
+    {
+        Assert.AreEqual(0, catalogo.Buscar(new CriterioQueAceptaTodo()).Count);
+    }
+}
