@@ -128,8 +128,7 @@ public class CriterioCompuestoTests
         Modelo edisonS1 = catalogo[0];
         for (int confirmadas = 0; confirmadas < 2; confirmadas++)
         {
-            Reserva reserva = new Reserva(Duenia, edisonS1, reloj);
-            edisonS1.RegistrarReserva(reserva);
+            Reserva reserva = edisonS1.RegistrarReserva(Duenia, reloj);
             reserva.Resolver();
         }
 
