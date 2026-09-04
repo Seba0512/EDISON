@@ -68,8 +68,7 @@ public class StockDeUnidades
     public void TomarUna()
     {
         Vehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)
-                                     ?? throw new DominioException(
-                                         $"El modelo {nombreModelo} no tiene unidades disponibles");
+                                     ?? throw new SinUnidadesDisponiblesException(nombreModelo);
 
         unidadLibre.Reservar();
     }

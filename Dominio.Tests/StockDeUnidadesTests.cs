@@ -57,7 +57,7 @@ public class StockDeUnidadesTests
     }
 
     [TestMethod]
-    [ExpectedException(typeof(DominioException))]
+    [ExpectedException(typeof(SinUnidadesDisponiblesException))]
     public void TomarSinUnidadesDisponiblesFalla()
     {
         for (int tomadas = 0; tomadas < CantidadInicial; tomadas++)
@@ -66,6 +66,19 @@ public class StockDeUnidadesTests
         }
 
         stock.TomarUna();
+    }
+
+    /// <summary>
+    /// Las excepciones especificas siguen siendo <see cref="DominioException"/>: es lo que permite
+    /// que el borde del servidor las atrape todas con un solo catch y siga vivo.
+    /// </summary>
+    [TestMethod]
+    public void SinUnidadesDisponiblesEsUnErrorDeNegocio()
+    {
+        StockDeUnidades vacio = new StockDeUnidades(NombreModelo);
+
+        Assert.ThrowsException<SinUnidadesDisponiblesException>(() => vacio.TomarUna());
+        Assert.IsInstanceOfType<DominioException>(new SinUnidadesDisponiblesException(NombreModelo));
     }
 
     [TestMethod]
