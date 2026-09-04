@@ -102,19 +102,26 @@ public class UsuarioTests
         Usuario usuario = new Usuario(NombreValido, ClaveValida);
         RelojFalso reloj = new RelojFalso(Momento);
 
-        usuario.Registrar(Actividad.InicioSesion(usuario.NombreUsuario, reloj));
+        usuario.Registrar(Actividad.InicioSesion(reloj));
 
         Assert.AreEqual(1, usuario.Actividades().Count);
         Assert.AreEqual(TipoActividad.InicioSesion, usuario.Actividades()[0].Tipo);
     }
 
+    /// <summary>
+    /// El historial de cada usuario es propio: no hay forma de que una actividad registrada en uno
+    /// aparezca en el otro, porque el historial vive por composicion y nunca se expone.
+    /// </summary>
     [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void RegistrarUnaActividadDeOtroUsuarioFalla()
+    public void CadaUsuarioTieneSuPropioHistorial()
     {
         Usuario usuario = new Usuario(NombreValido, ClaveValida);
+        Usuario otroUsuario = new Usuario("sgomez", ClaveValida);
         RelojFalso reloj = new RelojFalso(Momento);
 
-        usuario.Registrar(Actividad.InicioSesion("sgomez", reloj));
+        usuario.Registrar(Actividad.InicioSesion(reloj));
+
+        Assert.AreEqual(1, usuario.Actividades().Count);
+        Assert.AreEqual(0, otroUsuario.Actividades().Count);
     }
 }

@@ -24,7 +24,7 @@ public class Usuario
     {
         NombreUsuario = NombreValidado(nombreUsuario);
         credencial = new Credencial(clave);
-        historial = new Historial(NombreUsuario);
+        historial = new Historial();
     }
 
     public bool SeLlama(string nombreUsuario)
