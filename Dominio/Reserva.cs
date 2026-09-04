@@ -32,7 +32,7 @@ public class Reserva
 
     public DateTime UltimaActualizacion { get; private set; }
 
-    public Reserva(Usuario solicitante, Modelo modelo, IReloj reloj)
+    internal Reserva(Usuario solicitante, Modelo modelo, IReloj reloj)
     {
         this.solicitante = solicitante;
         this.modelo = modelo;
@@ -94,21 +94,36 @@ public class Reserva
         modelo.ResolverReserva(this);
     }
 
-    public void Confirmar()
+    /// <summary>
+    /// Cancelacion de CR6, por doble despacho igual que <see cref="Resolver"/>: el modelo es quien
+    /// tiene el candado bajo el que deben ocurrir las transiciones, asi que la reserva le pide a el
+    /// que la cancele en lugar de cambiarse el estado por su cuenta.
+    /// </summary>
+    public void Cancelar()
+    {
+        modelo.CancelarReserva(this);
+    }
+
+    /// <summary>
+    /// Las tres transiciones son <c>internal</c> y las invoca unicamente <see cref="Modelo"/>, ya
+    /// dentro de su candado. Si fueran publicas, cualquiera podria cambiarle el estado a una reserva
+    /// sin sincronizar con el stock que ese estado representa.
+    /// </summary>
+    internal void Confirmar()
     {
         PasarA(estado.Confirmar());
     }
 
-    public void Rechazar()
+    internal void Rechazar()
     {
         PasarA(estado.Rechazar());
     }
 
     /// <summary>
-    /// Cancelacion de CR6. Si el estado actual es <see cref="Confirmada"/>, es el propio estado
-    /// quien devuelve la unidad al modelo: la reserva no pregunta ni decide.
+    /// Si el estado actual es <see cref="Confirmada"/>, es el propio estado quien devuelve la unidad
+    /// al modelo: la reserva no pregunta ni decide.
     /// </summary>
-    public void Cancelar()
+    internal void AplicarCancelacion()
     {
         PasarA(estado.Cancelar(modelo));
     }
