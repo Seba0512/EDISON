@@ -14,8 +14,12 @@ namespace Dominio;
 /// la cantidad de reservadas coincide siempre con la de reservas confirmadas. Es el Creador (GRASP)
 /// de sus <see cref="Vehiculo"/> y cuenta por estado en lugar de llevar contadores (Experto en
 /// informacion), asi no hay totales que se desincronicen del estado real.
+///
+/// Es <c>internal</c> y no lleva candado propio: es parte interna del agregado que encabeza
+/// <see cref="Modelo"/> y se accede siempre bajo el candado de ese modelo. Dejarlo publico seria
+/// dejar abierta una puerta para tocar las unidades sin sincronizar.
 /// </summary>
-public class StockDeUnidades
+internal class StockDeUnidades
 {
     private readonly List<Vehiculo> unidades = new();
     private readonly string nombreModelo;

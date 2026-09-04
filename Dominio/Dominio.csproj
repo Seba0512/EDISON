@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- El stock y las transiciones de reserva son internos al agregado, pero se prueban directamente. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Dominio.Tests" />
+  </ItemGroup>
+
 </Project>

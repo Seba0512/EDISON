@@ -34,9 +34,7 @@ public class ReservaTests
 
     private Reserva ReservaRegistradaEn(Modelo unModelo)
     {
-        Reserva nueva = new Reserva(usuaria, unModelo, reloj);
-        unModelo.RegistrarReserva(nueva);
-        return nueva;
+        return unModelo.RegistrarReserva(usuaria, reloj);
     }
 
     [TestMethod]

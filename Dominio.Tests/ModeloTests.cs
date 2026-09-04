@@ -31,9 +31,7 @@ public class ModeloTests
 
     private Reserva ReservaRegistrada()
     {
-        Reserva reserva = new Reserva(creadora, modelo, reloj);
-        modelo.RegistrarReserva(reserva);
-        return reserva;
+        return modelo.RegistrarReserva(creadora, reloj);
     }
 
     private Reserva ReservaConfirmada()
@@ -95,14 +93,21 @@ public class ModeloTests
         modelo.LiberarUnidad();
     }
 
+    /// <summary>
+    /// El modelo crea sus propias reservas, asi que una reserva nunca puede quedar registrada en un
+    /// modelo distinto del suyo: la regla se cumple por construccion y no por validacion.
+    /// </summary>
     [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void RegistrarUnaReservaDeOtroModeloFalla()
+    public void CadaReservaQuedaRegistradaEnElModeloQueLaCreo()
     {
         Modelo otroModelo = new Modelo(DatosCon("Edison X2", 72000m), creadora);
-        Reserva ajena = new Reserva(creadora, otroModelo, reloj);
+        otroModelo.AgregarUnidades(1);
 
-        modelo.RegistrarReserva(ajena);
+        Reserva ajena = otroModelo.RegistrarReserva(creadora, reloj);
+
+        Assert.IsTrue(ajena.EsDelModelo("Edison X2"));
+        Assert.AreEqual(0, modelo.ReservasActivas());
+        Assert.AreEqual(1, otroModelo.ReservasActivas());
     }
 
     [TestMethod]

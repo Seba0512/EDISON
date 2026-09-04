@@ -1,12 +1,10 @@
 using Dominio;
-using Dominio.Excepciones;
 
 namespace Dominio.Tests;
 
 [TestClass]
 public class HistorialTests
 {
-    private const string Usuario = "jferreiro";
     private const string NombreModelo = "Edison S1";
 
     private static readonly DateTime Momento = new DateTime(2026, 8, 31, 10, 0, 0, DateTimeKind.Utc);
@@ -18,7 +16,7 @@ public class HistorialTests
     public void Inicializar()
     {
         reloj = new RelojFalso(Momento);
-        historial = new Historial(Usuario);
+        historial = new Historial();
     }
 
     [TestMethod]
@@ -30,7 +28,7 @@ public class HistorialTests
     [TestMethod]
     public void RegistrarAgregaLaActividadAlHistorial()
     {
-        historial.Registrar(Actividad.InicioSesion(Usuario, reloj));
+        historial.Registrar(Actividad.InicioSesion(reloj));
 
         Assert.AreEqual(1, historial.Actividades.Count);
         Assert.AreEqual(TipoActividad.InicioSesion, historial.Actividades[0].Tipo);
@@ -39,11 +37,11 @@ public class HistorialTests
     [TestMethod]
     public void LasActividadesQuedanEnElOrdenEnQueSeRegistraron()
     {
-        historial.Registrar(Actividad.InicioSesion(Usuario, reloj));
+        historial.Registrar(Actividad.InicioSesion(reloj));
         reloj.Avanzar(TimeSpan.FromMinutes(1));
-        historial.Registrar(Actividad.ModeloCreado(Usuario, NombreModelo, reloj));
+        historial.Registrar(Actividad.ModeloCreado(NombreModelo, reloj));
         reloj.Avanzar(TimeSpan.FromMinutes(1));
-        historial.Registrar(Actividad.ReservaCreada(Usuario, NombreModelo, reloj));
+        historial.Registrar(Actividad.ReservaCreada(NombreModelo, reloj));
 
         Assert.AreEqual(TipoActividad.InicioSesion, historial.Actividades[0].Tipo);
         Assert.AreEqual(TipoActividad.ModeloCreado, historial.Actividades[1].Tipo);
@@ -51,31 +49,13 @@ public class HistorialTests
     }
 
     [TestMethod]
-    public void AceptaActividadesDelUsuarioSinImportarMayusculas()
+    public void ElHistorialConservaLaHoraDeCadaActividad()
     {
-        historial.Registrar(Actividad.InicioSesion("JFerreiro", reloj));
+        historial.Registrar(Actividad.InicioSesion(reloj));
+        reloj.Avanzar(TimeSpan.FromMinutes(30));
+        historial.Registrar(Actividad.CierreSesion(reloj));
 
-        Assert.AreEqual(1, historial.Actividades.Count);
-    }
-
-    [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void RegistrarUnaActividadDeOtroUsuarioFalla()
-    {
-        historial.Registrar(Actividad.InicioSesion("otra", reloj));
-    }
-
-    [TestMethod]
-    public void EsDeReconoceAlUsuarioIgnorandoMayusculas()
-    {
-        Assert.IsTrue(historial.EsDe("JFerreiro"));
-        Assert.IsFalse(historial.EsDe("otra"));
-    }
-
-    [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void CrearUnHistorialSinUsuarioFalla()
-    {
-        _ = new Historial("  ");
+        Assert.AreEqual(Momento, historial.Actividades[0].FechaHora);
+        Assert.IsTrue(historial.Actividades[1].FechaHora > historial.Actividades[0].FechaHora);
     }
 }
