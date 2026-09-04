@@ -7,21 +7,40 @@ namespace Dominio.Tests;
 public class ModeloTests
 {
     private const string NombreModelo = "Edison S1";
-    private const string Creador = "jferreiro";
     private const int StockInicial = 3;
 
+    private static readonly DateTime Momento = new DateTime(2026, 8, 31, 10, 0, 0, DateTimeKind.Utc);
+
+    private RelojFalso reloj = null!;
+    private Usuario creadora = null!;
     private Modelo modelo = null!;
 
     [TestInitialize]
     public void Inicializar()
     {
-        modelo = new Modelo(FichaCon(NombreModelo, 45000m), Creador);
+        reloj = new RelojFalso(Momento);
+        creadora = new Usuario("jferreiro", "edison2026");
+        modelo = new Modelo(DatosCon(NombreModelo, 45000m), creadora);
         modelo.AgregarUnidades(StockInicial);
     }
 
-    private static FichaModelo FichaCon(string nombre, decimal precio)
+    private static DatosDeModelo DatosCon(string nombre, decimal precio)
     {
-        return new FichaModelo(nombre, "Sedan electrico", precio, new DateTime(2027, 3, 1), string.Empty);
+        return new DatosDeModelo(nombre, "Sedan electrico", precio, new DateTime(2027, 3, 1), string.Empty);
+    }
+
+    private Reserva ReservaRegistrada()
+    {
+        Reserva reserva = new Reserva(creadora, modelo, reloj);
+        modelo.RegistrarReserva(reserva);
+        return reserva;
+    }
+
+    private Reserva ReservaConfirmada()
+    {
+        Reserva reserva = ReservaRegistrada();
+        reserva.Resolver();
+        return reserva;
     }
 
     [TestMethod]
@@ -33,48 +52,57 @@ public class ModeloTests
     }
 
     [TestMethod]
-    public void AsignarUnidadMueveUnaUnidadDeDisponibleAReservada()
+    public void ResolverConStockConfirmaYReservaUnaUnidad()
     {
-        Guid reserva = Guid.NewGuid();
+        Reserva reserva = ReservaConfirmada();
 
-        modelo.AsignarUnidadA(reserva);
-
+        Assert.IsTrue(reserva.EstaConfirmada);
         Assert.AreEqual(StockInicial - 1, modelo.UnidadesDisponibles);
         Assert.AreEqual(1, modelo.UnidadesReservadas);
         Assert.AreEqual(StockInicial, modelo.StockTotal);
-        Assert.IsTrue(modelo.TieneUnidadAsignadaA(reserva));
     }
 
     [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void AsignarUnidadSinStockLibreFalla()
+    public void SinStockLibreLasSolicitudesSeRechazan()
     {
-        for (int asignadas = 0; asignadas < StockInicial; asignadas++)
+        for (int confirmadas = 0; confirmadas < StockInicial; confirmadas++)
         {
-            modelo.AsignarUnidadA(Guid.NewGuid());
+            ReservaConfirmada();
         }
 
-        modelo.AsignarUnidadA(Guid.NewGuid());
+        Reserva excedente = ReservaRegistrada();
+        excedente.Resolver();
+
+        Assert.AreEqual("Rechazada", excedente.NombreDelEstado());
+        Assert.AreEqual(0, modelo.UnidadesDisponibles);
     }
 
     [TestMethod]
-    public void LiberarUnidadDevuelveLaUnidadAlStockDisponible()
+    public void LiberarUnidadDevuelveUnaUnidadAlPool()
     {
-        Guid reserva = Guid.NewGuid();
-        modelo.AsignarUnidadA(reserva);
+        ReservaConfirmada();
 
-        modelo.LiberarUnidadDe(reserva);
+        modelo.LiberarUnidad();
 
         Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
         Assert.AreEqual(0, modelo.UnidadesReservadas);
-        Assert.IsFalse(modelo.TieneUnidadAsignadaA(reserva));
     }
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
-    public void LiberarUnaReservaSinUnidadAsignadaFalla()
+    public void LiberarUnidadSinReservadasFalla()
     {
-        modelo.LiberarUnidadDe(Guid.NewGuid());
+        modelo.LiberarUnidad();
+    }
+
+    [TestMethod]
+    [ExpectedException(typeof(DominioException))]
+    public void RegistrarUnaReservaDeOtroModeloFalla()
+    {
+        Modelo otroModelo = new Modelo(DatosCon("Edison X2", 72000m), creadora);
+        Reserva ajena = new Reserva(creadora, otroModelo, reloj);
+
+        modelo.RegistrarReserva(ajena);
     }
 
     [TestMethod]
@@ -89,87 +117,108 @@ public class ModeloTests
     [TestMethod]
     public void AjustarStockHaciaAbajoSoloQuitaUnidadesDisponibles()
     {
-        Guid reserva = Guid.NewGuid();
-        modelo.AsignarUnidadA(reserva);
+        ReservaConfirmada();
 
-        modelo.AjustarStock(1);
+        modelo.AjustarStock(2);
 
-        Assert.AreEqual(1, modelo.StockTotal);
+        Assert.AreEqual(2, modelo.StockTotal);
         Assert.AreEqual(1, modelo.UnidadesReservadas);
-        Assert.AreEqual(0, modelo.UnidadesDisponibles);
-        Assert.IsTrue(modelo.TieneUnidadAsignadaA(reserva));
+        Assert.AreEqual(1, modelo.UnidadesDisponibles);
     }
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
-    public void AjustarStockPorDebajoDeLasReservadasFalla()
+    public void AjustarStockQueNoSupereLasReservasActivasFalla()
     {
-        modelo.AsignarUnidadA(Guid.NewGuid());
-        modelo.AsignarUnidadA(Guid.NewGuid());
+        ReservaConfirmada();
+        ReservaConfirmada();
+
+        modelo.AjustarStock(2);
+    }
+
+    [TestMethod]
+    [ExpectedException(typeof(DominioException))]
+    public void UnaReservaPendienteTambienBloqueaLaBajaDeStock()
+    {
+        ReservaRegistrada();
 
         modelo.AjustarStock(1);
     }
 
     [TestMethod]
-    public void ActualizarFichaCambiaLosDatosDescriptivos()
+    public void PuedeEliminarseSoloCuandoNoQuedanReservasActivas()
     {
-        modelo.ActualizarFicha(FichaCon(NombreModelo, 39990m));
+        Assert.IsTrue(modelo.PuedeEliminarse());
+
+        Reserva reserva = ReservaRegistrada();
+        Assert.IsFalse(modelo.PuedeEliminarse());
+
+        reserva.Cancelar();
+        Assert.IsTrue(modelo.PuedeEliminarse());
+    }
+
+    [TestMethod]
+    public void LasReservasActivasCuentanPendientesYConfirmadas()
+    {
+        ReservaRegistrada();
+        ReservaConfirmada();
+
+        Assert.AreEqual(2, modelo.ReservasActivas());
+    }
+
+    [TestMethod]
+    public void ActualizarDatosCambiaLosDatosDescriptivos()
+    {
+        modelo.ActualizarDatos(DatosCon(NombreModelo, 39990m));
 
         Assert.AreEqual(39990m, modelo.Precio);
     }
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
-    public void ActualizarFichaSinUnidadesDisponiblesFalla()
+    public void ActualizarDatosSinUnidadesDisponiblesFalla()
     {
-        for (int asignadas = 0; asignadas < StockInicial; asignadas++)
+        for (int confirmadas = 0; confirmadas < StockInicial; confirmadas++)
         {
-            modelo.AsignarUnidadA(Guid.NewGuid());
+            ReservaConfirmada();
         }
 
-        modelo.ActualizarFicha(FichaCon(NombreModelo, 39990m));
+        modelo.ActualizarDatos(DatosCon(NombreModelo, 39990m));
     }
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
-    public void ActualizarFichaConOtroNombreFalla()
+    public void ActualizarDatosConOtroNombreFalla()
     {
-        modelo.ActualizarFicha(FichaCon("Edison S2", 39990m));
-    }
-
-    [TestMethod]
-    public void NoTieneUnidadesReservadasEsFalsoLuegoDeAsignar()
-    {
-        Assert.IsTrue(modelo.NoTieneUnidadesReservadas);
-
-        modelo.AsignarUnidadA(Guid.NewGuid());
-
-        Assert.IsFalse(modelo.NoTieneUnidadesReservadas);
+        modelo.ActualizarDatos(DatosCon("Edison X2", 39990m));
     }
 
     [TestMethod]
     public void FueCreadoPorReconoceAlCreadorIgnorandoMayusculas()
     {
         Assert.IsTrue(modelo.FueCreadoPor("JFerreiro"));
-        Assert.IsFalse(modelo.FueCreadoPor("otro"));
+        Assert.IsFalse(modelo.FueCreadoPor("otra"));
+    }
+
+    [TestMethod]
+    public void ExigirPropietarioAceptaAlCreadorYRechazaAlResto()
+    {
+        Usuario otraUsuaria = new Usuario("sgomez", "clave1234");
+
+        modelo.ExigirPropietario(creadora);
+
+        Assert.ThrowsException<DominioException>(() => modelo.ExigirPropietario(otraUsuaria));
     }
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
-    public void CrearModeloSinCreadorFalla()
+    public void CrearDatosConPrecioNoPositivoFalla()
     {
-        _ = new Modelo(FichaCon(NombreModelo, 45000m), "  ");
+        _ = DatosCon(NombreModelo, 0m);
     }
 
     [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void CrearFichaConPrecioNoPositivoFalla()
-    {
-        _ = FichaCon(NombreModelo, 0m);
-    }
-
-    [TestMethod]
-    public void LaFichaSinImagenQuedaConCadenaVaciaYNoTieneImagen()
+    public void ElModeloSinImagenQuedaConCadenaVaciaYNoTieneImagen()
     {
         Assert.AreEqual(string.Empty, modelo.NombreArchivoImagen);
         Assert.IsFalse(modelo.TieneImagen);

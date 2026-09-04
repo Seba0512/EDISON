@@ -4,7 +4,7 @@ using Dominio.Excepciones;
 namespace Dominio.Tests;
 
 [TestClass]
-public class RegistroActividadTests
+public class ActividadTests
 {
     private const string Usuario = "jferreiro";
     private const string NombreModelo = "Edison S1";
@@ -22,7 +22,7 @@ public class RegistroActividadTests
     [TestMethod]
     public void InicioSesionRegistraElTipoYElUsuario()
     {
-        RegistroActividad actividad = RegistroActividad.InicioSesion(Usuario, reloj);
+        Actividad actividad = Actividad.InicioSesion(Usuario, reloj);
 
         Assert.AreEqual(TipoActividad.InicioSesion, actividad.Tipo);
         Assert.AreEqual(Usuario, actividad.NombreUsuario);
@@ -31,7 +31,7 @@ public class RegistroActividadTests
     [TestMethod]
     public void ModeloCreadoIncluyeElNombreDelModeloEnElDetalle()
     {
-        RegistroActividad actividad = RegistroActividad.ModeloCreado(Usuario, NombreModelo, reloj);
+        Actividad actividad = Actividad.ModeloCreado(Usuario, NombreModelo, reloj);
 
         Assert.AreEqual(TipoActividad.ModeloCreado, actividad.Tipo);
         StringAssert.Contains(actividad.Detalle, NombreModelo);
@@ -40,7 +40,7 @@ public class RegistroActividadTests
     [TestMethod]
     public void CompraQuedaRegistradaComoTalCuandoSeConfirmaLaReserva()
     {
-        RegistroActividad actividad = RegistroActividad.Compra(Usuario, NombreModelo, reloj);
+        Actividad actividad = Actividad.Compra(Usuario, NombreModelo, reloj);
 
         Assert.AreEqual(TipoActividad.Compra, actividad.Tipo);
         StringAssert.Contains(actividad.Detalle, NombreModelo);
@@ -49,8 +49,8 @@ public class RegistroActividadTests
     [TestMethod]
     public void CadaActividadTieneIdentidadPropia()
     {
-        RegistroActividad primera = RegistroActividad.InicioSesion(Usuario, reloj);
-        RegistroActividad segunda = RegistroActividad.InicioSesion(Usuario, reloj);
+        Actividad primera = Actividad.InicioSesion(Usuario, reloj);
+        Actividad segunda = Actividad.InicioSesion(Usuario, reloj);
 
         Assert.AreNotEqual(primera.Id, segunda.Id);
     }
@@ -58,9 +58,9 @@ public class RegistroActividadTests
     [TestMethod]
     public void CadaActividadSeSellaConLaHoraDelReloj()
     {
-        RegistroActividad primera = RegistroActividad.InicioSesion(Usuario, reloj);
+        Actividad primera = Actividad.InicioSesion(Usuario, reloj);
         reloj.Avanzar(TimeSpan.FromMinutes(5));
-        RegistroActividad segunda = RegistroActividad.CierreSesion(Usuario, reloj);
+        Actividad segunda = Actividad.CierreSesion(Usuario, reloj);
 
         Assert.AreEqual(Momento, primera.FechaHora);
         Assert.IsTrue(segunda.FechaHora > primera.FechaHora);
@@ -69,7 +69,7 @@ public class RegistroActividadTests
     [TestMethod]
     public void EsDeReconoceAlUsuarioIgnorandoMayusculas()
     {
-        RegistroActividad actividad = RegistroActividad.ReservaCreada(Usuario, NombreModelo, reloj);
+        Actividad actividad = Actividad.ReservaCreada(Usuario, NombreModelo, reloj);
 
         Assert.IsTrue(actividad.EsDe("JFerreiro"));
         Assert.IsFalse(actividad.EsDe("otro"));
@@ -78,8 +78,8 @@ public class RegistroActividadTests
     [TestMethod]
     public void LasActividadesDeReservaYCancelacionSeDistinguen()
     {
-        RegistroActividad creada = RegistroActividad.ReservaCreada(Usuario, NombreModelo, reloj);
-        RegistroActividad cancelada = RegistroActividad.ReservaCancelada(Usuario, NombreModelo, reloj);
+        Actividad creada = Actividad.ReservaCreada(Usuario, NombreModelo, reloj);
+        Actividad cancelada = Actividad.ReservaCancelada(Usuario, NombreModelo, reloj);
 
         Assert.AreEqual(TipoActividad.ReservaCreada, creada.Tipo);
         Assert.AreEqual(TipoActividad.ReservaCancelada, cancelada.Tipo);
@@ -89,6 +89,6 @@ public class RegistroActividadTests
     [ExpectedException(typeof(DominioException))]
     public void CrearUnaActividadSinUsuarioFalla()
     {
-        _ = RegistroActividad.InicioSesion("  ", reloj);
+        _ = Actividad.InicioSesion("  ", reloj);
     }
 }

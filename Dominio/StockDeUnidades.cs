@@ -3,20 +3,21 @@ using Dominio.Excepciones;
 namespace Dominio;
 
 /// <summary>
-/// Conjunto de unidades fisicas de un modelo: las crea, las cuenta por estado, las asigna a una
-/// reserva y las libera (CR3, CR5, CR6, CR8).
+/// Pool de unidades fisicas de un modelo: las crea, las cuenta por estado, toma una libre cuando
+/// una reserva se confirma y la devuelve cuando se cancela (CR3, CR5, CR6, CR8).
 ///
-/// Se separa de <see cref="Modelo"/> por SRP: la ficha del catalogo cambia cuando el vendedor corrige
-/// precio, descripcion o fecha de entrega; el stock cambia cuando se reserva, se cancela o se ajusta
-/// la cantidad de unidades. Son dos motivos de cambio distintos, entonces son dos clases.
+/// Se separa de <see cref="Modelo"/> por SRP: los datos del catalogo cambian cuando el vendedor
+/// corrige precio, descripcion o fecha de entrega; el stock cambia cuando se reserva, se cancela o
+/// se ajusta la cantidad de unidades. Son dos motivos de cambio distintos, entonces son dos clases.
 ///
-/// Es el Creador (GRASP) de sus <see cref="UnidadVehiculo"/>: las contiene y tiene sus datos de
-/// inicializacion. No guarda contadores sino que cuenta las unidades por estado (Experto en
-/// informacion), asi no hay totales que se puedan desincronizar del estado real.
+/// No guarda que unidad corresponde a que reserva: las unidades de un pool son indistinguibles y
+/// la cantidad de reservadas coincide siempre con la de reservas confirmadas. Es el Creador (GRASP)
+/// de sus <see cref="Vehiculo"/> y cuenta por estado en lugar de llevar contadores (Experto en
+/// informacion), asi no hay totales que se desincronicen del estado real.
 /// </summary>
 public class StockDeUnidades
 {
-    private readonly List<UnidadVehiculo> unidades = new();
+    private readonly List<Vehiculo> unidades = new();
     private readonly string nombreModelo;
 
     public StockDeUnidades(string nombreModelo)
@@ -32,8 +33,6 @@ public class StockDeUnidades
 
     public bool HayAlgunaDisponible => Disponibles > 0;
 
-    public bool NoHayNingunaReservada => Reservadas == 0;
-
     public void Agregar(int cantidad)
     {
         if (cantidad <= 0)
@@ -43,11 +42,11 @@ public class StockDeUnidades
 
         for (int agregadas = 0; agregadas < cantidad; agregadas++)
         {
-            unidades.Add(new UnidadVehiculo(nombreModelo));
+            unidades.Add(new Vehiculo(nombreModelo));
         }
     }
 
-    /// <summary>Ajuste de stock (CR3): nunca por debajo de las unidades que ya estan reservadas.</summary>
+    /// <summary>Ajuste fisico del stock: nunca puede quitar unidades que ya estan reservadas.</summary>
     public void AjustarA(int totalNuevo)
     {
         if (totalNuevo < Reservadas)
@@ -65,39 +64,31 @@ public class StockDeUnidades
         QuitarDisponibles(Total - totalNuevo);
     }
 
-    /// <summary>
-    /// Toma una unidad libre para una reserva que se confirma (CR5). Es un comando: no devuelve la
-    /// unidad, el vinculo queda del lado de la unidad y evita la referencia cruzada con la reserva.
-    /// </summary>
-    public void AsignarUnaA(Guid reservaId)
+    /// <summary>Toma cualquier unidad libre para una reserva que se confirma (CR5).</summary>
+    public void TomarUna()
     {
-        UnidadVehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)
+        Vehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)
                                      ?? throw new DominioException(
                                          $"El modelo {nombreModelo} no tiene unidades disponibles");
 
-        unidadLibre.AsignarA(reservaId);
+        unidadLibre.Reservar();
     }
 
-    /// <summary>Devuelve al stock la unidad de una reserva cancelada (CR6).</summary>
-    public void LiberarLaDe(Guid reservaId)
+    /// <summary>Devuelve una unidad al pool cuando una reserva confirmada se cancela (CR6).</summary>
+    public void LiberarUna()
     {
-        UnidadVehiculo unidadOcupada = unidades.Find(unidad => unidad.EstaOcupadaPor(reservaId))
+        Vehiculo unidadOcupada = unidades.Find(unidad => !unidad.EstaDisponible)
                                        ?? throw new DominioException(
-                                           $"La reserva {reservaId} no tiene una unidad asignada en {nombreModelo}");
+                                           $"El modelo {nombreModelo} no tiene unidades reservadas para liberar");
 
         unidadOcupada.Liberar();
-    }
-
-    public bool TieneUnaAsignadaA(Guid reservaId)
-    {
-        return unidades.Exists(unidad => unidad.EstaOcupadaPor(reservaId));
     }
 
     private void QuitarDisponibles(int cantidad)
     {
         for (int quitadas = 0; quitadas < cantidad; quitadas++)
         {
-            UnidadVehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)!;
+            Vehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)!;
             unidades.Remove(unidadLibre);
         }
     }

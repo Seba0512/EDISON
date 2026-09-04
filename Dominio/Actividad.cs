@@ -16,7 +16,7 @@ namespace Dominio;
 /// ese orden se puede armar y verificar de forma determinista. El reloj es un colaborador, no un
 /// dato mas de la actividad; por eso suma un parametro a las fabricas y aun asi conviene.
 /// </summary>
-public class RegistroActividad
+public class Actividad
 {
     public Guid Id { get; }
 
@@ -28,7 +28,7 @@ public class RegistroActividad
 
     public string Detalle { get; }
 
-    private RegistroActividad(string nombreUsuario, TipoActividad tipo, string detalle, IReloj reloj)
+    private Actividad(string nombreUsuario, TipoActividad tipo, string detalle, IReloj reloj)
     {
         Id = Guid.NewGuid();
         NombreUsuario = NombreDeUsuarioValidado(nombreUsuario);
@@ -37,45 +37,45 @@ public class RegistroActividad
         FechaHora = reloj.Ahora;
     }
 
-    public static RegistroActividad InicioSesion(string nombreUsuario, IReloj reloj)
+    public static Actividad InicioSesion(string nombreUsuario, IReloj reloj)
     {
-        return new RegistroActividad(
+        return new Actividad(
             nombreUsuario, TipoActividad.InicioSesion, "Inicio de sesion", reloj);
     }
 
-    public static RegistroActividad CierreSesion(string nombreUsuario, IReloj reloj)
+    public static Actividad CierreSesion(string nombreUsuario, IReloj reloj)
     {
-        return new RegistroActividad(
+        return new Actividad(
             nombreUsuario, TipoActividad.CierreSesion, "Cierre de sesion", reloj);
     }
 
-    public static RegistroActividad ModeloCreado(string nombreUsuario, string nombreModelo, IReloj reloj)
+    public static Actividad ModeloCreado(string nombreUsuario, string nombreModelo, IReloj reloj)
     {
-        return new RegistroActividad(
+        return new Actividad(
             nombreUsuario, TipoActividad.ModeloCreado, $"Creo el modelo {nombreModelo}", reloj);
     }
 
-    public static RegistroActividad ModeloModificado(string nombreUsuario, string nombreModelo, IReloj reloj)
+    public static Actividad ModeloModificado(string nombreUsuario, string nombreModelo, IReloj reloj)
     {
-        return new RegistroActividad(
+        return new Actividad(
             nombreUsuario, TipoActividad.ModeloModificado, $"Modifico el modelo {nombreModelo}", reloj);
     }
 
-    public static RegistroActividad ModeloEliminado(string nombreUsuario, string nombreModelo, IReloj reloj)
+    public static Actividad ModeloEliminado(string nombreUsuario, string nombreModelo, IReloj reloj)
     {
-        return new RegistroActividad(
+        return new Actividad(
             nombreUsuario, TipoActividad.ModeloEliminado, $"Elimino el modelo {nombreModelo}", reloj);
     }
 
-    public static RegistroActividad ReservaCreada(string nombreUsuario, string nombreModelo, IReloj reloj)
+    public static Actividad ReservaCreada(string nombreUsuario, string nombreModelo, IReloj reloj)
     {
-        return new RegistroActividad(
+        return new Actividad(
             nombreUsuario, TipoActividad.ReservaCreada, $"Solicito una reserva de {nombreModelo}", reloj);
     }
 
-    public static RegistroActividad ReservaCancelada(string nombreUsuario, string nombreModelo, IReloj reloj)
+    public static Actividad ReservaCancelada(string nombreUsuario, string nombreModelo, IReloj reloj)
     {
-        return new RegistroActividad(
+        return new Actividad(
             nombreUsuario, TipoActividad.ReservaCancelada, $"Cancelo su reserva de {nombreModelo}", reloj);
     }
 
@@ -83,9 +83,9 @@ public class RegistroActividad
     /// Una reserva confirmada es la compra: la letra pide "compras realizadas" en CR10 pero ningun
     /// requerimiento define una compra aparte.
     /// </summary>
-    public static RegistroActividad Compra(string nombreUsuario, string nombreModelo, IReloj reloj)
+    public static Actividad Compra(string nombreUsuario, string nombreModelo, IReloj reloj)
     {
-        return new RegistroActividad(
+        return new Actividad(
             nombreUsuario, TipoActividad.Compra, $"Se confirmo su reserva de {nombreModelo}", reloj);
     }
 

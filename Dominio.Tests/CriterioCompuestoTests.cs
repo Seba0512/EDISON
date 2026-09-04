@@ -5,15 +5,17 @@ using Dominio.Excepciones;
 namespace Dominio.Tests;
 
 [TestClass]
-public class BusquedaVehiculosTests
+public class CriterioCompuestoTests
 {
+    private static readonly Usuario Duenia = new Usuario("jferreiro", "edison2026");
+
     private List<Modelo> catalogo = null!;
-    private BusquedaVehiculos busqueda = null!;
+    private CriterioCompuesto criterio = null!;
 
     [TestInitialize]
     public void Inicializar()
     {
-        busqueda = new BusquedaVehiculos();
+        criterio = new CriterioCompuesto();
         catalogo = new List<Modelo>
         {
             ModeloCon("Edison S1", 45000m, new DateTime(2027, 3, 1), 2),
@@ -24,8 +26,8 @@ public class BusquedaVehiculosTests
 
     private static Modelo ModeloCon(string nombre, decimal precio, DateTime entrega, int stock)
     {
-        FichaModelo ficha = new FichaModelo(nombre, "Vehiculo electrico", precio, entrega, string.Empty);
-        Modelo modelo = new Modelo(ficha, "jferreiro");
+        DatosDeModelo datos = new DatosDeModelo(nombre, "Vehiculo electrico", precio, entrega, string.Empty);
+        Modelo modelo = new Modelo(datos, Duenia);
         if (stock > 0)
         {
             modelo.AgregarUnidades(stock);
@@ -36,11 +38,11 @@ public class BusquedaVehiculosTests
 
     private List<Modelo> Resultado()
     {
-        return busqueda.Filtrar(catalogo).ToList();
+        return catalogo.Where(modelo => criterio.Cumple(modelo)).ToList();
     }
 
     [TestMethod]
-    public void SinCriteriosDevuelveTodoElCatalogo()
+    public void SinCriteriosAceptaTodoElCatalogo()
     {
         Assert.AreEqual(catalogo.Count, Resultado().Count);
     }
@@ -48,7 +50,7 @@ public class BusquedaVehiculosTests
     [TestMethod]
     public void FiltraPorNombreParcialIgnorandoMayusculas()
     {
-        busqueda.AgregarCriterio(new CriterioNombreContiene("edison"));
+        criterio.Agregar(new CriterioPorNombre("edison"));
 
         Assert.AreEqual(2, Resultado().Count);
     }
@@ -56,7 +58,7 @@ public class BusquedaVehiculosTests
     [TestMethod]
     public void FiltraPorPrecioMaximo()
     {
-        busqueda.AgregarCriterio(new CriterioPrecioMaximo(50000m));
+        criterio.Agregar(new CriterioPorPrecioMaximo(50000m));
 
         List<Modelo> encontrados = Resultado();
 
@@ -67,7 +69,7 @@ public class BusquedaVehiculosTests
     [TestMethod]
     public void FiltraPorPrecioMinimo()
     {
-        busqueda.AgregarCriterio(new CriterioPrecioMinimo(50000m));
+        criterio.Agregar(new CriterioPorPrecioMinimo(50000m));
 
         List<Modelo> encontrados = Resultado();
 
@@ -78,7 +80,7 @@ public class BusquedaVehiculosTests
     [TestMethod]
     public void FiltraPorUnidadesDisponiblesDejandoAfueraLosSinStock()
     {
-        busqueda.AgregarCriterio(new CriterioUnidadesDisponibles(1));
+        criterio.Agregar(new CriterioPorUnidadesDisponibles(1));
 
         List<Modelo> encontrados = Resultado();
 
@@ -89,7 +91,7 @@ public class BusquedaVehiculosTests
     [TestMethod]
     public void FiltraPorFechaDeEntregaLimite()
     {
-        busqueda.AgregarCriterio(new CriterioFechaEntregaHasta(new DateTime(2027, 4, 1)));
+        criterio.Agregar(new CriterioPorFechaDeEntregaMaxima(new DateTime(2027, 4, 1)));
 
         Assert.AreEqual(2, Resultado().Count);
     }
@@ -97,13 +99,13 @@ public class BusquedaVehiculosTests
     [TestMethod]
     public void LosCriteriosSeCombinanConY()
     {
-        busqueda.AgregarCriterio(new CriterioNombreContiene("edison"));
-        busqueda.AgregarCriterio(new CriterioPrecioMaximo(50000m));
-        busqueda.AgregarCriterio(new CriterioUnidadesDisponibles(1));
+        criterio.Agregar(new CriterioPorNombre("edison"));
+        criterio.Agregar(new CriterioPorPrecioMaximo(50000m));
+        criterio.Agregar(new CriterioPorUnidadesDisponibles(1));
 
         List<Modelo> encontrados = Resultado();
 
-        Assert.AreEqual(3, busqueda.CantidadDeCriterios);
+        Assert.AreEqual(3, criterio.CantidadDeCriterios);
         Assert.AreEqual(1, encontrados.Count);
         Assert.IsTrue(encontrados[0].SeLlama("Edison S1"));
     }
@@ -111,7 +113,7 @@ public class BusquedaVehiculosTests
     [TestMethod]
     public void UnaCombinacionSinCoincidenciasDevuelveVacioYNoNull()
     {
-        busqueda.AgregarCriterio(new CriterioPrecioMinimo(100000m));
+        criterio.Agregar(new CriterioPorPrecioMinimo(100000m));
 
         List<Modelo> encontrados = Resultado();
 
@@ -122,24 +124,39 @@ public class BusquedaVehiculosTests
     [TestMethod]
     public void LasUnidadesReservadasDejanDeContarComoDisponibles()
     {
-        catalogo[0].AsignarUnidadA(Guid.NewGuid());
-        catalogo[0].AsignarUnidadA(Guid.NewGuid());
-        busqueda.AgregarCriterio(new CriterioUnidadesDisponibles(1));
+        RelojFalso reloj = new RelojFalso(new DateTime(2026, 8, 31, 10, 0, 0, DateTimeKind.Utc));
+        Modelo edisonS1 = catalogo[0];
+        for (int confirmadas = 0; confirmadas < 2; confirmadas++)
+        {
+            Reserva reserva = new Reserva(Duenia, edisonS1, reloj);
+            edisonS1.RegistrarReserva(reserva);
+            reserva.Resolver();
+        }
+
+        criterio.Agregar(new CriterioPorUnidadesDisponibles(1));
 
         Assert.IsFalse(Resultado().Exists(modelo => modelo.SeLlama("Edison S1")));
+    }
+
+    [TestMethod]
+    public void ElCriterioQueAceptaTodoAceptaCualquierVehiculo()
+    {
+        CriterioQueAceptaTodo aceptaTodo = new CriterioQueAceptaTodo();
+
+        Assert.IsTrue(catalogo.TrueForAll(modelo => aceptaTodo.Cumple(modelo)));
     }
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
     public void CrearUnCriterioDeNombreVacioFalla()
     {
-        _ = new CriterioNombreContiene("   ");
+        _ = new CriterioPorNombre("   ");
     }
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
     public void CrearUnCriterioDePrecioMaximoNoPositivoFalla()
     {
-        _ = new CriterioPrecioMaximo(0m);
+        _ = new CriterioPorPrecioMaximo(0m);
     }
 }

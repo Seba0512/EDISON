@@ -3,23 +3,28 @@ using Dominio.Excepciones;
 namespace Dominio;
 
 /// <summary>
-/// Usuario registrado del sistema (CR1). El nombre es la clave natural y es inmutable: identifica al
-/// creador de los modelos (CR3, CR4), al duenio de las reservas (CR9) y al del historial (CR10).
+/// Usuario registrado del sistema (CR1). El nombre es la clave natural y es inmutable: identifica
+/// al creador de los modelos (CR3, CR4) y al solicitante de las reservas (CR9).
+///
+/// Compone su <see cref="Credencial"/> y su <see cref="Historial"/> (CR10): ninguno de los dos
+/// existe fuera del usuario. La verificacion de clave y el registro de actividades se exponen como
+/// comportamiento propio y delegan, para que nadie navegue hasta los objetos internos.
 /// </summary>
 public class Usuario
 {
     private const int LargoMinimoNombre = 3;
     private const int LargoMaximoNombre = 20;
-    private const int LargoMinimoPassword = 4;
 
-    private readonly string password;
+    private readonly Credencial credencial;
+    private readonly Historial historial;
 
     public string NombreUsuario { get; }
 
-    public Usuario(string nombreUsuario, string password)
+    public Usuario(string nombreUsuario, string clave)
     {
         NombreUsuario = NombreValidado(nombreUsuario);
-        this.password = PasswordValidada(password);
+        credencial = new Credencial(clave);
+        historial = new Historial(NombreUsuario);
     }
 
     public bool SeLlama(string nombreUsuario)
@@ -27,9 +32,19 @@ public class Usuario
         return NombreUsuario.Equals(nombreUsuario?.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
-    public bool CoincideLaPassword(string passwordIngresada)
+    public bool VerificarClave(string claveIngresada)
     {
-        return password.Equals(passwordIngresada, StringComparison.Ordinal);
+        return credencial.Verifica(claveIngresada);
+    }
+
+    public void Registrar(Actividad actividad)
+    {
+        historial.Registrar(actividad);
+    }
+
+    public IReadOnlyList<Actividad> Actividades()
+    {
+        return historial.Actividades;
     }
 
     private static string NombreValidado(string nombreUsuario)
@@ -47,15 +62,5 @@ public class Usuario
         }
 
         return nombreSinEspacios;
-    }
-
-    private static string PasswordValidada(string password)
-    {
-        if (string.IsNullOrWhiteSpace(password) || password.Length < LargoMinimoPassword)
-        {
-            throw new DominioException($"La password debe tener al menos {LargoMinimoPassword} caracteres");
-        }
-
-        return password;
     }
 }
