@@ -295,28 +295,29 @@ public class Modelo : IVehiculoBuscable
     /// unidad; sin stock se rechaza. Asi, bajo el candado del modelo, ninguna otra solicitud puede
     /// meterse entre mirar el stock y tomar la unidad.
     ///
-    /// Una reserva que dejo de estar pendiente mientras esperaba su turno ya fue resuelta o
-    /// cancelada por su usuario: no hay nada que decidir y se la deja como esta.
+    /// Una reserva que dejo de estar pendiente mientras esperaba su turno devuelve
+    /// <see cref="ResultadoResolucion.SinCambios"/>: no toca stock, estado ni timestamp.
     /// </summary>
-    public void ResolverReserva(Reserva reserva)
+    public ResultadoResolucion ResolverReserva(Reserva reserva)
     {
         lock (candado)
         {
-            ExigirActivo();
             ExigirQueLaReservaSeaPropia(reserva);
             if (!reserva.EstaPendiente)
             {
-                return;
+                return ResultadoResolucion.SinCambios;
             }
 
+            ExigirActivo();
             if (!stock.HayAlgunaDisponible)
             {
                 reserva.Rechazar();
-                return;
+                return ResultadoResolucion.Rechazada;
             }
 
             Vehiculo unidad = stock.TomarUna();
             reserva.Confirmar(unidad);
+            return ResultadoResolucion.Confirmada;
         }
     }
 

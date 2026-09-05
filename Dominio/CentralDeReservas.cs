@@ -97,8 +97,8 @@ public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
 
     private void Resolver(Reserva reserva)
     {
-        reserva.Resolver();
-        if (reserva.EstaConfirmada)
+        ResultadoResolucion resultado = reserva.Resolver();
+        if (resultado == ResultadoResolucion.Confirmada)
         {
             RegistrarLaCompra(reserva);
         }

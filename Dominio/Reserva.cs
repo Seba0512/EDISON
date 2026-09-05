@@ -93,9 +93,9 @@ public class Reserva
     /// Doble despacho de CR5: la reserva no sabe si quedan unidades, su modelo si. El modelo
     /// termina llamando a <see cref="Confirmar"/> o <see cref="Rechazar"/> segun el stock.
     /// </summary>
-    public void Resolver()
+    public ResultadoResolucion Resolver()
     {
-        modelo.ResolverReserva(this);
+        return modelo.ResolverReserva(this);
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using Dominio;
 using Dominio.Excepciones;
+using Dominio.Repositorios;
 using Dominio.Tests.Dobles;
 
 namespace Dominio.Tests;
@@ -10,6 +11,7 @@ public class CentralDeReservasTests
     private const string NombreModelo = "Edison S1";
     private const int StockInicial = 2;
     private const int SegundosDeAprobacion = 15;
+    private const int EsperaDeHiloEnMilisegundos = 5000;
 
     private static readonly DateTime Momento = new DateTime(2026, 8, 31, 10, 0, 0, DateTimeKind.Utc);
 
@@ -108,6 +110,25 @@ public class CentralDeReservasTests
         Assert.AreEqual(TipoActividad.Compra, solicitante.Actividades()[1].Tipo);
     }
 
+    [TestMethod]
+    public void ResolverVencidasEnDosThreadsRegistraUnaSolaCompra()
+    {
+        using RepositorioDeReservasCoordinado repositorio =
+            new RepositorioDeReservasCoordinado();
+        CentralDeReservas centralConcurrente = new CentralDeReservas(
+            repositorio, modelos, usuarios, reloj, SegundosDeAprobacion);
+        centralConcurrente.SolicitarReserva(NombreModelo, solicitante);
+        VencerElPlazo();
+
+        List<EjecucionDeHilo> ejecuciones = EjecutarEnDosThreads(
+            centralConcurrente.ResolverVencidas);
+
+        Assert.IsTrue(ejecuciones.All(ejecucion => ejecucion.Falla is null));
+        Assert.AreEqual(1, solicitante.Actividades().Count(
+            actividad => actividad.Tipo == TipoActividad.Compra));
+        Assert.AreEqual(1, modelos.ObtenerPorNombre(NombreModelo).UnidadesReservadas);
+    }
+
     /// <summary>
     /// La carrera de CR5 resuelta en orden de creacion: con stock 2 y tres solicitudes, se confirman
     /// las dos primeras y se rechaza la tercera. Gana quien pidio antes, no quien se resuelve antes.
@@ -183,5 +204,74 @@ public class CentralDeReservasTests
     private Actividad UltimaActividad()
     {
         return solicitante.Actividades()[^1];
+    }
+
+    private static List<EjecucionDeHilo> EjecutarEnDosThreads(Action accion)
+    {
+        List<EjecucionDeHilo> ejecuciones =
+            new List<EjecucionDeHilo> { new(), new() };
+        List<Thread> hilos = ejecuciones
+            .Select(ejecucion => new Thread(() => ejecucion.Ejecutar(accion)))
+            .ToList();
+
+        hilos.ForEach(hilo => hilo.Start());
+        hilos.ForEach(hilo => Assert.IsTrue(hilo.Join(EsperaDeHiloEnMilisegundos),
+            "Un Thread no termino: posible deadlock"));
+
+        return ejecuciones;
+    }
+
+    private sealed class EjecucionDeHilo
+    {
+        public Exception? Falla { get; private set; }
+
+        public void Ejecutar(Action accion)
+        {
+            try
+            {
+                accion();
+            }
+            catch (Exception falla)
+            {
+                Falla = falla;
+            }
+        }
+    }
+
+    private sealed class RepositorioDeReservasCoordinado : IRepositorioDeReservas, IDisposable
+    {
+        private readonly RepositorioDeReservasEnMemoria repositorio = new();
+        private readonly Barrier consultasPendientes = new(2);
+
+        public void Agregar(Reserva reserva)
+        {
+            repositorio.Agregar(reserva);
+        }
+
+        public Reserva ObtenerPorId(Guid idReserva)
+        {
+            return repositorio.ObtenerPorId(idReserva);
+        }
+
+        public IReadOnlyList<Reserva> DeUsuario(string nombreUsuario)
+        {
+            return repositorio.DeUsuario(nombreUsuario);
+        }
+
+        public IReadOnlyList<Reserva> Pendientes()
+        {
+            IReadOnlyList<Reserva> pendientes = repositorio.Pendientes();
+            if (!consultasPendientes.SignalAndWait(EsperaDeHiloEnMilisegundos))
+            {
+                throw new TimeoutException("No se coordinaron las consultas de reservas pendientes");
+            }
+
+            return pendientes;
+        }
+
+        public void Dispose()
+        {
+            consultasPendientes.Dispose();
+        }
     }
 }
