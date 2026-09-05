@@ -29,6 +29,12 @@ public class ModeloTests
         return new DatosDeModelo(nombre, "Sedan electrico", precio, new DateTime(2027, 3, 1), string.Empty);
     }
 
+    private static DatosDeModelo DatosModificados()
+    {
+        return new DatosDeModelo(
+            NombreModelo, "Sedan electrico renovado", 39990m, new DateTime(2027, 6, 1), string.Empty);
+    }
+
     private Reserva ReservaRegistrada()
     {
         return modelo.RegistrarReserva(creadora, reloj);
@@ -122,6 +128,58 @@ public class ModeloTests
 
         Assert.AreEqual(StockInicial + 2, modelo.StockTotal);
         Assert.AreEqual(StockInicial + 2, modelo.UnidadesDisponibles);
+    }
+
+    [TestMethod]
+    public void ModificarAplicaDatosYStockComoUnaOperacionCompleta()
+    {
+        modelo.Modificar(new FichaDeModelo(DatosModificados(), StockInicial + 2), creadora);
+
+        Assert.AreEqual("Sedan electrico renovado", modelo.Descripcion);
+        Assert.AreEqual(39990m, modelo.Precio);
+        Assert.AreEqual(new DateTime(2027, 6, 1), modelo.FechaEntregaPrometida);
+        Assert.AreEqual(StockInicial + 2, modelo.StockTotal);
+    }
+
+    [TestMethod]
+    public void ErrorDeStockNoModificaLosDatosNiElStock()
+    {
+        ReservaRegistrada();
+
+        Assert.ThrowsException<DominioException>(
+            () => modelo.Modificar(new FichaDeModelo(DatosModificados(), 1), creadora));
+
+        Assert.AreEqual("Sedan electrico", modelo.Descripcion);
+        Assert.AreEqual(45000m, modelo.Precio);
+        Assert.AreEqual(new DateTime(2027, 3, 1), modelo.FechaEntregaPrometida);
+        Assert.AreEqual(StockInicial, modelo.StockTotal);
+    }
+
+    [TestMethod]
+    public void ErrorDeDatosNoModificaElStockNiLosDatos()
+    {
+        DatosDeModelo otroNombre = DatosCon("Edison X2", 39990m);
+
+        Assert.ThrowsException<DominioException>(
+            () => modelo.Modificar(new FichaDeModelo(otroNombre, StockInicial + 2), creadora));
+
+        Assert.AreEqual(NombreModelo, modelo.Nombre);
+        Assert.AreEqual("Sedan electrico", modelo.Descripcion);
+        Assert.AreEqual(45000m, modelo.Precio);
+        Assert.AreEqual(StockInicial, modelo.StockTotal);
+    }
+
+    [TestMethod]
+    public void ModificarNuncaDejaElStockEnElNumeroDeReservasActivas()
+    {
+        ReservaRegistrada();
+        ReservaConfirmada();
+
+        Assert.ThrowsException<DominioException>(
+            () => modelo.Modificar(new FichaDeModelo(DatosModificados(), 2), creadora));
+
+        Assert.AreEqual(StockInicial, modelo.StockTotal);
+        Assert.AreEqual(2, modelo.ReservasActivas());
     }
 
     [TestMethod]

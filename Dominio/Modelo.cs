@@ -176,6 +176,24 @@ public class Modelo : IVehiculoBuscable
     }
 
     /// <summary>
+    /// Modificacion atomica de CR3. Valida propietario, datos y stock antes de cambiar el agregado;
+    /// luego aplica ambos cambios bajo una unica adquisicion del candado. El stock objetivo debe
+    /// superar las reservas activas, por lo que la modificacion deja al menos una unidad libre.
+    /// </summary>
+    public void Modificar(FichaDeModelo ficha, Usuario solicitante)
+    {
+        lock (candado)
+        {
+            ExigirPropietario(solicitante);
+            ExigirMismoNombre(ficha.Datos);
+            ExigirStockSuperiorAReservasActivas(ficha.Stock);
+
+            stock.AjustarA(ficha.Stock);
+            datos = ficha.Datos;
+        }
+    }
+
+    /// <summary>
     /// Modificacion de los datos descriptivos (CR3). La letra la permite "mientras sigan habiendo
     /// unidades disponibles", asi que un modelo con todas sus unidades tomadas queda congelado.
     /// </summary>
@@ -183,11 +201,7 @@ public class Modelo : IVehiculoBuscable
     {
         lock (candado)
         {
-            if (!datos.DescribeAlMismoModeloQue(datosNuevos))
-            {
-                throw new DominioException("El nombre del modelo no se puede modificar");
-            }
-
+            ExigirMismoNombre(datosNuevos);
             if (!stock.HayAlgunaDisponible)
             {
                 throw new DominioException(
@@ -207,13 +221,7 @@ public class Modelo : IVehiculoBuscable
     {
         lock (candado)
         {
-            int activas = ContarReservasActivas();
-            if (stockNuevo <= activas)
-            {
-                throw new DominioException(
-                    $"El stock debe ser mayor a las {activas} reservas activas del modelo {Nombre}");
-            }
-
+            ExigirStockSuperiorAReservasActivas(stockNuevo);
             stock.AjustarA(stockNuevo);
         }
     }
@@ -313,6 +321,24 @@ public class Modelo : IVehiculoBuscable
     private int ContarReservasActivas()
     {
         return reservas.Count(reserva => reserva.EstaActiva);
+    }
+
+    private void ExigirMismoNombre(DatosDeModelo datosNuevos)
+    {
+        if (!datos.DescribeAlMismoModeloQue(datosNuevos))
+        {
+            throw new DominioException("El nombre del modelo no se puede modificar");
+        }
+    }
+
+    private void ExigirStockSuperiorAReservasActivas(int stockNuevo)
+    {
+        int activas = ContarReservasActivas();
+        if (stockNuevo <= activas)
+        {
+            throw new DominioException(
+                $"El stock debe ser mayor a las {activas} reservas activas del modelo {Nombre}");
+        }
     }
 
     private void ExigirQueLaReservaSeaPropia(Reserva reserva)

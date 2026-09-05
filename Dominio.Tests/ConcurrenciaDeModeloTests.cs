@@ -13,6 +13,7 @@ public class ConcurrenciaDeModeloTests
 {
     private const int Solicitantes = 20;
     private const int StockInicial = 3;
+    private const int RepeticionesDeAtomicidad = 100;
 
     private static readonly DateTime Momento = new DateTime(2026, 8, 31, 10, 0, 0, DateTimeKind.Utc);
 
@@ -64,6 +65,102 @@ public class ConcurrenciaDeModeloTests
         Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
         Assert.AreEqual(0, modelo.UnidadesReservadas);
         Assert.AreEqual(0, modelo.ReservasActivas());
+    }
+
+    [TestMethod]
+    public void ModificarYReservarEnParaleloNoDejaUnaModificacionParcial()
+    {
+        for (int repeticion = 0; repeticion < RepeticionesDeAtomicidad; repeticion++)
+        {
+            VerificarCarreraEntreModificacionYReserva();
+        }
+    }
+
+    private void VerificarCarreraEntreModificacionYReserva()
+    {
+        Modelo modeloEnDisputa = CrearModeloParaAtomicidad();
+        Exception? fallaDeModificacion = null;
+        Exception? fallaDeReserva = null;
+        Reserva? reservaCreada = null;
+        using Barrier largada = new Barrier(2);
+
+        Thread modificacion = new Thread(() => EjecutarModificacion(
+            modeloEnDisputa, largada, out fallaDeModificacion));
+        Thread reserva = new Thread(() => EjecutarReserva(
+            modeloEnDisputa, largada, out reservaCreada, out fallaDeReserva));
+
+        modificacion.Start();
+        reserva.Start();
+        modificacion.Join();
+        reserva.Join();
+
+        Assert.IsNull(fallaDeReserva);
+        Assert.IsTrue(reservaCreada!.EstaConfirmada);
+        VerificarResultadoAtomico(modeloEnDisputa, fallaDeModificacion);
+    }
+
+    private Modelo CrearModeloParaAtomicidad()
+    {
+        Modelo modeloCreado = new Modelo(
+            new DatosDeModelo("Edison A1", "Original", 45000m, Momento, string.Empty), creadora);
+        modeloCreado.AgregarUnidades(StockInicial);
+        return modeloCreado;
+    }
+
+    private void EjecutarModificacion(
+        Modelo modeloEnDisputa, Barrier largada, out Exception? falla)
+    {
+        falla = null;
+        try
+        {
+            largada.SignalAndWait();
+            DatosDeModelo nuevos = new DatosDeModelo(
+                "Edison A1", "Modificado", 39990m, Momento.AddDays(1), string.Empty);
+            modeloEnDisputa.Modificar(new FichaDeModelo(nuevos, 1), creadora);
+        }
+        catch (Dominio.Excepciones.DominioException error)
+        {
+            falla = error;
+        }
+    }
+
+    private void EjecutarReserva(
+        Modelo modeloEnDisputa,
+        Barrier largada,
+        out Reserva? reservaCreada,
+        out Exception? falla)
+    {
+        reservaCreada = null;
+        falla = null;
+        try
+        {
+            largada.SignalAndWait();
+            reservaCreada = modeloEnDisputa.RegistrarReserva(creadora, reloj);
+            reservaCreada.Resolver();
+        }
+        catch (Exception error)
+        {
+            falla = error;
+        }
+    }
+
+    private static void VerificarResultadoAtomico(Modelo modeloEnDisputa, Exception? falla)
+    {
+        Assert.AreEqual(1, modeloEnDisputa.UnidadesReservadas);
+        Assert.IsTrue(modeloEnDisputa.StockTotal >= modeloEnDisputa.UnidadesReservadas);
+
+        if (falla is null)
+        {
+            Assert.AreEqual("Modificado", modeloEnDisputa.Descripcion);
+            Assert.AreEqual(39990m, modeloEnDisputa.Precio);
+            Assert.AreEqual(1, modeloEnDisputa.StockTotal);
+            return;
+        }
+
+        Assert.IsInstanceOfType<Dominio.Excepciones.DominioException>(falla);
+        Assert.AreEqual("Original", modeloEnDisputa.Descripcion);
+        Assert.AreEqual(45000m, modeloEnDisputa.Precio);
+        Assert.AreEqual(StockInicial, modeloEnDisputa.StockTotal);
     }
 
     /// <summary>Ninguna excepcion se escapa de los hilos: el agregado nunca queda inconsistente.</summary>

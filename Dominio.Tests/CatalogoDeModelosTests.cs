@@ -76,22 +76,34 @@ public class CatalogoDeModelosTests
     public void ModificarCambiaLosDatosYElStock()
     {
         DarDeAlta();
+        DateTime nuevaFecha = FechaEntrega.AddMonths(2);
+        DatosDeModelo datos = new DatosDeModelo(
+            NombreModelo, "Sedan electrico renovado", 39990m, nuevaFecha, string.Empty);
 
-        catalogo.ModificarModelo(Ficha(39990m, StockInicial + 2, string.Empty), creadora);
+        catalogo.ModificarModelo(new FichaDeModelo(datos, StockInicial + 2), creadora);
 
         Modelo modelo = catalogo.Consultar(NombreModelo);
+        Assert.AreEqual("Sedan electrico renovado", modelo.Descripcion);
         Assert.AreEqual(39990m, modelo.Precio);
+        Assert.AreEqual(nuevaFecha, modelo.FechaEntregaPrometida);
         Assert.AreEqual(StockInicial + 2, modelo.StockTotal);
         Assert.AreEqual(TipoActividad.ModeloModificado, creadora.Actividades()[1].Tipo);
     }
 
     [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void ModificarUnModeloAjenoFalla()
+    public void ModificarUnModeloAjenoNoCambiaNingunaPropiedad()
     {
         DarDeAlta();
 
-        catalogo.ModificarModelo(Ficha(39990m, StockInicial, string.Empty), otroUsuario);
+        Assert.ThrowsException<DominioException>(
+            () => catalogo.ModificarModelo(Ficha(39990m, StockInicial + 2, string.Empty), otroUsuario));
+
+        Modelo modelo = catalogo.Consultar(NombreModelo);
+        Assert.AreEqual("Sedan electrico", modelo.Descripcion);
+        Assert.AreEqual(45000m, modelo.Precio);
+        Assert.AreEqual(FechaEntrega, modelo.FechaEntregaPrometida);
+        Assert.AreEqual(StockInicial, modelo.StockTotal);
+        Assert.AreEqual(1, creadora.Actividades().Count);
     }
 
     [TestMethod]

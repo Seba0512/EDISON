@@ -47,18 +47,14 @@ public class CatalogoDeModelos : ICatalogoDeModelos
     }
 
     /// <summary>
-    /// Modificacion de CR3. El stock se ajusta antes que los datos descriptivos y es deliberado: la
-    /// letra solo permite modificar "mientras sigan habiendo unidades disponibles", asi que un
-    /// modelo agotado quedaria congelado para siempre si primero se exigieran unidades libres. Al
-    /// reponer stock antes, reponer vuelve a ser posible y el resto de la regla se sigue cumpliendo.
+    /// Modificacion de CR3. El catalogo solo localiza el agregado; el modelo valida autorizacion,
+    /// datos y stock y aplica la modificacion completa bajo su propio candado. El historial se
+    /// registra despues, fuera de la region critica del agregado.
     /// </summary>
     public void ModificarModelo(FichaDeModelo ficha, Usuario solicitante)
     {
         Modelo modelo = modelos.ObtenerPorNombre(ficha.Nombre);
-        modelo.ExigirPropietario(solicitante);
-
-        modelo.AjustarStock(ficha.Stock);
-        modelo.ActualizarDatos(ficha.Datos);
+        modelo.Modificar(ficha, solicitante);
 
         solicitante.Registrar(Actividad.ModeloModificado(ficha.Nombre, reloj));
     }
