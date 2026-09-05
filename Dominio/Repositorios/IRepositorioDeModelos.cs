@@ -18,7 +18,8 @@ public interface IRepositorioDeModelos
 
     bool Existe(string nombreModelo);
 
-    void Eliminar(string nombreModelo);
+    /// <summary>Elimina la instancia esperada; nunca sustituye ni elimina otro modelo con el mismo nombre.</summary>
+    void Eliminar(Modelo modelo);
 
     IReadOnlyList<Modelo> Todos();
 }

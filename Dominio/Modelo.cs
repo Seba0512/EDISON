@@ -22,8 +22,8 @@ namespace Dominio;
 /// por la reserva. <see cref="Monitor"/> es reentrante, asi que una cancelacion puede devolver su
 /// unidad concreta sin bloquearse a si misma.
 ///
-/// El orden de adquisicion en todo el sistema es repositorio, despues modelo, nunca al reves: nadie
-/// llama a un repositorio teniendo tomado este candado. Es la regla que evita los deadlocks.
+/// El candado del modelo nunca se sostiene a la vez que el de un repositorio: nadie llama a un
+/// repositorio teniendo tomado este candado. Esa separacion evita imponer un orden global de locks.
 /// </summary>
 public class Modelo : IVehiculoBuscable
 {
@@ -32,6 +32,7 @@ public class Modelo : IVehiculoBuscable
     private readonly List<Reserva> reservas = new();
     private readonly Usuario creador;
     private DatosDeModelo datos;
+    private bool eliminado;
 
     public Modelo(DatosDeModelo datos, Usuario creador)
     {
@@ -171,6 +172,7 @@ public class Modelo : IVehiculoBuscable
     {
         lock (candado)
         {
+            ExigirActivo();
             stock.Agregar(cantidad);
         }
     }
@@ -184,6 +186,7 @@ public class Modelo : IVehiculoBuscable
     {
         lock (candado)
         {
+            ExigirActivo();
             ExigirPropietario(solicitante);
             ExigirMismoNombre(ficha.Datos);
             ExigirStockSuperiorAReservasActivas(ficha.Stock);
@@ -201,6 +204,7 @@ public class Modelo : IVehiculoBuscable
     {
         lock (candado)
         {
+            ExigirActivo();
             ExigirMismoNombre(datosNuevos);
             if (!stock.HayAlgunaDisponible)
             {
@@ -221,6 +225,7 @@ public class Modelo : IVehiculoBuscable
     {
         lock (candado)
         {
+            ExigirActivo();
             ExigirStockSuperiorAReservasActivas(stockNuevo);
             stock.AjustarA(stockNuevo);
         }
@@ -239,7 +244,32 @@ public class Modelo : IVehiculoBuscable
     {
         lock (candado)
         {
-            return ContarReservasActivas() == 0;
+            return !eliminado && ContarReservasActivas() == 0;
+        }
+    }
+
+    /// <summary>
+    /// Hace efectiva la baja dentro del agregado (CR4). La comprobacion de reservas y el cambio de
+    /// ciclo de vida y la captura de la imagen vigente comparten el mismo candado que el alta de
+    /// reservas y la modificacion, por lo que solo una de esas operaciones puede ganar la carrera.
+    /// Devuelve el nombre inmutable necesario para completar la baja fuera del agregado.
+    /// </summary>
+    internal string MarcarComoEliminado(Usuario solicitante)
+    {
+        lock (candado)
+        {
+            ExigirActivo();
+            ExigirPropietario(solicitante);
+            if (ContarReservasActivas() > 0)
+            {
+                throw new DominioException(
+                    $"No se puede eliminar el modelo {Nombre} porque tiene reservas activas");
+            }
+
+            string nombreArchivoImagen = datos.NombreArchivoImagen;
+            eliminado = true;
+
+            return nombreArchivoImagen;
         }
     }
 
@@ -252,6 +282,7 @@ public class Modelo : IVehiculoBuscable
     {
         lock (candado)
         {
+            ExigirActivo();
             Reserva reserva = new Reserva(solicitante, this, reloj);
             reservas.Add(reserva);
 
@@ -271,6 +302,7 @@ public class Modelo : IVehiculoBuscable
     {
         lock (candado)
         {
+            ExigirActivo();
             ExigirQueLaReservaSeaPropia(reserva);
             if (!reserva.EstaPendiente)
             {
@@ -296,6 +328,7 @@ public class Modelo : IVehiculoBuscable
     {
         lock (candado)
         {
+            ExigirActivo();
             ExigirQueLaReservaSeaPropia(reserva);
             reserva.AplicarCancelacion();
         }
@@ -321,6 +354,14 @@ public class Modelo : IVehiculoBuscable
     private int ContarReservasActivas()
     {
         return reservas.Count(reserva => reserva.EstaActiva);
+    }
+
+    private void ExigirActivo()
+    {
+        if (eliminado)
+        {
+            throw new DominioException($"El modelo {Nombre} fue eliminado");
+        }
     }
 
     private void ExigirMismoNombre(DatosDeModelo datosNuevos)

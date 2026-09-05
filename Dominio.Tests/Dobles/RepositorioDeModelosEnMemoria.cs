@@ -48,11 +48,18 @@ public class RepositorioDeModelosEnMemoria : IRepositorioDeModelos
         }
     }
 
-    public void Eliminar(string nombreModelo)
+    public void Eliminar(Modelo modelo)
     {
+        string nombre = modelo.Nombre;
         lock (candado)
         {
-            modelos.Remove(nombreModelo.Trim());
+            if (!modelos.TryGetValue(nombre, out Modelo? registrado)
+                || !ReferenceEquals(registrado, modelo))
+            {
+                throw new ModeloInexistenteException(nombre);
+            }
+
+            modelos.Remove(nombre);
         }
     }
 

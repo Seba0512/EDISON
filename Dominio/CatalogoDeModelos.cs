@@ -13,9 +13,10 @@ namespace Dominio;
 /// si un modelo puede modificarse, cuanto stock admite o si puede eliminarse lo resuelve el propio
 /// <see cref="Modelo"/>, que es quien tiene las unidades y las reservas a la vista.
 ///
-/// El orden de los candados es repositorio y despues modelo: cada operacion busca primero en el
-/// repositorio, y recien con el modelo en la mano lo opera. Nunca se llama al repositorio teniendo
-/// tomado el candado de un modelo.
+/// Los candados de repositorio y modelo nunca se sostienen a la vez. Cada operacion obtiene primero
+/// la referencia y libera el repositorio; luego opera el agregado. Para la baja, el estado eliminado
+/// del modelo enlaza ambos pasos sin anidar locks: bloquea nuevas reservas y modificaciones antes de
+/// retirar exactamente esa instancia del repositorio.
 /// </summary>
 public class CatalogoDeModelos : ICatalogoDeModelos
 {
@@ -61,15 +62,9 @@ public class CatalogoDeModelos : ICatalogoDeModelos
     public void EliminarModelo(string nombreModelo, Usuario solicitante)
     {
         Modelo modelo = modelos.ObtenerPorNombre(nombreModelo);
-        modelo.ExigirPropietario(solicitante);
-        if (!modelo.PuedeEliminarse())
-        {
-            throw new DominioException(
-                $"No se puede eliminar el modelo {modelo.Nombre} porque tiene reservas activas");
-        }
-
-        BorrarImagenDe(modelo);
-        modelos.Eliminar(modelo.Nombre);
+        string nombreArchivoImagen = modelo.MarcarComoEliminado(solicitante);
+        modelos.Eliminar(modelo);
+        BorrarImagen(nombreArchivoImagen);
 
         solicitante.Registrar(Actividad.ModeloEliminado(modelo.Nombre, reloj));
     }
@@ -84,11 +79,11 @@ public class CatalogoDeModelos : ICatalogoDeModelos
         return modelos.ObtenerPorNombre(nombreModelo);
     }
 
-    private void BorrarImagenDe(Modelo modelo)
+    private void BorrarImagen(string nombreArchivoImagen)
     {
-        if (modelo.TieneImagen)
+        if (nombreArchivoImagen.Length > 0)
         {
-            imagenes.Eliminar(modelo.NombreArchivoImagen);
+            imagenes.Eliminar(nombreArchivoImagen);
         }
     }
 }
