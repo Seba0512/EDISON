@@ -10,10 +10,10 @@ namespace Dominio;
 /// corrige precio, descripcion o fecha de entrega; el stock cambia cuando se reserva, se cancela o
 /// se ajusta la cantidad de unidades. Son dos motivos de cambio distintos, entonces son dos clases.
 ///
-/// No guarda que unidad corresponde a que reserva: las unidades de un pool son indistinguibles y
-/// la cantidad de reservadas coincide siempre con la de reservas confirmadas. Es el Creador (GRASP)
-/// de sus <see cref="Vehiculo"/> y cuenta por estado en lugar de llevar contadores (Experto en
-/// informacion), asi no hay totales que se desincronicen del estado real.
+/// Es el Creador (GRASP) de sus <see cref="Vehiculo"/> y cuenta por estado en lugar de llevar
+/// contadores (Experto en informacion), asi no hay totales que se desincronicen del estado real.
+/// Al tomar una unidad devuelve la entidad concreta, y solo libera unidades que pertenecen a este
+/// pool: la reserva puede conservar la identidad fisica sin abrir la composicion del modelo.
 ///
 /// Es <c>internal</c> y no lleva candado propio: es parte interna del agregado que encabeza
 /// <see cref="Modelo"/> y se accede siempre bajo el candado de ese modelo. Dejarlo publico seria
@@ -68,23 +68,31 @@ internal class StockDeUnidades
         QuitarDisponibles(Total - totalNuevo);
     }
 
-    /// <summary>Toma cualquier unidad libre para una reserva que se confirma (CR5).</summary>
-    public void TomarUna()
+    /// <summary>Toma y devuelve la unidad libre concreta asignada a una reserva (CR5).</summary>
+    public Vehiculo TomarUna()
     {
         Vehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)
                                      ?? throw new SinUnidadesDisponiblesException(nombreModelo);
 
         unidadLibre.Reservar();
+        return unidadLibre;
     }
 
-    /// <summary>Devuelve una unidad al pool cuando una reserva confirmada se cancela (CR6).</summary>
-    public void LiberarUna()
+    /// <summary>Devuelve exactamente la unidad asignada cuando una reserva se cancela (CR6).</summary>
+    public void Liberar(Vehiculo unidad)
     {
-        Vehiculo unidadOcupada = unidades.Find(unidad => !unidad.EstaDisponible)
-                                       ?? throw new DominioException(
-                                           $"El modelo {nombreModelo} no tiene unidades reservadas para liberar");
+        if (!Contiene(unidad))
+        {
+            throw new DominioException(
+                $"La unidad {unidad.Id} no pertenece al modelo {nombreModelo}");
+        }
 
-        unidadOcupada.Liberar();
+        unidad.Liberar();
+    }
+
+    public bool Contiene(Vehiculo unidad)
+    {
+        return unidades.Contains(unidad);
     }
 
     private void QuitarDisponibles(int cantidad)

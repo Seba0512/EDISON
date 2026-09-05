@@ -76,11 +76,11 @@ public class ModeloTests
     }
 
     [TestMethod]
-    public void LiberarUnidadDevuelveUnaUnidadAlPool()
+    public void CancelarReservaConfirmadaDevuelveSuUnidadAlPool()
     {
-        ReservaConfirmada();
+        Reserva reserva = ReservaConfirmada();
 
-        modelo.LiberarUnidad();
+        reserva.Cancelar();
 
         Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
         Assert.AreEqual(0, modelo.UnidadesReservadas);
@@ -88,9 +88,14 @@ public class ModeloTests
 
     [TestMethod]
     [ExpectedException(typeof(DominioException))]
-    public void LiberarUnidadSinReservadasFalla()
+    public void LiberarUnaUnidadDeOtroModeloFalla()
     {
-        modelo.LiberarUnidad();
+        Modelo otroModelo = new Modelo(DatosCon("Edison X2", 72000m), creadora);
+        otroModelo.AgregarUnidades(1);
+        Reserva ajena = otroModelo.RegistrarReserva(creadora, reloj);
+        ajena.Resolver();
+
+        modelo.LiberarUnidad(ajena.VehiculoAsignado!);
     }
 
     /// <summary>

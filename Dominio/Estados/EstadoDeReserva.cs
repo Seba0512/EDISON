@@ -8,9 +8,6 @@ namespace Dominio.Estados;
 /// subclase sobrescribe unicamente lo que permite. El contrato es uniforme (LSP): ningun llamador
 /// pregunta por el tipo del estado ni hace un switch, solo invoca y el estado decide.
 ///
-/// <see cref="Cancelar"/> recibe el modelo porque <see cref="Confirmada"/> es quien sabe que una
-/// reserva confirmada tiene una unidad tomada que devolver: ese conocimiento vive en un solo lugar.
-///
 /// Los estados no tienen estado interno propio, por eso cada uno es una instancia unica via
 /// <c>Lazy&lt;T&gt;</c>: es el unico Singleton del trabajo y es el caso legitimo, objetos inmutables
 /// y thread-safe por construccion.
@@ -36,7 +33,7 @@ public abstract class EstadoDeReserva
         throw new TransicionDeReservaInvalidaException("rechazar", Nombre);
     }
 
-    public virtual EstadoDeReserva Cancelar(Modelo modelo)
+    public virtual EstadoDeReserva Cancelar()
     {
         throw new TransicionDeReservaInvalidaException("cancelar", Nombre);
     }

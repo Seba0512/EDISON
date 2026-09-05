@@ -1,4 +1,5 @@
 using Dominio.Estados;
+using Dominio.Excepciones;
 using Dominio.Tiempo;
 
 namespace Dominio;
@@ -25,12 +26,15 @@ public class Reserva
     private readonly Modelo modelo;
     private readonly IReloj reloj;
     private EstadoDeReserva estado;
+    private Vehiculo? vehiculoAsignado;
 
     public Guid Id { get; }
 
     public DateTime FechaCreacion { get; }
 
     public DateTime UltimaActualizacion { get; private set; }
+
+    public Vehiculo? VehiculoAsignado => vehiculoAsignado;
 
     internal Reserva(Usuario solicitante, Modelo modelo, IReloj reloj)
     {
@@ -109,9 +113,12 @@ public class Reserva
     /// dentro de su candado. Si fueran publicas, cualquiera podria cambiarle el estado a una reserva
     /// sin sincronizar con el stock que ese estado representa.
     /// </summary>
-    internal void Confirmar()
+    internal void Confirmar(Vehiculo unidad)
     {
-        PasarA(estado.Confirmar());
+        EstadoDeReserva estadoConfirmado = estado.Confirmar();
+        ExigirUnidadAsignable(unidad);
+        vehiculoAsignado = unidad;
+        PasarA(estadoConfirmado);
     }
 
     internal void Rechazar()
@@ -120,12 +127,49 @@ public class Reserva
     }
 
     /// <summary>
-    /// Si el estado actual es <see cref="Confirmada"/>, es el propio estado quien devuelve la unidad
-    /// al modelo: la reserva no pregunta ni decide.
+    /// Si la reserva esta confirmada, devuelve exactamente la unidad que conserva asignada. La
+    /// transicion se valida antes de tocar el stock, y solo se completa despues de liberarlo.
     /// </summary>
     internal void AplicarCancelacion()
     {
-        PasarA(estado.Cancelar(modelo));
+        EstadoDeReserva estadoCancelado = estado.Cancelar();
+        ExigirInvarianteDeAsignacion();
+
+        if (vehiculoAsignado is Vehiculo unidad)
+        {
+            modelo.LiberarUnidad(unidad);
+            vehiculoAsignado = null;
+        }
+
+        PasarA(estadoCancelado);
+    }
+
+    private void ExigirUnidadAsignable(Vehiculo unidad)
+    {
+        if (vehiculoAsignado is not null)
+        {
+            throw new DominioException("La reserva ya tiene una unidad asignada");
+        }
+
+        if (!modelo.ContieneUnidad(unidad))
+        {
+            throw new DominioException("La unidad no pertenece al modelo de la reserva");
+        }
+
+        if (unidad.EstaDisponible)
+        {
+            throw new DominioException("La unidad debe estar reservada antes de asignarla");
+        }
+    }
+
+    private void ExigirInvarianteDeAsignacion()
+    {
+        bool debeTenerUnidad = estado.EstaConfirmada;
+        if (debeTenerUnidad != (vehiculoAsignado is not null))
+        {
+            throw new DominioException(
+                "Solo una reserva confirmada puede tener exactamente una unidad asignada");
+        }
     }
 
     private void PasarA(EstadoDeReserva estadoNuevo)

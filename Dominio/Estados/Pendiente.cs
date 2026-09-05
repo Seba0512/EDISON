@@ -30,7 +30,7 @@ public class Pendiente : EstadoDeReserva
         return Rechazada.Instancia;
     }
 
-    public override EstadoDeReserva Cancelar(Modelo modelo)
+    public override EstadoDeReserva Cancelar()
     {
         return Cancelada.Instancia;
     }

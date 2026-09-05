@@ -1,8 +1,8 @@
 namespace Dominio.Estados;
 
 /// <summary>
-/// Reserva con unidad tomada (CR5). Al cancelarse es este estado, y no un if del llamador, quien
-/// devuelve la unidad al modelo (CR6): "una confirmada ocupa una unidad" vive en un solo lugar.
+/// Reserva con una unidad concreta asignada (CR5). Permite cancelar; la propia reserva, como experta
+/// en esa asociacion, devuelve exactamente esa unidad al agregado (CR6).
 /// </summary>
 public class Confirmada : EstadoDeReserva
 {
@@ -20,9 +20,8 @@ public class Confirmada : EstadoDeReserva
 
     public override bool EstaConfirmada => true;
 
-    public override EstadoDeReserva Cancelar(Modelo modelo)
+    public override EstadoDeReserva Cancelar()
     {
-        modelo.LiberarUnidad();
         return Cancelada.Instancia;
     }
 }

@@ -19,8 +19,8 @@ namespace Dominio;
 /// pasa por su candado privado, consultas incluidas: contar disponibles recorre una lista que otro
 /// hilo puede estar modificando. Como corolario, <b>toda transicion de estado de una reserva ocurre
 /// dentro del candado de su modelo</b>, y por eso confirmar, rechazar y cancelar entran por aca y no
-/// por la reserva. <see cref="Monitor"/> es reentrante, asi que <see cref="ResolverReserva"/> puede
-/// terminar llamando a <see cref="LiberarUnidad"/> sin bloquearse a si mismo.
+/// por la reserva. <see cref="Monitor"/> es reentrante, asi que una cancelacion puede devolver su
+/// unidad concreta sin bloquearse a si misma.
 ///
 /// El orden de adquisicion en todo el sistema es repositorio, despues modelo, nunca al reves: nadie
 /// llama a un repositorio teniendo tomado este candado. Es la regla que evita los deadlocks.
@@ -275,15 +275,14 @@ public class Modelo : IVehiculoBuscable
                 return;
             }
 
-            stock.TomarUna();
-            reserva.Confirmar();
+            Vehiculo unidad = stock.TomarUna();
+            reserva.Confirmar(unidad);
         }
     }
 
     /// <summary>
-    /// Cancelacion de CR6 bajo el candado del modelo. Si la reserva estaba confirmada, es su propio
-    /// estado el que devuelve la unidad llamando a <see cref="LiberarUnidad"/>, ya dentro de este
-    /// mismo candado.
+    /// Cancelacion de CR6 bajo el candado del modelo. La reserva conoce la unidad que tiene
+    /// asignada y la devuelve a traves de este agregado antes de completar la transicion.
     /// </summary>
     public void CancelarReserva(Reserva reserva)
     {
@@ -294,12 +293,20 @@ public class Modelo : IVehiculoBuscable
         }
     }
 
-    /// <summary>Devuelve al pool la unidad de una reserva confirmada que se cancela (CR6).</summary>
-    public void LiberarUnidad()
+    /// <summary>Devuelve al pool la unidad concreta de una reserva confirmada (CR6).</summary>
+    internal void LiberarUnidad(Vehiculo unidad)
     {
         lock (candado)
         {
-            stock.LiberarUna();
+            stock.Liberar(unidad);
+        }
+    }
+
+    internal bool ContieneUnidad(Vehiculo unidad)
+    {
+        lock (candado)
+        {
+            return stock.Contiene(unidad);
         }
     }
 

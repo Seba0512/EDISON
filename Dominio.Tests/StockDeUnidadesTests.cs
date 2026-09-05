@@ -49,8 +49,9 @@ public class StockDeUnidadesTests
     [TestMethod]
     public void TomarMueveUnaUnidadDeDisponibleAReservada()
     {
-        stock.TomarUna();
+        Vehiculo unidad = stock.TomarUna();
 
+        Assert.IsFalse(unidad.EstaDisponible);
         Assert.AreEqual(CantidadInicial - 1, stock.Disponibles);
         Assert.AreEqual(1, stock.Reservadas);
         Assert.AreEqual(CantidadInicial, stock.Total);
@@ -84,10 +85,11 @@ public class StockDeUnidadesTests
     [TestMethod]
     public void LiberarDevuelveUnaUnidadAlPool()
     {
-        stock.TomarUna();
+        Vehiculo unidad = stock.TomarUna();
 
-        stock.LiberarUna();
+        stock.Liberar(unidad);
 
+        Assert.IsTrue(unidad.EstaDisponible);
         Assert.AreEqual(CantidadInicial, stock.Disponibles);
         Assert.AreEqual(0, stock.Reservadas);
     }
@@ -96,7 +98,22 @@ public class StockDeUnidadesTests
     [ExpectedException(typeof(DominioException))]
     public void LiberarSinUnidadesReservadasFalla()
     {
-        stock.LiberarUna();
+        Vehiculo unidadDisponible = new Vehiculo(NombreModelo);
+
+        stock.Liberar(unidadDisponible);
+    }
+
+    [TestMethod]
+    public void LiberarUnaUnidadNoLiberaOtraReservada()
+    {
+        Vehiculo primera = stock.TomarUna();
+        Vehiculo segunda = stock.TomarUna();
+
+        stock.Liberar(primera);
+
+        Assert.IsTrue(primera.EstaDisponible);
+        Assert.IsFalse(segunda.EstaDisponible);
+        Assert.AreEqual(1, stock.Reservadas);
     }
 
     [TestMethod]
