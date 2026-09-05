@@ -6,9 +6,13 @@ namespace Dominio.Repositorios;
 ///
 /// Nunca devuelve null: <see cref="ObtenerPorNombre"/> lanza si el usuario no esta, para que ningun
 /// llamador tenga que preguntar antes de usar lo que recibe.
+/// La implementacion debe ser segura para Threads concurrentes y <see cref="Agregar"/> debe comprobar
+/// y aplicar la unicidad del nombre dentro de una unica region critica. <see cref="Existe"/> es solo
+/// una consulta; nunca debe usarse como garantia previa de unicidad.
 /// </summary>
 public interface IRepositorioDeUsuarios
 {
+    /// <exception cref="Excepciones.UsuarioDuplicadoException">Si el nombre ya esta registrado.</exception>
     void Agregar(Usuario usuario);
 
     /// <exception cref="Excepciones.DominioException">Si no hay un usuario con ese nombre.</exception>

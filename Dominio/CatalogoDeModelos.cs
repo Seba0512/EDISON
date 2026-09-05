@@ -34,11 +34,6 @@ public class CatalogoDeModelos : ICatalogoDeModelos
     /// <summary>Alta de CR2: el nombre del modelo es unico en todo el catalogo.</summary>
     public void AltaDeModelo(FichaDeModelo ficha, Usuario creador)
     {
-        if (modelos.Existe(ficha.Nombre))
-        {
-            throw new DominioException($"Ya existe un modelo llamado {ficha.Nombre}");
-        }
-
         Modelo modelo = new Modelo(ficha.Datos, creador);
         modelo.AgregarUnidades(ficha.Stock);
         modelos.Agregar(modelo);

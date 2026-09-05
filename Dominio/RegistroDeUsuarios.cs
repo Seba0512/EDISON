@@ -28,11 +28,6 @@ public class RegistroDeUsuarios : IAutenticacion, IHistorialDeUsuario
     public Usuario Registrar(string nombreUsuario, string clave)
     {
         Usuario usuario = new Usuario(nombreUsuario, clave);
-        if (usuarios.Existe(usuario.NombreUsuario))
-        {
-            throw new UsuarioDuplicadoException(usuario.NombreUsuario);
-        }
-
         usuarios.Agregar(usuario);
 
         return usuario;
