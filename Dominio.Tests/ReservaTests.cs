@@ -217,6 +217,21 @@ public class ReservaTests
     }
 
     [TestMethod]
+    public void TransicionInvalidaNoLiberaLaUnidadConfirmada()
+    {
+        reserva.Resolver();
+        Vehiculo unidad = reserva.VehiculoAsignado!;
+
+        Assert.ThrowsException<TransicionDeReservaInvalidaException>(() => reserva.Rechazar());
+
+        Assert.IsTrue(reserva.EstaConfirmada);
+        Assert.AreSame(unidad, reserva.VehiculoAsignado);
+        Assert.IsFalse(unidad.EstaDisponible);
+        Assert.AreEqual(1, modelo.UnidadesReservadas);
+        Assert.AreEqual(StockInicial - 1, modelo.UnidadesDisponibles);
+    }
+
+    [TestMethod]
     [ExpectedException(typeof(TransicionDeReservaInvalidaException))]
     public void CancelarDosVecesFalla()
     {

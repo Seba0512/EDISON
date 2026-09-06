@@ -322,8 +322,8 @@ public class Modelo : IVehiculoBuscable
     }
 
     /// <summary>
-    /// Cancelacion de CR6 bajo el candado del modelo. La reserva conoce la unidad que tiene
-    /// asignada y la devuelve a traves de este agregado antes de completar la transicion.
+    /// Cancelacion de CR6 bajo el candado del modelo. La reserva consulta a su State y conoce la
+    /// unidad asignada; el modelo manipula su stock y luego le indica completar la transicion.
     /// </summary>
     public void CancelarReserva(Reserva reserva)
     {
@@ -331,16 +331,13 @@ public class Modelo : IVehiculoBuscable
         {
             ExigirActivo();
             ExigirQueLaReservaSeaPropia(reserva);
-            reserva.AplicarCancelacion();
-        }
-    }
+            var estadoCancelado = reserva.PrepararCancelacion();
+            if (reserva.VehiculoAsignado is Vehiculo unidad)
+            {
+                stock.Liberar(unidad);
+            }
 
-    /// <summary>Devuelve al pool la unidad concreta de una reserva confirmada (CR6).</summary>
-    internal void LiberarUnidad(Vehiculo unidad)
-    {
-        lock (candado)
-        {
-            stock.Liberar(unidad);
+            reserva.CompletarCancelacion(estadoCancelado);
         }
     }
 

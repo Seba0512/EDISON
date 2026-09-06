@@ -92,18 +92,6 @@ public class ModeloTests
         Assert.AreEqual(0, modelo.UnidadesReservadas);
     }
 
-    [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void LiberarUnaUnidadDeOtroModeloFalla()
-    {
-        Modelo otroModelo = new Modelo(DatosCon("Edison X2", 72000m), creadora);
-        otroModelo.AgregarUnidades(1);
-        Reserva ajena = otroModelo.RegistrarReserva(creadora, reloj);
-        ajena.Resolver();
-
-        modelo.LiberarUnidad(ajena.VehiculoAsignado!);
-    }
-
     /// <summary>
     /// El modelo crea sus propias reservas, asi que una reserva nunca puede quedar registrada en un
     /// modelo distinto del suyo: la regla se cumple por construccion y no por validacion.

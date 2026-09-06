@@ -117,6 +117,20 @@ public class StockDeUnidadesTests
     }
 
     [TestMethod]
+    public void LiberarUnaUnidadDeOtroStockFallaSinModificarla()
+    {
+        StockDeUnidades otroStock = new StockDeUnidades("Edison X2");
+        otroStock.Agregar(1);
+        Vehiculo unidadAjena = otroStock.TomarUna();
+
+        Assert.ThrowsException<DominioException>(() => stock.Liberar(unidadAjena));
+
+        Assert.IsFalse(unidadAjena.EstaDisponible);
+        Assert.AreEqual(0, stock.Reservadas);
+        Assert.AreEqual(1, otroStock.Reservadas);
+    }
+
+    [TestMethod]
     public void AjustarHaciaAbajoSoloQuitaUnidadesDisponibles()
     {
         stock.TomarUna();

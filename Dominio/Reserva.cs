@@ -127,20 +127,20 @@ public class Reserva
     }
 
     /// <summary>
-    /// Si la reserva esta confirmada, devuelve exactamente la unidad que conserva asignada. La
-    /// transicion se valida antes de tocar el stock, y solo se completa despues de liberarlo.
+    /// Consulta al State para obtener la transicion permitida y valida que la asociacion con la
+    /// unidad sea coherente. Todavia no cambia el estado ni manipula el stock del modelo.
     /// </summary>
-    internal void AplicarCancelacion()
+    internal EstadoDeReserva PrepararCancelacion()
     {
         EstadoDeReserva estadoCancelado = estado.Cancelar();
         ExigirInvarianteDeAsignacion();
+        return estadoCancelado;
+    }
 
-        if (vehiculoAsignado is Vehiculo unidad)
-        {
-            modelo.LiberarUnidad(unidad);
-            vehiculoAsignado = null;
-        }
-
+    /// <summary>Completa la transicion despues de que el modelo libero la unidad, si correspondia.</summary>
+    internal void CompletarCancelacion(EstadoDeReserva estadoCancelado)
+    {
+        vehiculoAsignado = null;
         PasarA(estadoCancelado);
     }
 
