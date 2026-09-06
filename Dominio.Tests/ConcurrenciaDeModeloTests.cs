@@ -13,6 +13,7 @@ public class ConcurrenciaDeModeloTests
 {
     private const int Solicitantes = 20;
     private const int StockInicial = 3;
+    private const int EsperaDeHiloEnMilisegundos = 5000;
     private const int RepeticionesDeAtomicidad = 100;
 
     private static readonly DateTime Momento = new DateTime(2026, 8, 31, 10, 0, 0, DateTimeKind.Utc);
@@ -26,10 +27,7 @@ public class ConcurrenciaDeModeloTests
     {
         reloj = new RelojFalso(Momento);
         creadora = new Usuario("jferreiro", "edison2026");
-        modelo = new Modelo(
-            new DatosDeModelo("Edison S1", "Sedan electrico", 45000m, new DateTime(2027, 3, 1), string.Empty),
-            creadora);
-        modelo.AgregarUnidades(StockInicial);
+        modelo = CrearModeloConStock(StockInicial);
     }
 
     /// <summary>
@@ -42,11 +40,61 @@ public class ConcurrenciaDeModeloTests
     {
         List<Reserva> reservas = ReservasResueltasEnParalelo();
 
-        int confirmadas = reservas.Count(reserva => reserva.EstaConfirmada);
+        VerificarResolucionCompetitiva(reservas, StockInicial);
+    }
 
-        Assert.AreEqual(StockInicial, confirmadas);
-        Assert.AreEqual(Solicitantes - StockInicial, reservas.Count(reserva => !reserva.EstaActiva));
-        Assert.AreEqual(StockInicial, modelo.UnidadesReservadas);
+    [TestMethod]
+    public void StockUnoAnteVeinteResolucionesConfirmaExactamenteUna()
+    {
+        modelo = CrearModeloConStock(1);
+
+        List<Reserva> reservas = ReservasResueltasEnParalelo();
+
+        VerificarResolucionCompetitiva(reservas, 1);
+    }
+
+    [TestMethod]
+    public void VariosHilosCancelandoLaMismaReservaLaLiberanUnaVez()
+    {
+        Reserva reserva = modelo.RegistrarReserva(creadora, reloj);
+        reserva.Resolver();
+        Vehiculo unidad = reserva.VehiculoAsignado!;
+
+        List<EjecucionDeHilo> ejecuciones = EjecutarIntentos(
+            Solicitantes, _ => reserva.Cancelar());
+
+        Assert.AreEqual(1, ejecuciones.Count(ejecucion => ejecucion.Completo));
+        Assert.AreEqual(Solicitantes - 1, ejecuciones.Count(ejecucion =>
+            ejecucion.Falla is Dominio.Excepciones.TransicionDeReservaInvalidaException));
+        Assert.AreEqual("Cancelada", reserva.NombreDelEstado());
+        Assert.IsNull(reserva.VehiculoAsignado);
+        Assert.IsTrue(unidad.EstaDisponible);
+        Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
+        Assert.AreEqual(0, modelo.UnidadesReservadas);
+    }
+
+    [TestMethod]
+    public void ResolverYCancelarLaMismaPendienteSiempreDejanEstadoValido()
+    {
+        for (int repeticion = 0; repeticion < RepeticionesDeAtomicidad; repeticion++)
+        {
+            VerificarCarreraEntreResolucionYCancelacion();
+        }
+    }
+
+    private void VerificarResolucionCompetitiva(
+        List<Reserva> reservas, int confirmacionesEsperadas)
+    {
+        List<Reserva> confirmadas = reservas.FindAll(reserva => reserva.EstaConfirmada);
+        List<Vehiculo> unidades = confirmadas.Select(
+            reserva => reserva.VehiculoAsignado!).ToList();
+
+        Assert.AreEqual(confirmacionesEsperadas, confirmadas.Count);
+        Assert.AreEqual(Solicitantes - confirmacionesEsperadas, reservas.Count(
+            reserva => reserva.NombreDelEstado() == "Rechazada"));
+        Assert.AreEqual(confirmacionesEsperadas, unidades.Select(unidad => unidad.Id).Distinct().Count());
+        Assert.IsTrue(unidades.TrueForAll(unidad => !unidad.EstaDisponible));
+        Assert.AreEqual(confirmacionesEsperadas, modelo.UnidadesReservadas);
         Assert.AreEqual(0, modelo.UnidadesDisponibles);
     }
 
@@ -91,8 +139,10 @@ public class ConcurrenciaDeModeloTests
 
         modificacion.Start();
         reserva.Start();
-        modificacion.Join();
-        reserva.Join();
+        Assert.IsTrue(modificacion.Join(EsperaDeHiloEnMilisegundos),
+            "La modificacion no termino: posible deadlock");
+        Assert.IsTrue(reserva.Join(EsperaDeHiloEnMilisegundos),
+            "La reserva no termino: posible deadlock");
 
         Assert.IsNull(fallaDeReserva);
         Assert.IsTrue(reservaCreada!.EstaConfirmada);
@@ -105,6 +155,50 @@ public class ConcurrenciaDeModeloTests
             new DatosDeModelo("Edison A1", "Original", 45000m, Momento, string.Empty), creadora);
         modeloCreado.AgregarUnidades(StockInicial);
         return modeloCreado;
+    }
+
+    private Modelo CrearModeloConStock(int cantidad)
+    {
+        Modelo modeloCreado = new Modelo(
+            new DatosDeModelo("Edison S1", "Sedan electrico", 45000m,
+                new DateTime(2027, 3, 1), string.Empty),
+            creadora);
+        modeloCreado.AgregarUnidades(cantidad);
+        return modeloCreado;
+    }
+
+    private static void VerificarCarreraEntreResolucionYCancelacion()
+    {
+        RelojFalso reloj = new RelojFalso(Momento);
+        Usuario usuario = new Usuario("jferreiro", "edison2026");
+        Modelo modelo = new Modelo(
+            new DatosDeModelo("Edison R1", "Sedan", 45000m, Momento, string.Empty), usuario);
+        modelo.AgregarUnidades(1);
+        Reserva reserva = modelo.RegistrarReserva(usuario, reloj);
+        ResultadoResolucion resultado = ResultadoResolucion.SinCambios;
+
+        EjecutarEnParalelo(2, indice =>
+        {
+            if (indice == 0)
+            {
+                resultado = reserva.Resolver();
+                if (resultado == ResultadoResolucion.Confirmada)
+                {
+                    usuario.Registrar(Actividad.Compra(reserva.NombreDelModelo(), reloj));
+                }
+
+                return;
+            }
+
+            reserva.Cancelar();
+        });
+
+        Assert.AreEqual("Cancelada", reserva.NombreDelEstado());
+        Assert.IsNull(reserva.VehiculoAsignado);
+        Assert.AreEqual(1, modelo.UnidadesDisponibles);
+        Assert.AreEqual(0, modelo.UnidadesReservadas);
+        Assert.AreEqual(resultado == ResultadoResolucion.Confirmada ? 1 : 0,
+            usuario.Actividades().Count(actividad => actividad.Tipo == TipoActividad.Compra));
     }
 
     private void EjecutarModificacion(
@@ -179,41 +273,57 @@ public class ConcurrenciaDeModeloTests
 
     private static void EjecutarEnParalelo(int cantidadDeHilos, Action<int> trabajo)
     {
-        using Barrier largada = new Barrier(cantidadDeHilos);
-        List<Exception> fallas = new();
-        object candadoDeFallas = new();
-        List<Thread> hilos = new();
+        List<EjecucionDeHilo> ejecuciones = EjecutarIntentos(cantidadDeHilos, trabajo);
 
-        for (int indice = 0; indice < cantidadDeHilos; indice++)
-        {
-            int propio = indice;
-            Thread hilo = new Thread(() =>
-            {
-                largada.SignalAndWait();
-                try
-                {
-                    trabajo(propio);
-                }
-                catch (Exception falla)
-                {
-                    lock (candadoDeFallas)
-                    {
-                        fallas.Add(falla);
-                    }
-                }
-            });
-
-            hilos.Add(hilo);
-            hilo.Start();
-        }
-
-        hilos.ForEach(hilo => hilo.Join());
-
-        Assert.AreEqual(0, fallas.Count, PrimeraFalla(fallas));
+        Assert.IsTrue(ejecuciones.All(ejecucion => ejecucion.Falla is null),
+            PrimeraFalla(ejecuciones));
     }
 
-    private static string PrimeraFalla(List<Exception> fallas)
+    private static List<EjecucionDeHilo> EjecutarIntentos(
+        int cantidadDeHilos, Action<int> trabajo)
     {
-        return fallas.Count == 0 ? string.Empty : $"Un hilo fallo: {fallas[0]}";
+        using Barrier largada = new Barrier(cantidadDeHilos);
+        List<EjecucionDeHilo> ejecuciones = Enumerable.Range(0, cantidadDeHilos)
+            .Select(_ => new EjecucionDeHilo())
+            .ToList();
+        List<Thread> hilos = ejecuciones.Select((ejecucion, indice) => new Thread(
+            () => ejecucion.Ejecutar(() =>
+            {
+                largada.SignalAndWait();
+                trabajo(indice);
+            }))).ToList();
+
+        hilos.ForEach(hilo => hilo.Start());
+        hilos.ForEach(hilo => Assert.IsTrue(hilo.Join(EsperaDeHiloEnMilisegundos),
+            "Un Thread no termino: posible deadlock"));
+
+        return ejecuciones;
+    }
+
+    private static string PrimeraFalla(List<EjecucionDeHilo> ejecuciones)
+    {
+        Exception? falla = ejecuciones.FirstOrDefault(
+            ejecucion => ejecucion.Falla is not null)?.Falla;
+        return falla is null ? string.Empty : $"Un hilo fallo: {falla}";
+    }
+
+    private sealed class EjecucionDeHilo
+    {
+        public bool Completo { get; private set; }
+
+        public Exception? Falla { get; private set; }
+
+        public void Ejecutar(Action trabajo)
+        {
+            try
+            {
+                trabajo();
+                Completo = true;
+            }
+            catch (Exception falla)
+            {
+                Falla = falla;
+            }
+        }
     }
 }

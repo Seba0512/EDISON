@@ -144,6 +144,37 @@ public class ReservaTests
     }
 
     [TestMethod]
+    public void ResolucionesConcurrentesActualizanElTimestampUnaSolaVez()
+    {
+        RelojContador relojContador = new RelojContador(Momento);
+        Modelo modeloConcurrente = new Modelo(DatosDe("Edison X2"), usuaria);
+        modeloConcurrente.AgregarUnidades(1);
+        Reserva reservaConcurrente = modeloConcurrente.RegistrarReserva(usuaria, relojContador);
+
+        ResolverConcurrentemente(reservaConcurrente);
+
+        Assert.AreEqual(2, relojContador.Lecturas);
+        Assert.AreEqual(Momento.AddTicks(1), reservaConcurrente.UltimaActualizacion);
+    }
+
+    [TestMethod]
+    public void ResolverSinStockEnVariosThreadsRechazaUnaSolaVez()
+    {
+        Modelo modeloSinStock = new Modelo(DatosDe("Edison X2"), usuaria);
+        Reserva sinUnidades = ReservaRegistradaEn(modeloSinStock);
+
+        List<EjecucionDeResolucion> ejecuciones = ResolverConcurrentemente(sinUnidades);
+
+        Assert.AreEqual(1, ejecuciones.Count(
+            ejecucion => ejecucion.Resultado == ResultadoResolucion.Rechazada));
+        Assert.AreEqual(ResolucionesConcurrentes - 1, ejecuciones.Count(
+            ejecucion => ejecucion.Resultado == ResultadoResolucion.SinCambios));
+        Assert.AreEqual("Rechazada", sinUnidades.NombreDelEstado());
+        Assert.IsNull(sinUnidades.VehiculoAsignado);
+        Assert.AreEqual(0, modeloSinStock.UnidadesReservadas);
+    }
+
+    [TestMethod]
     public void RechazarUnaPendienteNoLeAsignaUnidad()
     {
         reserva.Rechazar();
@@ -390,6 +421,28 @@ public class ReservaTests
             {
                 Falla = falla;
             }
+        }
+    }
+
+    private sealed class RelojContador : Dominio.Tiempo.IReloj
+    {
+        private readonly DateTime inicio;
+        private long lecturas;
+
+        public int Lecturas => (int)Interlocked.Read(ref lecturas);
+
+        public DateTime Ahora
+        {
+            get
+            {
+                long indice = Interlocked.Increment(ref lecturas) - 1;
+                return inicio.AddTicks(indice);
+            }
+        }
+
+        public RelojContador(DateTime inicio)
+        {
+            this.inicio = inicio;
         }
     }
 }

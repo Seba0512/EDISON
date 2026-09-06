@@ -58,6 +58,62 @@ public class CicloDeVidaModeloConcurrenteTests
     }
 
     [TestMethod]
+    public void SiLaReservaGanaLaBajaFallaPorReservaActiva()
+    {
+        using ManualResetEventSlim reservaRegistrada = new(false);
+        EjecucionDeHilo alta = new EjecucionDeHilo();
+        EjecucionDeHilo baja = new EjecucionDeHilo();
+        Thread hiloDeAlta = new Thread(() =>
+        {
+            alta.Ejecutar(() => central.SolicitarReserva(NombreModelo, solicitante));
+            reservaRegistrada.Set();
+        });
+        Thread hiloDeBaja = new Thread(() => baja.Ejecutar(() =>
+        {
+            EsperarSenal(reservaRegistrada);
+            catalogo.EliminarModelo(NombreModelo, creadora);
+        }));
+
+        hiloDeBaja.Start();
+        hiloDeAlta.Start();
+
+        Assert.IsTrue(hiloDeAlta.Join(EsperaDeHiloEnMilisegundos));
+        Assert.IsTrue(hiloDeBaja.Join(EsperaDeHiloEnMilisegundos));
+        Assert.IsTrue(alta.Completo);
+        Assert.IsInstanceOfType<DominioException>(baja.Falla);
+        Assert.IsTrue(modelos.Existe(NombreModelo));
+        Assert.AreEqual(1, reservas.DeUsuario("sgomez").Count);
+    }
+
+    [TestMethod]
+    public void SiLaBajaGanaUnaNuevaSolicitudFalla()
+    {
+        using ManualResetEventSlim bajaCompletada = new(false);
+        EjecucionDeHilo baja = new EjecucionDeHilo();
+        EjecucionDeHilo alta = new EjecucionDeHilo();
+        Thread hiloDeBaja = new Thread(() =>
+        {
+            baja.Ejecutar(() => catalogo.EliminarModelo(NombreModelo, creadora));
+            bajaCompletada.Set();
+        });
+        Thread hiloDeAlta = new Thread(() => alta.Ejecutar(() =>
+        {
+            EsperarSenal(bajaCompletada);
+            central.SolicitarReserva(NombreModelo, solicitante);
+        }));
+
+        hiloDeAlta.Start();
+        hiloDeBaja.Start();
+
+        Assert.IsTrue(hiloDeBaja.Join(EsperaDeHiloEnMilisegundos));
+        Assert.IsTrue(hiloDeAlta.Join(EsperaDeHiloEnMilisegundos));
+        Assert.IsTrue(baja.Completo);
+        Assert.IsInstanceOfType<ModeloInexistenteException>(alta.Falla);
+        Assert.IsFalse(modelos.Existe(NombreModelo));
+        Assert.AreEqual(0, reservas.DeUsuario("sgomez").Count);
+    }
+
+    [TestMethod]
     public void EliminarYModificarImagenEnParaleloUsanLaMismaVersion()
     {
         AlmacenDeImagenesFalso almacen = new AlmacenDeImagenesFalso();

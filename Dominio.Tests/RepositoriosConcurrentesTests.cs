@@ -9,6 +9,7 @@ public class RepositoriosConcurrentesTests
 {
     private const string Clave = "edison2026";
     private const int CantidadDeAltas = 200;
+    private const int EsperaDeHiloEnMilisegundos = 5000;
 
     private static readonly DateTime Momento =
         new DateTime(2026, 8, 31, 10, 0, 0, DateTimeKind.Utc);
@@ -92,6 +93,39 @@ public class RepositoriosConcurrentesTests
             () => ConsultarReservas(repositorio));
 
         Assert.AreEqual(CantidadDeAltas, repositorio.Pendientes().Count);
+    }
+
+    [TestMethod]
+    public void ConsultaDeModelosEntregaUnSnapshotIndependiente()
+    {
+        RepositorioDeModelosEnMemoria repositorio = new RepositorioDeModelosEnMemoria();
+        Usuario creadora = new Usuario("jferreiro", Clave);
+        repositorio.Agregar(CrearModelo("Edison S1", creadora));
+        IReadOnlyList<Modelo> snapshot = repositorio.Todos();
+
+        repositorio.Agregar(CrearModelo("Edison S2", creadora));
+        Assert.AreEqual(1, snapshot.Count);
+        ((ICollection<Modelo>)snapshot).Clear();
+
+        Assert.AreEqual(0, snapshot.Count);
+        Assert.AreEqual(2, repositorio.Todos().Count);
+    }
+
+    [TestMethod]
+    public void ConsultaDeReservasEntregaUnSnapshotIndependiente()
+    {
+        RepositorioDeReservasEnMemoria repositorio = new RepositorioDeReservasEnMemoria();
+        Usuario usuario = new Usuario("jferreiro", Clave);
+        Modelo modelo = CrearModelo("Edison S1", usuario);
+        repositorio.Agregar(modelo.RegistrarReserva(usuario, new RelojFalso(Momento)));
+        IReadOnlyList<Reserva> snapshot = repositorio.Pendientes();
+
+        repositorio.Agregar(modelo.RegistrarReserva(usuario, new RelojFalso(Momento)));
+        Assert.AreEqual(1, snapshot.Count);
+        ((ICollection<Reserva>)snapshot).Clear();
+
+        Assert.AreEqual(0, snapshot.Count);
+        Assert.AreEqual(2, repositorio.Pendientes().Count);
     }
 
     private static CatalogoDeModelos CrearCatalogo(RepositorioDeModelosEnMemoria repositorio)
@@ -190,9 +224,11 @@ public class RepositoriosConcurrentesTests
 
         primerHilo.Start();
         segundoHilo.Start();
-        primerHilo.Join();
-        segundoHilo.Join();
+        bool primeroTermino = primerHilo.Join(EsperaDeHiloEnMilisegundos);
+        bool segundoTermino = segundoHilo.Join(EsperaDeHiloEnMilisegundos);
 
+        Assert.IsTrue(primeroTermino, "El primer Thread no termino: posible deadlock");
+        Assert.IsTrue(segundoTermino, "El segundo Thread no termino: posible deadlock");
         Assert.IsNull(fallas[0], fallas[0]?.ToString());
         Assert.IsNull(fallas[1], fallas[1]?.ToString());
     }
