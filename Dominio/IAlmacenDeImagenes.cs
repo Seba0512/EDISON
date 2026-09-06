@@ -6,9 +6,8 @@ namespace Dominio;
 /// archivos, y la baja borra la imagen en el mismo lugar donde borra el modelo, no en un paso aparte
 /// que alguien se pueda olvidar de llamar (Indireccion y Variaciones Protegidas).
 ///
-/// Tiene un solo metodo a proposito (ISP): guardar y recuperar la imagen se hacen por bloques contra
-/// la conexion, son trabajo del servidor y ningun caso de uso del dominio los necesita. Sumarlos aca
-/// obligaria al catalogo a depender de metodos que no usa.
+/// Tiene un solo metodo a proposito (ISP): este caso de uso solamente necesita eliminar. Agregar
+/// operaciones que el catalogo no utiliza lo obligaria a depender de un contrato mas amplio.
 /// </summary>
 public interface IAlmacenDeImagenes
 {

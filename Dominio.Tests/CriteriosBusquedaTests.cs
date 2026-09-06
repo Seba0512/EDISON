@@ -19,13 +19,47 @@ public class CriteriosBusquedaTests
     };
 
     [TestMethod]
-    public void CadaCriterioAceptaCualquierVehiculoBuscable()
+    public void CriterioPorNombreRecibeElTextoBuscado()
     {
         Assert.IsTrue(new CriterioPorNombre("edison").Cumple(Vehiculo));
+    }
+
+    [TestMethod]
+    public void CriterioPorPrecioMaximoRecibeUnDecimal()
+    {
         Assert.IsTrue(new CriterioPorPrecioMaximo(50000m).Cumple(Vehiculo));
+    }
+
+    [TestMethod]
+    public void CriterioPorPrecioMinimoRecibeUnDecimal()
+    {
         Assert.IsTrue(new CriterioPorPrecioMinimo(40000m).Cumple(Vehiculo));
+    }
+
+    [TestMethod]
+    public void CriterioPorUnidadesDisponiblesRecibeUnEntero()
+    {
         Assert.IsTrue(new CriterioPorUnidadesDisponibles(1).Cumple(Vehiculo));
+    }
+
+    [TestMethod]
+    public void CriterioPorFechaDeEntregaMaximaRecibeUnaFecha()
+    {
         Assert.IsTrue(new CriterioPorFechaDeEntregaMaxima(new DateTime(2027, 4, 1)).Cumple(Vehiculo));
+    }
+
+    [TestMethod]
+    public void CriterioPorPrecioMinimoRechazaUnValorNegativo()
+    {
+        Assert.ThrowsException<Dominio.Excepciones.DominioException>(
+            () => new CriterioPorPrecioMinimo(-1m));
+    }
+
+    [TestMethod]
+    public void CriterioPorUnidadesDisponiblesRechazaUnValorNegativo()
+    {
+        Assert.ThrowsException<Dominio.Excepciones.DominioException>(
+            () => new CriterioPorUnidadesDisponibles(-1));
     }
 
     [TestMethod]

@@ -9,10 +9,8 @@ namespace Dominio;
 /// Alta, ingreso y salida de usuarios (CR1) y lectura de su historial (CR10).
 ///
 /// Responsabilidad en una frase, sin "y": administrar el acceso de los usuarios al sistema. No
-/// guarda quien esta logueado: la sesion es de una conexion, no del dominio, asi que
-/// <see cref="IniciarSesion"/> devuelve el usuario y el servidor lo retiene mientras dure el socket.
-/// Gracias a eso el mismo usuario puede estar conectado desde dos maquinas sin que el dominio tenga
-/// estado compartido que sincronizar.
+/// guarda sesiones activas porque ese ciclo de vida no es una regla del dominio;
+/// <see cref="IniciarSesion"/> se limita a autenticar y devolver el usuario correspondiente.
 /// </summary>
 public class RegistroDeUsuarios : IAutenticacion, IHistorialDeUsuario
 {

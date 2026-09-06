@@ -1,8 +1,6 @@
 namespace Dominio.Fachada;
 
-/// <summary>
-/// Solicitud, cancelacion y consulta de reservas (CR5, CR6, CR9). La usan los manejadores 20 a 22.
-/// </summary>
+/// <summary>Solicitud, cancelacion y consulta de reservas (CR5, CR6, CR9).</summary>
 public interface IGestionDeReservas
 {
     /// <summary>Registra una solicitud, que nace pendiente (CR5), y devuelve su id.</summary>

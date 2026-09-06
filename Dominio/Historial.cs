@@ -12,10 +12,9 @@ namespace Dominio;
 /// composicion dentro de un <see cref="Usuario"/>, que nunca lo expone. La regla se cumple por
 /// construccion en lugar de por un chequeo que habria que acordarse de mantener.
 ///
-/// Tiene candado propio porque un mismo usuario puede estar operando desde varias conexiones, y
-/// cada conexion es un thread distinto (SR2). <see cref="Actividades"/> devuelve una copia y no la
-/// lista viva: quien recorre el historial para responder CR10 no puede quedar a merced de otro
-/// thread que registre una actividad en el medio del recorrido.
+/// Tiene candado propio porque un mismo usuario puede registrar operaciones concurrentes (SR2).
+/// <see cref="Actividades"/> devuelve una copia y no la lista viva: quien recorre el historial para
+/// responder CR10 no puede quedar a merced de otro thread que registre una actividad en el medio.
 /// </summary>
 public class Historial
 {

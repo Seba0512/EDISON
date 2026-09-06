@@ -7,8 +7,8 @@ namespace Dominio.Tests;
 
 /// <summary>
 /// Recorrido completo por la fachada, con los tres colaboradores reales y repositorios en memoria.
-/// Es la prueba de que el dominio queda armable y usable de punta a punta: lo unico que le falta al
-/// servidor para atender un cliente es traducir tramas a estas llamadas.
+/// Es la prueba de que el dominio queda armable y usable de punta a punta mediante contratos
+/// expresados exclusivamente con objetos y tipos propios del modelo.
 /// </summary>
 [TestClass]
 public class EdisonTests

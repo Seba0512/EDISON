@@ -2,9 +2,8 @@ namespace Dominio.Fachada;
 
 /// <summary>
 /// Resolucion diferida de las solicitudes vencidas (CR5). Va separada de
-/// <see cref="IGestionDeReservas"/> porque no la usa ningun manejador de comando: la llama el thread
-/// de la mesa de aprobaciones del servidor, y ese thread no tiene por que ver los metodos que
-/// atienden a un cliente (ISP).
+/// <see cref="IGestionDeReservas"/> porque el proceso periodico de aprobaciones no necesita conocer
+/// las operaciones interactivas de solicitud, cancelacion y consulta (ISP).
 /// </summary>
 public interface IResolucionDeReservas
 {

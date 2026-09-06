@@ -2,10 +2,7 @@ using Dominio.Busqueda;
 
 namespace Dominio.Fachada;
 
-/// <summary>
-/// Alta, modificacion, baja, busqueda y consulta de modelos (CR2, CR3, CR4, CR7, CR8). La usan los
-/// manejadores 10 a 14.
-/// </summary>
+/// <summary>Alta, modificacion, baja, busqueda y consulta de modelos (CR2, CR3, CR4, CR7, CR8).</summary>
 public interface ICatalogoDeModelos
 {
     void AltaDeModelo(FichaDeModelo ficha, Usuario creador);

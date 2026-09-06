@@ -3,23 +3,22 @@ using Dominio.Busqueda;
 namespace Dominio.Fachada;
 
 /// <summary>
-/// Facade del dominio: un unico punto de entrada para la capa de red, que asi no necesita conocer
-/// los tres colaboradores ni el orden en que se los arma.
+/// Facade del dominio: un unico punto de entrada que evita que sus consumidores deban conocer los
+/// tres colaboradores ni el orden en que se los arma.
 ///
 /// Cada metodo delega en una linea y no decide nada, por eso no se convierte en una clase gorda:
 /// toda la logica sigue viviendo en <see cref="RegistroDeUsuarios"/>, <see cref="CatalogoDeModelos"/>
 /// y <see cref="CentralDeReservas"/>.
 ///
-/// Implementa cinco interfaces chicas en vez de exponer una sola grande, y cada manejador de comando
-/// recibe por constructor unicamente la que necesita (ISP): el manejador de login depende de
-/// <see cref="IAutenticacion"/> y no ve las reservas, el de historial depende solo de
+/// Implementa cinco interfaces chicas en vez de exponer una sola grande (ISP): un consumidor puede
+/// depender de <see cref="IAutenticacion"/> sin ver reservas, o solo de
 /// <see cref="IHistorialDeUsuario"/>. La fachada existe para la comodidad del composition root, no
-/// para que alguien dependa de ella entera.
+/// para que los consumidores dependan de ella entera.
 ///
 /// Recibe los tres colaboradores concretos y no sus interfaces a proposito: son partes del mismo
 /// dominio y cada uno implementa mas de una de estas interfaces, asi que pedirlas sueltas serian
 /// cinco parametros que ademas se podrian pasar inconsistentes entre si. La inversion de dependencia
-/// importa en el limite que cruza la red, y ahi se cumple: la capa de red depende de las interfaces.
+/// importa en el limite exterior, donde los consumidores dependen de estas interfaces.
 /// </summary>
 public class Edison : IAutenticacion, ICatalogoDeModelos, IGestionDeReservas, IResolucionDeReservas,
     IHistorialDeUsuario
