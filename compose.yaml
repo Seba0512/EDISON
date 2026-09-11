@@ -1,0 +1,7 @@
+﻿services:
+  servidor:
+    image: servidor
+    build:
+      context: .
+      dockerfile: Servidor/Dockerfile
+
