@@ -1,5 +1,6 @@
 using System.Configuration;
 using System.Net.Sockets;
+using Cliente.Excepciones;
 using Common.Excepciones;
 
 namespace Cliente;
@@ -8,6 +9,8 @@ internal static class Program
 {
     private static int Main()
     {
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        Console.InputEncoding = System.Text.Encoding.UTF8;
         try
         {
             Ejecutar();
@@ -20,6 +23,10 @@ internal static class Program
         catch (ConexionCerradaException exception)
         {
             Console.Error.WriteLine(exception.Message);
+        }
+        catch (ErrorInternoDelServidorException exception)
+        {
+            Console.Error.WriteLine($"Error interno del servidor: {exception.Message}");
         }
         catch (ProtocoloException exception)
         {
@@ -42,18 +49,6 @@ internal static class Program
         ConfiguracionCliente configuracion = ConfiguracionCliente.Cargar();
         using ConexionConServidor conexion = ConexionConServidor.Conectar(configuracion);
         Console.WriteLine($"Conectado a {configuracion.Endpoint}");
-        EjecutarDiagnosticos(conexion);
-    }
-
-    private static void EjecutarDiagnosticos(ConexionConServidor conexion)
-    {
-        Console.WriteLine("Escriba un texto para el diagnóstico o 'salir' para cerrar.");
-        string? texto;
-        while ((texto = Console.ReadLine()) is not null
-               && !texto.Equals("salir", StringComparison.OrdinalIgnoreCase))
-        {
-            string respuesta = conexion.EnviarDiagnostico(texto);
-            Console.WriteLine($"Respuesta: {respuesta}");
-        }
+        AplicacionCliente.Ejecutar(conexion);
     }
 }

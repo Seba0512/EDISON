@@ -38,15 +38,16 @@ internal sealed class ConexionConServidor : IDisposable
     }
 
     public string EnviarDiagnostico(string texto)
-    {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
-        Trama solicitud = Trama.CrearSolicitud(
-            ComandosTecnicos.Diagnostico, TextoUtf8.Codificar(texto));
-        _codec.Escribir(_stream, solicitud);
-        Trama respuesta = _codec.Leer(_stream);
-        ExigirRespuestaDiagnostica(respuesta);
-        return TextoUtf8.Decodificar(respuesta.Datos.Span);
-    }
+        => EnviarSolicitud(Comandos.Diagnostico, TextoUtf8.Codificar(texto));
+
+    public string Registrar(Credenciales credenciales)
+        => EnviarSolicitud(Comandos.Registrar, CodecDeCredenciales.Codificar(credenciales));
+
+    public string IniciarSesion(Credenciales credenciales)
+        => EnviarSolicitud(Comandos.IniciarSesion, CodecDeCredenciales.Codificar(credenciales));
+
+    public string CerrarSesion()
+        => EnviarSolicitud(Comandos.CerrarSesion, []);
 
     public void Dispose()
     {
@@ -58,11 +59,21 @@ internal sealed class ConexionConServidor : IDisposable
         _socket.Dispose();
     }
 
-    private static void ExigirRespuestaDiagnostica(Trama respuesta)
+    private string EnviarSolicitud(int comando, byte[] datos)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
+        _codec.Escribir(_stream, Trama.CrearSolicitud(comando, datos));
+        Trama respuesta = _codec.Leer(_stream);
+        ExigirRespuestaA(comando, respuesta);
+        RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta.Datos.Span);
+        return ReaccionesAEstado.Aplicar(contenido);
+    }
+
+    private static void ExigirRespuestaA(int comando, Trama respuesta)
     {
         if (!respuesta.EsRespuesta)
             throw new ProtocoloException("El cliente esperaba HEADER RES");
-        if (respuesta.Comando != ComandosTecnicos.Diagnostico)
+        if (respuesta.Comando != comando)
             throw new ProtocoloException(
                 $"El cliente recibió el CMD inesperado {respuesta.Comando:D2}");
     }
