@@ -39,14 +39,23 @@ internal sealed class ConexionConServidor : IDisposable
 
     public string EnviarDiagnostico(string texto)
     {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
-        Trama solicitud = Trama.CrearSolicitud(
-            ComandosTecnicos.Diagnostico, TextoUtf8.Codificar(texto));
-        _codec.Escribir(_stream, solicitud);
-        Trama respuesta = _codec.Leer(_stream);
-        ExigirRespuestaDiagnostica(respuesta);
-        return TextoUtf8.Decodificar(respuesta.Datos.Span);
+        RespuestaDeOperacion respuesta = Enviar(
+            Comandos.Diagnostico, TextoUtf8.Codificar(texto));
+        return respuesta.Contenido;
     }
+
+    public RespuestaDeOperacion Registrar(string nombreUsuario, string clave)
+        => Enviar(
+            Comandos.Registrar,
+            PayloadDeCredenciales.Codificar(nombreUsuario, clave));
+
+    public RespuestaDeOperacion IniciarSesion(string nombreUsuario, string clave)
+        => Enviar(
+            Comandos.IniciarSesion,
+            PayloadDeCredenciales.Codificar(nombreUsuario, clave));
+
+    public RespuestaDeOperacion CerrarSesion()
+        => Enviar(Comandos.CerrarSesion, Array.Empty<byte>());
 
     public void Dispose()
     {
@@ -58,11 +67,27 @@ internal sealed class ConexionConServidor : IDisposable
         _socket.Dispose();
     }
 
-    private static void ExigirRespuestaDiagnostica(Trama respuesta)
+    private RespuestaDeOperacion Enviar(int comando, byte[] datos)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
+        _codec.Escribir(_stream, Trama.CrearSolicitud(comando, datos));
+        Trama respuesta = _codec.Leer(_stream);
+        ExigirRespuesta(respuesta, comando);
+        RespuestaDeOperacion resultado = RespuestaDeOperacion.Decodificar(respuesta.Datos.Span);
+        if (resultado.EsErrorInterno)
+        {
+            Dispose();
+            throw new ErrorInternoDelServidorException(resultado.Contenido);
+        }
+
+        return resultado;
+    }
+
+    private static void ExigirRespuesta(Trama respuesta, int comando)
     {
         if (!respuesta.EsRespuesta)
             throw new ProtocoloException("El cliente esperaba HEADER RES");
-        if (respuesta.Comando != ComandosTecnicos.Diagnostico)
+        if (respuesta.Comando != comando)
             throw new ProtocoloException(
                 $"El cliente recibió el CMD inesperado {respuesta.Comando:D2}");
     }

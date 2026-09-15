@@ -1,5 +1,11 @@
 using System.Configuration;
 using System.Net.Sockets;
+using Dominio;
+using Dominio.Fachada;
+using Dominio.Tiempo;
+using Servidor.Comandos;
+using Servidor.Comandos.Manejadores;
+using Servidor.Repositorios;
 
 namespace Servidor;
 
@@ -27,11 +33,24 @@ internal static class Program
     private static void Ejecutar()
     {
         ConfiguracionServidor configuracion = ConfiguracionServidor.Cargar();
-        using ServidorTcp servidor = new(configuracion);
+        IAutenticacion autenticacion = new RegistroDeUsuarios(
+            new RepositorioDeUsuariosEnMemoria(), new RelojDelSistema());
+        DespachadorDeComandos despachador = CrearDespachador(autenticacion);
+        using ServidorTcp servidor = new ServidorTcp(configuracion, despachador);
         servidor.Iniciar();
         EsperarOrdenDeSalida();
         servidor.Detener();
     }
+
+    private static DespachadorDeComandos CrearDespachador(IAutenticacion autenticacion)
+        => new DespachadorDeComandos(
+            new IManejadorDeComando[]
+            {
+                new ManejadorDeDiagnostico(),
+                new ManejadorDeRegistro(autenticacion),
+                new ManejadorDeInicioDeSesion(autenticacion),
+                new ManejadorDeCierreDeSesion(autenticacion)
+            });
 
     private static void EsperarOrdenDeSalida()
     {

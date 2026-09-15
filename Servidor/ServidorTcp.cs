@@ -1,5 +1,6 @@
 using System.Net.Sockets;
 using Common.Protocolo;
+using Servidor.Comandos;
 using Servidor.Red;
 
 namespace Servidor;
@@ -9,14 +10,18 @@ internal sealed class ServidorTcp : IDisposable
     private readonly ConfiguracionServidor _configuracion;
     private readonly RegistroDeConexiones _registro = new();
     private readonly CodecDeTramas _codec;
+    private readonly DespachadorDeComandos _despachador;
     private Socket? _listener;
     private Thread? _threadAceptador;
     private int _ejecutando;
     private int _siguienteCliente;
 
-    public ServidorTcp(ConfiguracionServidor configuracion)
+    public ServidorTcp(
+        ConfiguracionServidor configuracion,
+        DespachadorDeComandos despachador)
     {
         _configuracion = configuracion;
+        _despachador = despachador;
         _codec = new CodecDeTramas(configuracion.MaxPayloadBytes);
     }
 
@@ -146,7 +151,7 @@ internal sealed class ServidorTcp : IDisposable
     {
         try
         {
-            new SesionDeCliente(conexion, _codec).Atender();
+            new SesionDeCliente(conexion, _codec, _despachador).Atender();
         }
         finally
         {

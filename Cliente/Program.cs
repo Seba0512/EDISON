@@ -17,6 +17,15 @@ internal static class Program
         {
             Console.Error.WriteLine($"Configuración inválida: {exception.Message}");
         }
+        catch (EndOfStreamException)
+        {
+            Console.WriteLine("Entrada de consola finalizada.");
+            return 0;
+        }
+        catch (ErrorInternoDelServidorException exception)
+        {
+            Console.Error.WriteLine(exception.Message);
+        }
         catch (ConexionCerradaException exception)
         {
             Console.Error.WriteLine(exception.Message);
@@ -42,18 +51,6 @@ internal static class Program
         ConfiguracionCliente configuracion = ConfiguracionCliente.Cargar();
         using ConexionConServidor conexion = ConexionConServidor.Conectar(configuracion);
         Console.WriteLine($"Conectado a {configuracion.Endpoint}");
-        EjecutarDiagnosticos(conexion);
-    }
-
-    private static void EjecutarDiagnosticos(ConexionConServidor conexion)
-    {
-        Console.WriteLine("Escriba un texto para el diagnóstico o 'salir' para cerrar.");
-        string? texto;
-        while ((texto = Console.ReadLine()) is not null
-               && !texto.Equals("salir", StringComparison.OrdinalIgnoreCase))
-        {
-            string respuesta = conexion.EnviarDiagnostico(texto);
-            Console.WriteLine($"Respuesta: {respuesta}");
-        }
+        new AplicacionCliente(conexion).Ejecutar();
     }
 }
