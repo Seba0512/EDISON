@@ -1,6 +1,11 @@
 using System.Net.Sockets;
 using Common.Protocolo;
+using Dominio;
+using Dominio.Fachada;
+using Dominio.Tiempo;
+using Servidor.Comandos;
 using Servidor.Red;
+using Servidor.Repositorios;
 
 namespace Servidor;
 
@@ -9,6 +14,7 @@ internal sealed class ServidorTcp : IDisposable
     private readonly ConfiguracionServidor _configuracion;
     private readonly RegistroDeConexiones _registro = new();
     private readonly CodecDeTramas _codec;
+    private readonly DespachadorDeComandos _despachador;
     private Socket? _listener;
     private Thread? _threadAceptador;
     private int _ejecutando;
@@ -18,6 +24,7 @@ internal sealed class ServidorTcp : IDisposable
     {
         _configuracion = configuracion;
         _codec = new CodecDeTramas(configuracion.MaxPayloadBytes);
+        _despachador = CrearDespachador();
     }
 
     public void Iniciar()
@@ -146,7 +153,7 @@ internal sealed class ServidorTcp : IDisposable
     {
         try
         {
-            new SesionDeCliente(conexion, _codec).Atender();
+            new SesionDeCliente(conexion, _codec, _despachador, new EstadoDeSesion()).Atender();
         }
         finally
         {
@@ -175,4 +182,21 @@ internal sealed class ServidorTcp : IDisposable
             Console.Error.WriteLine(
                 $"El Thread del cliente {conexion.Numero} no terminó dentro del timeout");
     }
+
+    private static DespachadorDeComandos CrearDespachador()
+    {
+        RegistroDeUsuarios registroDeUsuarios = new(
+            new RepositorioDeUsuariosEnMemoria(), new RelojDelSistema());
+        return new DespachadorDeComandos(CrearManejadores(registroDeUsuarios));
+    }
+
+    private static IReadOnlyDictionary<int, IManejadorDeComando> CrearManejadores(
+        IAutenticacion autenticacion)
+        => new Dictionary<int, IManejadorDeComando>
+        {
+            [Common.Protocolo.Comandos.Diagnostico] = new ManejadorDeDiagnostico(),
+            [Common.Protocolo.Comandos.Registrar] = new ManejadorDeRegistro(autenticacion),
+            [Common.Protocolo.Comandos.IniciarSesion] = new ManejadorDeInicioDeSesion(autenticacion),
+            [Common.Protocolo.Comandos.CerrarSesion] = new ManejadorDeCierreDeSesion(autenticacion)
+        };
 }

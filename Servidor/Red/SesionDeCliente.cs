@@ -1,6 +1,7 @@
 using System.Net.Sockets;
 using Common.Excepciones;
 using Common.Protocolo;
+using Servidor.Comandos;
 
 namespace Servidor.Red;
 
@@ -8,11 +9,19 @@ internal sealed class SesionDeCliente
 {
     private readonly ConexionActiva _conexion;
     private readonly CodecDeTramas _codec;
+    private readonly DespachadorDeComandos _despachador;
+    private readonly EstadoDeSesion _sesion;
 
-    public SesionDeCliente(ConexionActiva conexion, CodecDeTramas codec)
+    public SesionDeCliente(
+        ConexionActiva conexion,
+        CodecDeTramas codec,
+        DespachadorDeComandos despachador,
+        EstadoDeSesion sesion)
     {
         _conexion = conexion;
         _codec = codec;
+        _despachador = despachador;
+        _sesion = sesion;
     }
 
     public void Atender()
@@ -37,22 +46,45 @@ internal sealed class SesionDeCliente
         while (_conexion.EstaAbierta)
         {
             Trama solicitud = _codec.Leer(stream);
-            ExigirDiagnostico(solicitud);
-            string texto = TextoUtf8.Decodificar(solicitud.Datos.Span);
-            Informar($"envió diagnóstico '{texto}'");
-            Trama respuesta = Trama.CrearRespuesta(
-                ComandosTecnicos.Diagnostico, TextoUtf8.Codificar(texto));
-            _codec.Escribir(stream, respuesta);
+            if (!AtenderSolicitud(stream, solicitud))
+                return;
         }
     }
 
-    private static void ExigirDiagnostico(Trama solicitud)
+    private bool AtenderSolicitud(NetworkStream stream, Trama solicitud)
     {
-        if (!solicitud.EsSolicitud)
-            throw new ProtocoloException("El servidor esperaba HEADER REQ");
-        if (solicitud.Comando != ComandosTecnicos.Diagnostico)
-            throw new ProtocoloException(
-                $"CMD {solicitud.Comando:D2} no está soportado en esta etapa");
+        try
+        {
+            RespuestaDelServidor respuesta = _despachador.Despachar(solicitud, _sesion);
+            Informar($"CMD {solicitud.Comando:D2} -> {respuesta.Estado}");
+            EscribirRespuesta(stream, solicitud.Comando, respuesta);
+            return true;
+        }
+        catch (Exception exception) when (exception is not IOException and not SocketException)
+        {
+            Informar($"provocó un error inesperado procesando CMD {solicitud.Comando:D2}: {exception}");
+            IntentarResponderErrorInterno(stream, solicitud.Comando);
+            return false;
+        }
+    }
+
+    private void EscribirRespuesta(NetworkStream stream, int comando, RespuestaDelServidor respuesta)
+        => _codec.Escribir(stream, Trama.CrearRespuesta(comando, respuesta.Codificar()));
+
+    private void IntentarResponderErrorInterno(NetworkStream stream, int comando)
+    {
+        try
+        {
+            EscribirRespuesta(stream, comando, RespuestaDelServidor.Interno("Error interno del servidor"));
+        }
+        catch (IOException)
+        {
+            // El intento de avisar al cliente también puede fallar; la conexión se cierra igual.
+        }
+        catch (SocketException)
+        {
+            // Idem.
+        }
     }
 
     private void Informar(string mensaje)

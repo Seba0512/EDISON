@@ -1,0 +1,36 @@
+using Common.Protocolo;
+using Dominio;
+using Dominio.Excepciones;
+using Dominio.Fachada;
+using Servidor.Red;
+
+namespace Servidor.Comandos;
+
+/// <summary>
+/// CMD 02: inicio de sesión (CR1). Rechaza el intento antes de tocar el dominio si la conexión ya
+/// está autenticada, para no registrar una actividad de inicio de sesión que después se descarta.
+/// </summary>
+internal sealed class ManejadorDeInicioDeSesion : IManejadorDeComando
+{
+    private readonly IAutenticacion _autenticacion;
+
+    public ManejadorDeInicioDeSesion(IAutenticacion autenticacion)
+    {
+        _autenticacion = autenticacion;
+    }
+
+    public RespuestaDelServidor Responder(ReadOnlyMemory<byte> datos, EstadoDeSesion sesion)
+    {
+        ExigirSinSesion(sesion);
+        Credenciales credenciales = CodecDeCredenciales.Decodificar(datos.Span);
+        Usuario usuario = _autenticacion.IniciarSesion(credenciales.NombreUsuario, credenciales.Clave);
+        sesion.Autenticar(usuario);
+        return RespuestaDelServidor.Ok($"Bienvenido, {usuario.NombreUsuario}");
+    }
+
+    private static void ExigirSinSesion(EstadoDeSesion sesion)
+    {
+        if (sesion.TieneSesion)
+            throw new DominioException("La conexión ya tiene una sesión iniciada");
+    }
+}
