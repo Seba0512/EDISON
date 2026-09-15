@@ -26,6 +26,7 @@ internal sealed class ConexionConServidor : IDisposable
             ProtocolType.Tcp);
         try
         {
+            socket.Bind(configuracion.LocalEndpoint);
             socket.Connect(configuracion.Endpoint);
             return new ConexionConServidor(socket, configuracion);
         }
