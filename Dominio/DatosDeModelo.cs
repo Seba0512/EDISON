@@ -71,11 +71,12 @@ public class DatosDeModelo
 
     private static decimal PrecioValidado(decimal precio)
     {
-        if (precio <= 0)
+        decimal precioRedondeado = Math.Round(precio, 0, MidpointRounding.AwayFromZero);
+        if (precioRedondeado <= 0)
         {
             throw new DominioException("El precio debe ser mayor a cero");
         }
 
-        return precio;
+        return precioRedondeado;
     }
 }
