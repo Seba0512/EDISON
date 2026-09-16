@@ -10,6 +10,9 @@ internal sealed class ConfiguracionCliente
     public IPAddress ServerIp { get; private init; } = IPAddress.None;
     public int ServerPort { get; private init; }
     public int MaxPayloadBytes { get; private init; }
+    public string DownloadsDirectory { get; private init; } = string.Empty;
+    public int MaxFileBytes { get; private init; }
+    public int FileBlockBytes { get; private init; }
     public IPEndPoint LocalEndpoint => new(ClientIp, 0);
     public IPEndPoint Endpoint => new(ServerIp, ServerPort);
 
@@ -25,7 +28,10 @@ internal sealed class ConfiguracionCliente
             ClientIp = LeerDireccion("clientIp"),
             ServerIp = LeerDireccion("serverIp"),
             ServerPort = ExigirPuerto(ConfigManager.LeerEntero("serverPort")),
-            MaxPayloadBytes = maxPayload
+            MaxPayloadBytes = maxPayload,
+            DownloadsDirectory = ConfigManager.Leer("downloadsDirectory"),
+            MaxFileBytes = ExigirPositivo("maxFileBytes"),
+            FileBlockBytes = ExigirPositivo("fileBlockBytes")
         };
     }
 
@@ -46,5 +52,15 @@ internal sealed class ConfiguracionCliente
 
         throw new ConfigurationErrorsException(
             "La clave 'serverPort' debe estar entre 1 y 65535");
+    }
+
+    private static int ExigirPositivo(string clave)
+    {
+        int valor = ConfigManager.LeerEntero(clave);
+        if (valor > 0)
+            return valor;
+
+        throw new ConfigurationErrorsException(
+            $"La clave '{clave}' debe ser mayor que cero");
     }
 }

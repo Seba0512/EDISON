@@ -1,7 +1,6 @@
 using Common.Protocolo;
 using Dominio;
 using Dominio.Fachada;
-using Servidor.Red;
 
 namespace Servidor.Comandos;
 
@@ -15,11 +14,10 @@ internal sealed class ManejadorDeCierreDeSesion : ManejadorAutenticado
         _autenticacion = autenticacion;
     }
 
-    protected override RespuestaDelServidor ResponderAutenticado(
-        ReadOnlyMemory<byte> datos, Usuario usuario, EstadoDeSesion sesion)
+    protected override RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario)
     {
         _autenticacion.CerrarSesion(usuario);
-        sesion.Cerrar();
+        solicitud.Sesion.Cerrar();
         return RespuestaDelServidor.Ok("Sesión cerrada");
     }
 }

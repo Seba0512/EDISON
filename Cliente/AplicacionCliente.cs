@@ -1,6 +1,5 @@
 using Cliente.Excepciones;
 using Cliente.Menu;
-using Cliente.Menu.Opciones;
 
 namespace Cliente;
 
@@ -9,7 +8,7 @@ internal static class AplicacionCliente
     public static void Ejecutar(ConexionConServidor conexion)
     {
         EstadoDelMenu estado = new();
-        estado.Inicializar(CrearMenuAnonimo(conexion, estado), CrearMenuAutenticado(conexion, estado));
+        estado.Inicializar(MenuAnonimo.Crear(conexion, estado), MenuAutenticado.Crear(conexion, estado));
         CicloDeMenu(estado);
     }
 
@@ -28,28 +27,4 @@ internal static class AplicacionCliente
             }
         }
     }
-
-    private static MenuDeOpciones CrearMenuAnonimo(ConexionConServidor conexion, EstadoDelMenu estado)
-        => new([
-            new OpcionRegistrarse(conexion),
-            new OpcionIniciarSesion(conexion, estado),
-            new OpcionDeDiagnostico(conexion),
-            new OpcionSalir(estado)
-        ]);
-
-    private static MenuDeOpciones CrearMenuAutenticado(ConexionConServidor conexion, EstadoDelMenu estado)
-        => new([
-            new OpcionNoDisponible("Alta de modelo"),
-            new OpcionNoDisponible("Modificar modelo"),
-            new OpcionNoDisponible("Eliminar modelo"),
-            new OpcionNoDisponible("Buscar modelos"),
-            new OpcionNoDisponible("Consultar modelo"),
-            new OpcionNoDisponible("Solicitar reserva"),
-            new OpcionNoDisponible("Cancelar reserva"),
-            new OpcionNoDisponible("Mis reservas"),
-            new OpcionNoDisponible("Historial"),
-            new OpcionDeDiagnostico(conexion),
-            new OpcionCerrarSesion(conexion, estado),
-            new OpcionSalir(estado)
-        ]);
 }

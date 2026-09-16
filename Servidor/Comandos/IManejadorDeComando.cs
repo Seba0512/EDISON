@@ -1,5 +1,4 @@
 using Common.Protocolo;
-using Servidor.Red;
 
 namespace Servidor.Comandos;
 
@@ -10,5 +9,5 @@ namespace Servidor.Comandos;
 /// </summary>
 internal interface IManejadorDeComando
 {
-    RespuestaDelServidor Responder(ReadOnlyMemory<byte> datos, EstadoDeSesion sesion);
+    RespuestaDelServidor Responder(SolicitudRecibida solicitud);
 }

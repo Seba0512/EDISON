@@ -4,40 +4,62 @@ using Common.Excepciones;
 namespace Common.Protocolo;
 
 /// <summary>
-/// Contenido de un HEADER RES (CR1): <c>[ESTADO 2 ASCII][CONTENIDO UTF-8]</c>. Las fábricas nombran
-/// la intención de cada estado en vez de que los llamadores arrastren las constantes de
-/// <see cref="CodigosDeEstado"/> sueltas.
+/// Contenido de un HEADER RES: <c>[ESTADO 2 ASCII][CUERPO]</c>. En CR1 el cuerpo siempre es texto
+/// UTF-8; desde CR2-CR10 un OK puede llevar campos binarios (<c>[LARGO][UTF-8]</c> repetidos), así
+/// que <see cref="Cuerpo"/> se expone crudo y <see cref="Contenido"/> lo decodifica recién si alguien
+/// lo pide. ER/PR/IN siguen siendo siempre texto: ninguna fábrica de error acepta otra cosa.
 /// </summary>
 public sealed class RespuestaDelServidor
 {
-    private RespuestaDelServidor(string estado, string contenido)
+    private readonly byte[] _cuerpo;
+    private string? _contenido;
+
+    private RespuestaDelServidor(string estado, byte[] cuerpo)
     {
         Estado = estado;
-        Contenido = contenido;
+        _cuerpo = cuerpo;
     }
 
     public string Estado { get; }
-    public string Contenido { get; }
+
+    public ReadOnlyMemory<byte> Cuerpo => _cuerpo;
+
+    /// <summary>Decodifica el cuerpo como UTF-8. Válido siempre en ER/PR/IN; en OK sólo si ese comando responde texto plano.</summary>
+    public string Contenido => _contenido ??= TextoUtf8.Decodificar(_cuerpo);
+
+    /// <summary>
+    /// Acción que se ejecuta sobre el stream de la conexión recién después de que el RES salió por la
+    /// red (CMD 16): un manejador no puede escribir el archivo durante <c>Responder</c> porque el RES
+    /// todavía no se escribió, así que la deja pendiente acá.
+    /// </summary>
+    public Action<Stream>? AccionPosterior { get; private init; }
 
     public static RespuestaDelServidor Ok(string contenido)
-        => new(CodigosDeEstado.Ok, contenido);
+        => new(CodigosDeEstado.Ok, TextoUtf8.Codificar(contenido));
+
+    /// <summary>OK con campos binarios en el cuerpo (listas y fichas de CR2-CR10).</summary>
+    public static RespuestaDelServidor Ok(byte[] cuerpo)
+        => new(CodigosDeEstado.Ok, cuerpo);
+
+    /// <summary>OK cuyo cuerpo va seguido, fuera de frame, por un archivo (CMD 16).</summary>
+    public static RespuestaDelServidor OkConEnvioPosterior(byte[] cuerpo, Action<Stream> accionPosterior)
+        => new(CodigosDeEstado.Ok, cuerpo) { AccionPosterior = accionPosterior };
 
     public static RespuestaDelServidor Rechazo(string mensaje)
-        => new(CodigosDeEstado.Error, mensaje);
+        => new(CodigosDeEstado.Error, TextoUtf8.Codificar(mensaje));
 
     public static RespuestaDelServidor Protocolo(string mensaje)
-        => new(CodigosDeEstado.Protocolo, mensaje);
+        => new(CodigosDeEstado.Protocolo, TextoUtf8.Codificar(mensaje));
 
     public static RespuestaDelServidor Interno(string mensaje)
-        => new(CodigosDeEstado.Interno, mensaje);
+        => new(CodigosDeEstado.Interno, TextoUtf8.Codificar(mensaje));
 
     public byte[] Codificar()
     {
         byte[] estado = Encoding.ASCII.GetBytes(Estado);
-        byte[] contenido = TextoUtf8.Codificar(Contenido);
-        byte[] resultado = new byte[estado.Length + contenido.Length];
+        byte[] resultado = new byte[estado.Length + _cuerpo.Length];
         estado.CopyTo(resultado, 0);
-        contenido.CopyTo(resultado, estado.Length);
+        _cuerpo.CopyTo(resultado, estado.Length);
         return resultado;
     }
 
@@ -45,9 +67,9 @@ public sealed class RespuestaDelServidor
     {
         ExigirLargoMinimo(datos);
         string estado = Encoding.ASCII.GetString(datos[..CodigosDeEstado.LargoEstado]);
-        string contenido = TextoUtf8.Decodificar(datos[CodigosDeEstado.LargoEstado..]);
         ExigirEstadoConocido(estado);
-        return new RespuestaDelServidor(estado, contenido);
+        byte[] cuerpo = datos[CodigosDeEstado.LargoEstado..].ToArray();
+        return new RespuestaDelServidor(estado, cuerpo);
     }
 
     private static void ExigirLargoMinimo(ReadOnlySpan<byte> datos)
