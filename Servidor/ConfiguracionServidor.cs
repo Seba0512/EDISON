@@ -11,6 +11,11 @@ internal sealed class ConfiguracionServidor
     public int Backlog { get; private init; }
     public int MaxPayloadBytes { get; private init; }
     public int JoinTimeoutMilliseconds { get; private init; }
+    public int ReservationDelaySeconds { get; private init; }
+    public int ApprovalIntervalMilliseconds { get; private init; }
+    public string ImagesDirectory { get; private init; } = string.Empty;
+    public int MaxFileBytes { get; private init; }
+    public int FileBlockBytes { get; private init; }
     public IPEndPoint Endpoint => new(ListenIp, ListenPort);
 
     public static ConfiguracionServidor Cargar()
@@ -21,7 +26,12 @@ internal sealed class ConfiguracionServidor
             ListenPort = ExigirPuerto(ConfigManager.LeerEntero("listenPort")),
             Backlog = ExigirPositivo("backlog"),
             MaxPayloadBytes = ExigirPositivo("maxPayloadBytes"),
-            JoinTimeoutMilliseconds = ExigirPositivo("joinTimeoutMilliseconds")
+            JoinTimeoutMilliseconds = ExigirPositivo("joinTimeoutMilliseconds"),
+            ReservationDelaySeconds = ExigirPositivo("reservationDelaySeconds"),
+            ApprovalIntervalMilliseconds = ExigirPositivo("approvalIntervalMilliseconds"),
+            ImagesDirectory = ConfigManager.Leer("imagesDirectory"),
+            MaxFileBytes = ExigirPositivo("maxFileBytes"),
+            FileBlockBytes = ExigirPositivo("fileBlockBytes")
         };
     }
 
