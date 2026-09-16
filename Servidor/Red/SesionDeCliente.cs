@@ -100,8 +100,13 @@ internal sealed class SesionDeCliente
     }
 
     private void Informar(string mensaje)
-        => Console.WriteLine(
-            $"[Cliente {_conexion.Numero} | Thread {Environment.CurrentManagedThreadId}] {mensaje}");
+        => Console.WriteLine($"[{Identidad()} | Thread {Environment.CurrentManagedThreadId}] {mensaje}");
+
+    // Con sesión iniciada identifica por nombre de usuario. El número cambia en cada reconexión.
+    private string Identidad()
+        => _sesion.TieneSesion
+            ? _sesion.UsuarioAutenticado.NombreUsuario
+            : $"Cliente {_conexion.Numero}";
 
     private string Describir(Exception exception)
         => exception switch
