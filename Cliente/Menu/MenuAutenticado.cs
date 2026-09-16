@@ -13,7 +13,7 @@ internal static class MenuAutenticado
     public static MenuDeOpciones Crear(ConexionConServidor conexion, EstadoDelMenu estado)
         => new([
             new OpcionAltaDeModelo(conexion),
-            new OpcionNoDisponible("Modificar modelo"),
+            new OpcionModificarModelo(conexion),
             new OpcionNoDisponible("Eliminar modelo"),
             new OpcionBuscarModelos(conexion),
             new OpcionConsultarModelo(conexion),
