@@ -16,4 +16,12 @@ internal interface IRepositorioDeImagenes
     bool Existe(string nombreArchivo);
 
     long TamanioDe(string nombreArchivo);
+
+    /// <summary>
+    /// Deshace una subida fallida (CMD 15: la ficha se rechazo despues de guardar el archivo). Mismo
+    /// contrato que <see cref="Dominio.IAlmacenDeImagenes.Eliminar"/> (no falla si el archivo no
+    /// esta): <see cref="AlmacenDeImagenesEnDisco"/> implementa un unico metodo que satisface ambas
+    /// interfaces, para no duplicar la logica de borrado.
+    /// </summary>
+    void Eliminar(string nombreArchivo);
 }
