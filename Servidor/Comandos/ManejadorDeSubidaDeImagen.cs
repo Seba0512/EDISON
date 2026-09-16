@@ -58,6 +58,7 @@ internal sealed class ManejadorDeSubidaDeImagen : ManejadorAutenticado
         string extension = Path.GetExtension(nombreValidado);
 
         Modelo modelo = _catalogoDeModelos.Consultar(nombreModelo);
+        string nombreArchivoAnterior = modelo.NombreArchivoImagen;
 
         string nombreArchivoNuevo = $"{Guid.NewGuid():N}{extension}";
         _repositorioDeImagenes.Guardar(nombreArchivoNuevo, buffer);
@@ -78,6 +79,11 @@ internal sealed class ManejadorDeSubidaDeImagen : ManejadorAutenticado
         {
             _repositorioDeImagenes.Eliminar(nombreArchivoNuevo);
             throw;
+        }
+
+        if (nombreArchivoAnterior.Length > 0)
+        {
+            _repositorioDeImagenes.Eliminar(nombreArchivoAnterior);
         }
 
         return RespuestaDelServidor.Ok($"Imagen subida para el modelo '{modelo.Nombre}'");
