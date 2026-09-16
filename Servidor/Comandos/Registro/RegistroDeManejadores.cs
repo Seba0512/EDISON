@@ -24,7 +24,7 @@ internal static class RegistroDeManejadores
             [Common.Protocolo.Comandos.SubirImagen] = new ManejadorNoDisponible(Common.Protocolo.Comandos.SubirImagen),
             [Common.Protocolo.Comandos.DescargarImagen] = new ManejadorNoDisponible(Common.Protocolo.Comandos.DescargarImagen),
             [Common.Protocolo.Comandos.SolicitarReserva] = new ManejadorDeSolicitudDeReserva(servicios.GestionDeReservas),
-            [Common.Protocolo.Comandos.CancelarReserva] = new ManejadorNoDisponible(Common.Protocolo.Comandos.CancelarReserva),
+            [Common.Protocolo.Comandos.CancelarReserva] = new ManejadorDeCancelacionDeReserva(servicios.GestionDeReservas),
             [Common.Protocolo.Comandos.ConsultarMisReservas] = new ManejadorDeConsultaDeReservas(servicios.GestionDeReservas),
             [Common.Protocolo.Comandos.ConsultarHistorial] = new ManejadorDeHistorial(servicios.HistorialDeUsuario)
         };
