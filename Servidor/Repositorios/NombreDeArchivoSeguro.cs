@@ -2,6 +2,7 @@ using Common.Excepciones;
 
 namespace Servidor.Repositorios;
 
+// Valida el nombre para que nadie pueda salirse de la carpeta de imágenes con rutas armadas.
 internal static class NombreDeArchivoSeguro
 {
     private static readonly string[] ExtensionesPermitidas = { ".png", ".jpg", ".jpeg" };

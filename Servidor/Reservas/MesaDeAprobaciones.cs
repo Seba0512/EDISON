@@ -49,6 +49,7 @@ internal sealed class MesaDeAprobaciones
         lock (_candado)
         {
             if (!_detenida)
+                // Monitor.Wait en vez de Sleep para que Detener() pueda despertar el ciclo de inmediato.
                 Monitor.Wait(_candado, _intervalo);
 
             return !_detenida;
@@ -61,6 +62,7 @@ internal sealed class MesaDeAprobaciones
         {
             _resolucionDeReservas.ResolverVencidas();
         }
+        // Sin este catch una excepción mataría el Thread en silencio y no se resolverían más reservas.
         catch (Exception exception)
         {
             Console.Error.WriteLine($"La mesa de aprobaciones falló al resolver reservas: {exception}");

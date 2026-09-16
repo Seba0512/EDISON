@@ -108,6 +108,7 @@ internal sealed class ServidorTcp : IDisposable
             }
             catch (ObjectDisposedException) when (EstaDetenido())
             {
+                // Detener() cerró el listener. Este es el final esperado del bucle, no un error.
                 return;
             }
             catch (SocketException) when (EstaDetenido())

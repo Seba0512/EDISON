@@ -13,6 +13,7 @@ internal sealed class AlmacenDeImagenesEnDisco : IRepositorioDeImagenes, Dominio
     public void Guardar(string nombreArchivo, Stream contenido)
     {
         string ruta = RutaDe(nombreArchivo);
+        // Se escribe a un .tmp y luego se mueve, para no dejar una imagen a medias si falla la copia.
         string rutaTemporal = ruta + ".tmp";
         try
         {

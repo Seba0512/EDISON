@@ -51,6 +51,7 @@ internal sealed class ConexionActiva
         }
         catch (SocketException)
         {
+            // El socket ya puede estar cerrado por el cliente o por otro hilo. Cerrarlo de nuevo no es un error.
         }
         catch (ObjectDisposedException)
         {

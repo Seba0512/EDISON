@@ -70,6 +70,7 @@ internal sealed class SesionDeCliente
         }
         catch (TransferenciaDeArchivoException)
         {
+            // La transferencia quedó a medias y ya no se sabe dónde empieza la próxima trama. Hay que cerrar.
             throw;
         }
         catch (Exception exception) when (exception is not IOException and not SocketException)
@@ -91,6 +92,7 @@ internal sealed class SesionDeCliente
         }
         catch (IOException)
         {
+            // Avisar el error al cliente también puede fallar. La conexión se cierra igual.
         }
         catch (SocketException)
         {
