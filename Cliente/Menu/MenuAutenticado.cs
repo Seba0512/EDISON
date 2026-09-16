@@ -16,7 +16,6 @@ internal static class MenuAutenticado
             new OpcionMisReservas(conexion),
             new OpcionHistorial(conexion),
             new OpcionDeDiagnostico(conexion),
-            new OpcionCerrarSesion(conexion, estado),
-            new OpcionSalir(estado)
+            new OpcionCerrarSesion(conexion, estado)
         ]);
 }
