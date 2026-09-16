@@ -12,9 +12,14 @@ internal sealed class ConexionConServidor : IDisposable
     private readonly CodecDeTramas _codec;
     private readonly CanalDeArchivos _canalDeArchivos;
     private readonly long _maxFileBytes;
+    private readonly object _candadoDeSocket = new();
+    private readonly MonitorDeConexion _monitor;
     private int _cerrada;
 
     public string DownloadsDirectory { get; }
+
+    // Se dispara desde el hilo del monitor: puede llegar mientras el hilo principal está bloqueado en el menú.
+    public event Action? ConexionPerdida;
 
     private ConexionConServidor(Socket socket, ConfiguracionCliente configuracion)
     {
@@ -25,6 +30,7 @@ internal sealed class ConexionConServidor : IDisposable
         _canalDeArchivos = new CanalDeArchivos(configuracion.FileBlockBytes);
         _maxFileBytes = configuracion.MaxFileBytes;
         DownloadsDirectory = configuracion.DownloadsDirectory;
+        _monitor = new MonitorDeConexion(socket, _candadoDeSocket, () => ConexionPerdida?.Invoke());
     }
 
     public static ConexionConServidor Conectar(ConfiguracionCliente configuracion)
@@ -81,32 +87,38 @@ internal sealed class ConexionConServidor : IDisposable
             throw new OperacionRechazadaException(
                 $"El archivo supera el tamaño máximo permitido ({_maxFileBytes} bytes)");
 
-        _codec.Escribir(_stream, Trama.CrearSolicitud(comando, datos));
-        using (FileStream origen = archivo.OpenRead())
-            _canalDeArchivos.Enviar(_stream, origen, archivo.Length);
+        lock (_candadoDeSocket)
+        {
+            _codec.Escribir(_stream, Trama.CrearSolicitud(comando, datos));
+            using (FileStream origen = archivo.OpenRead())
+                _canalDeArchivos.Enviar(_stream, origen, archivo.Length);
 
-        Trama respuesta = LeerRespuesta(comando);
-        RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta.Datos.Span);
-        return ReaccionesAEstado.Aplicar(contenido);
+            Trama respuesta = LeerRespuesta(comando);
+            RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta.Datos.Span);
+            return ReaccionesAEstado.Aplicar(contenido);
+        }
     }
 
     public long RecibirArchivoEn(string rutaDestino)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
         string rutaTemporal = rutaDestino + ".tmp";
-        try
+        lock (_candadoDeSocket)
         {
-            long tamanio;
-            using (FileStream destino = File.Create(rutaTemporal))
-                tamanio = _canalDeArchivos.RecibirEn(_stream, destino, _maxFileBytes);
+            try
+            {
+                long tamanio;
+                using (FileStream destino = File.Create(rutaTemporal))
+                    tamanio = _canalDeArchivos.RecibirEn(_stream, destino, _maxFileBytes);
 
-            File.Move(rutaTemporal, rutaDestino, overwrite: true);
-            return tamanio;
-        }
-        catch
-        {
-            File.Delete(rutaTemporal);
-            throw;
+                File.Move(rutaTemporal, rutaDestino, overwrite: true);
+                return tamanio;
+            }
+            catch
+            {
+                File.Delete(rutaTemporal);
+                throw;
+            }
         }
     }
 
@@ -115,6 +127,8 @@ internal sealed class ConexionConServidor : IDisposable
         if (Interlocked.Exchange(ref _cerrada, 1) != 0)
             return;
 
+        // Se detiene antes de cerrar el socket para que un cierre intencional no dispare ConexionPerdida.
+        _monitor.Dispose();
         IntentarShutdown();
         _stream.Dispose();
         _socket.Dispose();
@@ -123,8 +137,11 @@ internal sealed class ConexionConServidor : IDisposable
     private Trama EnviarYLeer(int comando, byte[] datos)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
-        _codec.Escribir(_stream, Trama.CrearSolicitud(comando, datos));
-        return LeerRespuesta(comando);
+        lock (_candadoDeSocket)
+        {
+            _codec.Escribir(_stream, Trama.CrearSolicitud(comando, datos));
+            return LeerRespuesta(comando);
+        }
     }
 
     private Trama LeerRespuesta(int comando)

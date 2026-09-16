@@ -48,7 +48,17 @@ internal static class Program
     {
         ConfiguracionCliente configuracion = ConfiguracionCliente.Cargar();
         using ConexionConServidor conexion = ConexionConServidor.Conectar(configuracion);
+        conexion.ConexionPerdida += AlPerderConexion;
         Console.WriteLine($"Conectado a {configuracion.Endpoint}");
         AplicacionCliente.Ejecutar(conexion);
+    }
+
+    // Puede dispararse mientras el hilo principal está bloqueado esperando entrada por consola,
+    // por eso avisa y termina el proceso directamente en vez de intentar volver al menú.
+    private static void AlPerderConexion()
+    {
+        Console.Error.WriteLine();
+        Console.Error.WriteLine("Se perdió la conexión con el servidor.");
+        Environment.Exit(1);
     }
 }
