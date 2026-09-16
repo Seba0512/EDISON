@@ -2,7 +2,6 @@ using Servidor.Composicion;
 
 namespace Servidor.Comandos.Registro;
 
-/// <summary>Mapa CMD → manejador (CR1-CR10): los quince comandos del protocolo con su manejador real.</summary>
 internal static class RegistroDeManejadores
 {
     public static IReadOnlyDictionary<int, IManejadorDeComando> Crear(ServiciosDelServidor servicios)

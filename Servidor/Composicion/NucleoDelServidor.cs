@@ -8,11 +8,6 @@ using Servidor.Reservas;
 
 namespace Servidor.Composicion;
 
-/// <summary>
-/// Composition root del servidor: arma los repositorios, el dominio, el despachador de comandos y la
-/// mesa de aprobaciones a partir de la <see cref="ConfiguracionServidor"/> cargada. Vive separado de
-/// <see cref="ServidorTcp"/> para que agregar CMD 10-30 no requiera abrir esa clase.
-/// </summary>
 internal sealed class NucleoDelServidor
 {
     public DespachadorDeComandos Despachador { get; }

@@ -4,11 +4,6 @@ using Dominio.Repositorios;
 
 namespace Servidor.Repositorios;
 
-/// <summary>
-/// Implementación productiva de <see cref="IRepositorioDeReservas"/> (CR5, CR6, CR9): índice de
-/// reservas en memoria. Portado tal cual desde el doble ya validado por
-/// <c>RepositoriosConcurrentesTests</c> en <c>Dominio.Tests</c>.
-/// </summary>
 internal sealed class RepositorioDeReservasEnMemoria : IRepositorioDeReservas
 {
     private readonly object _candado = new();

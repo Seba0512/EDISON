@@ -6,10 +6,6 @@ using Servidor.Red;
 
 namespace Servidor.Comandos;
 
-/// <summary>
-/// CMD 02: inicio de sesión (CR1). Rechaza el intento antes de tocar el dominio si la conexión ya
-/// está autenticada, para no registrar una actividad de inicio de sesión que después se descarta.
-/// </summary>
 internal sealed class ManejadorDeInicioDeSesion : IManejadorDeComando
 {
     private readonly IAutenticacion _autenticacion;

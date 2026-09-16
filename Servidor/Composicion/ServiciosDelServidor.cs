@@ -3,12 +3,6 @@ using Servidor.Repositorios;
 
 namespace Servidor.Composicion;
 
-/// <summary>
-/// Objeto parámetro con los colaboradores que necesitan los manejadores de CR2-CR10 (ISP): cada uno
-/// depende de la interfaz chica que le corresponde en vez de recibir <c>Edison</c> entero. Las cuatro
-/// primeras propiedades apuntan a la misma instancia de <c>Edison</c>, armada en
-/// <see cref="NucleoDelServidor"/>.
-/// </summary>
 internal sealed class ServiciosDelServidor
 {
     public IAutenticacion Autenticacion { get; }

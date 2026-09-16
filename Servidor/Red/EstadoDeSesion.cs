@@ -3,11 +3,6 @@ using Dominio.Excepciones;
 
 namespace Servidor.Red;
 
-/// <summary>
-/// Sesión de dominio de una conexión TCP (CR1): cero o un <see cref="Usuario"/> autenticado.
-/// No es un registro global de sesiones activas, así que la misma cuenta puede autenticarse desde
-/// varias conexiones a la vez; esa decisión vive en <c>protocolo-base.md</c>, no acá.
-/// </summary>
 internal sealed class EstadoDeSesion
 {
     private Usuario? _usuario;

@@ -3,12 +3,6 @@ using Dominio.Busqueda;
 
 namespace Servidor.Busqueda;
 
-/// <summary>
-/// Traduce los <see cref="FiltrosDeBusqueda"/> del protocolo (CMD 13, CR7) al
-/// <see cref="ICriterioDeBusqueda"/> que espera <c>ICatalogoDeModelos.Buscar</c>, componiendo con
-/// <see cref="CriterioCompuesto"/> únicamente los criterios de dominio cuyo filtro llegó presente.
-/// No reimplementa ninguna regla de filtrado: sólo decide qué criterios ya existentes armar.
-/// </summary>
 internal static class FabricaDeCriterios
 {
     public static ICriterioDeBusqueda Crear(FiltrosDeBusqueda filtros)

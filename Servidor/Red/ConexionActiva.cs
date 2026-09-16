@@ -48,11 +48,9 @@ internal sealed class ConexionActiva
         }
         catch (SocketException)
         {
-            // El socket ya puede estar cerrado por el extremo remoto.
         }
         catch (ObjectDisposedException)
         {
-            // Cerrar es idempotente para coordinar handler y shutdown.
         }
     }
 

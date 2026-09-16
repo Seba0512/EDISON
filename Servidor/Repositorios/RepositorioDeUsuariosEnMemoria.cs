@@ -4,10 +4,6 @@ using Dominio.Repositorios;
 
 namespace Servidor.Repositorios;
 
-/// <summary>
-/// Implementación productiva de <see cref="IRepositorioDeUsuarios"/> (CR1): usuarios en memoria,
-/// vivos mientras el proceso del servidor esté en pie.
-/// </summary>
 internal sealed class RepositorioDeUsuariosEnMemoria : IRepositorioDeUsuarios
 {
     private readonly object _candado = new();

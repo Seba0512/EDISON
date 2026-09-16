@@ -5,15 +5,6 @@ using Servidor.Red;
 
 namespace Servidor.Comandos;
 
-/// <summary>
-/// Enruta cada solicitud al <see cref="IManejadorDeComando"/> registrado para su CMD (sin switch) y
-/// traduce las excepciones de negocio y de protocolo a la respuesta que le corresponde. Un CMD sin
-/// manejador o una trama que llega con HEADER RES responde PR con el mismo CMD, para que la conexión
-/// siga viva (regla del mapa: PR siempre es recuperable).
-///
-/// No atrapa <see cref="TransferenciaDeArchivoException"/>: un fallo a mitad de archivo desincroniza
-/// el stream y debe propagarse como fatal, no traducirse a una respuesta más.
-/// </summary>
 internal sealed class DespachadorDeComandos
 {
     private readonly IReadOnlyDictionary<int, IManejadorDeComando> _manejadores;
