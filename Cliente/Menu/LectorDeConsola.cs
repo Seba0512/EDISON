@@ -38,6 +38,12 @@ internal static class LectorDeConsola
         }
     }
 
+    public static bool Confirmar(string mensaje)
+    {
+        string? respuesta = LeerTexto(mensaje);
+        return respuesta is not null && respuesta.Equals("s", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static decimal? LeerDecimal(string mensaje)
     {
         while (true)

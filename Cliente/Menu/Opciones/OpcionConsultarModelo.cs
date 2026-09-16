@@ -35,8 +35,7 @@ internal sealed class OpcionConsultarModelo : IOpcionDeMenu
         if (detalle.NombreArchivoImagen.Length == 0)
             return;
 
-        string? respuesta = LectorDeConsola.LeerTexto("¿Desea descargar la imagen? (s/n):");
-        if (respuesta is null || !respuesta.Trim().Equals("s", StringComparison.OrdinalIgnoreCase))
+        if (!LectorDeConsola.Confirmar("¿Desea descargar la imagen? (s/n):"))
             return;
 
         Console.WriteLine(_descargaDeImagenRemota.Ejecutar(nombreModelo));
