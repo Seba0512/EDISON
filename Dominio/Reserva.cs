@@ -10,6 +10,7 @@ public class Reserva
     private readonly Modelo modelo;
     private readonly IReloj reloj;
     private EstadoDeReserva estado;
+    // Solo una reserva confirmada tiene unidad asignada. En cualquier otro estado no hay unidad.
     private Vehiculo? vehiculoAsignado;
 
     public Guid Id { get; }
@@ -92,6 +93,7 @@ public class Reserva
         PasarA(estado.Rechazar());
     }
 
+    // La cancelación va en dos pasos y el modelo libera la unidad entre uno y otro, bajo su candado.
     internal EstadoDeReserva PrepararCancelacion()
     {
         EstadoDeReserva estadoCancelado = estado.Cancelar();

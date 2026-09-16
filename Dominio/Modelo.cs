@@ -6,6 +6,7 @@ namespace Dominio;
 
 public class Modelo : IVehiculoBuscable
 {
+    // Este candado cuida los datos, el stock y las reservas. Nunca se toma junto al de un repositorio.
     private readonly object candado = new();
     private readonly StockDeUnidades stock;
     private readonly List<Reserva> reservas = new();
@@ -201,6 +202,7 @@ public class Modelo : IVehiculoBuscable
                     $"No se puede eliminar el modelo {Nombre} porque tiene reservas activas");
             }
 
+            // Se guarda el nombre de la imagen para borrar el archivo después, ya fuera del candado.
             string nombreArchivoImagen = datos.NombreArchivoImagen;
             eliminado = true;
 
@@ -259,6 +261,7 @@ public class Modelo : IVehiculoBuscable
         }
     }
 
+    // Reserva lo llama con el candado ya tomado. Volver a tomarlo en el mismo hilo no traba.
     internal bool ContieneUnidad(Vehiculo unidad)
     {
         lock (candado)
@@ -267,6 +270,7 @@ public class Modelo : IVehiculoBuscable
         }
     }
 
+    // Siempre se llama con el candado ya tomado, por eso no lo vuelve a tomar.
     private int ContarReservasActivas()
     {
         return reservas.Count(reserva => reserva.EstaActiva);
@@ -298,6 +302,7 @@ public class Modelo : IVehiculoBuscable
         }
     }
 
+    // Se permite reponer stock para que un modelo agotado no quede congelado para siempre.
     private void ExigirDisponibleOStockEnAumento(int stockNuevo)
     {
         if (!stock.HayAlgunaDisponible && stockNuevo <= stock.Total)

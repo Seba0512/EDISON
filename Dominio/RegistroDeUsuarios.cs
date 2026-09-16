@@ -26,6 +26,7 @@ public class RegistroDeUsuarios : IAutenticacion, IHistorialDeUsuario
 
     public Usuario IniciarSesion(string nombreUsuario, string clave)
     {
+        // Misma excepcion en ambos casos para no revelar que usuarios existen.
         if (!usuarios.Existe(nombreUsuario))
         {
             throw new CredencialesInvalidasException();

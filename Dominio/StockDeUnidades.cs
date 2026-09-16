@@ -2,6 +2,7 @@ using Dominio.Excepciones;
 
 namespace Dominio;
 
+// No tiene candado propio. Siempre se usa bajo el candado del Modelo que lo contiene.
 internal class StockDeUnidades
 {
     private readonly List<Vehiculo> unidades = new();

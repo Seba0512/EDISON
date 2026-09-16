@@ -55,6 +55,7 @@ public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
 
     public void ResolverVencidas()
     {
+        // Se resuelven en orden de llegada. Con poco stock gana la solicitud más vieja.
         List<Reserva> vencidas = reservas.Pendientes()
             .Where(reserva => reserva.VencioElPlazo(segundosDeAprobacion))
             .OrderBy(reserva => reserva.FechaCreacion)
@@ -66,6 +67,7 @@ public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
     private void Resolver(Reserva reserva)
     {
         ResultadoResolucion resultado = reserva.Resolver();
+        // Solo una confirmación cuenta como compra en el historial. Un rechazo no registra nada.
         if (resultado == ResultadoResolucion.Confirmada)
         {
             RegistrarLaCompra(reserva);

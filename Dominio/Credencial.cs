@@ -15,6 +15,7 @@ public class Credencial
     public Credencial(string clave)
     {
         ExigirClaveValida(clave);
+        // Cada credencial usa un salt distinto, así dos claves iguales no generan el mismo hash.
         salt = RandomNumberGenerator.GetBytes(LargoDelSalt);
         resumen = ResumenDe(clave, salt);
     }
@@ -26,6 +27,7 @@ public class Credencial
             return false;
         }
 
+        // La comparación siempre tarda lo mismo para no dar pistas de cuántos bytes coinciden.
         return CryptographicOperations.FixedTimeEquals(resumen, ResumenDe(claveIngresada, salt));
     }
 

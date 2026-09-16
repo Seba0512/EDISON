@@ -11,6 +11,7 @@ public class Historial
         {
             lock (candado)
             {
+                // Devuelve una copia porque otro hilo puede agregar una actividad mientras se recorre la lista.
                 return actividades.ToList();
             }
         }
