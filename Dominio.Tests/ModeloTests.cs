@@ -239,4 +239,62 @@ public class ModeloTests
         Assert.AreEqual(string.Empty, modelo.NombreArchivoImagen);
         Assert.IsFalse(modelo.TieneImagen);
     }
+
+    [TestMethod]
+    public void ElPrecioSeRedondeaSinDecimales()
+    {
+        Assert.AreEqual(39990m, DatosCon(NombreModelo, 39990.4m).Precio);
+        Assert.AreEqual(39991m, DatosCon(NombreModelo, 39990.5m).Precio);
+    }
+
+    [TestMethod]
+    [ExpectedException(typeof(DominioException))]
+    public void UnPrecioQueRedondeaACeroFalla()
+    {
+        _ = DatosCon(NombreModelo, 0.4m);
+    }
+
+    [TestMethod]
+    public void CambiarImagenReemplazaLaImagenYDevuelveLaAnterior()
+    {
+        modelo.Modificar(new FichaDeModelo(
+            new DatosDeModelo(NombreModelo, "Sedan electrico", 45000m, new DateTime(2027, 3, 1), "vieja.png"),
+            StockInicial), creadora);
+
+        string anterior = modelo.CambiarImagen(creadora, "nueva.png");
+
+        Assert.AreEqual("vieja.png", anterior);
+        Assert.AreEqual("nueva.png", modelo.NombreArchivoImagen);
+    }
+
+    [TestMethod]
+    public void CambiarImagenDeUnModeloSinImagenPreviaDevuelveCadenaVacia()
+    {
+        string anterior = modelo.CambiarImagen(creadora, "nueva.png");
+
+        Assert.AreEqual(string.Empty, anterior);
+        Assert.AreEqual("nueva.png", modelo.NombreArchivoImagen);
+    }
+
+    [TestMethod]
+    public void CambiarImagenDeUnModeloAjenoFalla()
+    {
+        Usuario otraUsuaria = new Usuario("sgomez", "clave1234");
+
+        Assert.ThrowsException<DominioException>(() => modelo.CambiarImagen(otraUsuaria, "nueva.png"));
+    }
+
+    [TestMethod]
+    public void CambiarImagenNoRequiereUnidadesDisponibles()
+    {
+        for (int confirmadas = 0; confirmadas < StockInicial; confirmadas++)
+        {
+            ReservaConfirmada();
+        }
+
+        string anterior = modelo.CambiarImagen(creadora, "nueva.png");
+
+        Assert.AreEqual(string.Empty, anterior);
+        Assert.AreEqual("nueva.png", modelo.NombreArchivoImagen);
+    }
 }
