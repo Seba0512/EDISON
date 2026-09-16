@@ -8,6 +8,7 @@ internal static class PresentadorDeReservas
 
     public static void Mostrar(IReadOnlyList<ReservaListada> reservas)
     {
+        Console.WriteLine("Mis reservas:");
         if (reservas.Count == 0)
         {
             Console.WriteLine("No tenés reservas.");
