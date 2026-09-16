@@ -11,17 +11,23 @@ internal sealed class SesionDeCliente
     private readonly CodecDeTramas _codec;
     private readonly DespachadorDeComandos _despachador;
     private readonly EstadoDeSesion _sesion;
+    private readonly CanalDeArchivos _canalDeArchivos;
+    private readonly long _maxFileBytes;
 
     public SesionDeCliente(
         ConexionActiva conexion,
         CodecDeTramas codec,
         DespachadorDeComandos despachador,
-        EstadoDeSesion sesion)
+        EstadoDeSesion sesion,
+        CanalDeArchivos canalDeArchivos,
+        long maxFileBytes)
     {
         _conexion = conexion;
         _codec = codec;
         _despachador = despachador;
         _sesion = sesion;
+        _canalDeArchivos = canalDeArchivos;
+        _maxFileBytes = maxFileBytes;
     }
 
     public void Atender()
@@ -43,22 +49,31 @@ internal sealed class SesionDeCliente
 
     private void AtenderMensajes(NetworkStream stream)
     {
+        ArchivosDeSesion archivos = new(stream, _canalDeArchivos, _maxFileBytes);
         while (_conexion.EstaAbierta)
         {
             Trama solicitud = _codec.Leer(stream);
-            if (!AtenderSolicitud(stream, solicitud))
+            if (!AtenderSolicitud(stream, solicitud, archivos))
                 return;
         }
     }
 
-    private bool AtenderSolicitud(NetworkStream stream, Trama solicitud)
+    private bool AtenderSolicitud(NetworkStream stream, Trama solicitud, ArchivosDeSesion archivos)
     {
         try
         {
-            RespuestaDelServidor respuesta = _despachador.Despachar(solicitud, _sesion);
+            RespuestaDelServidor respuesta = _despachador.Despachar(solicitud, _sesion, archivos);
             Informar($"CMD {solicitud.Comando:D2} -> {respuesta.Estado}");
             EscribirRespuesta(stream, solicitud.Comando, respuesta);
+            respuesta.AccionPosterior?.Invoke(stream);
             return true;
+        }
+        catch (TransferenciaDeArchivoException)
+        {
+            // El stream quedó desincronizado a mitad de una transferencia: no hay forma de seguir
+            // atendiendo esta conexión, así que se propaga para que Atender() la cierre sin más
+            // intentos de escritura.
+            throw;
         }
         catch (Exception exception) when (exception is not IOException and not SocketException)
         {
@@ -96,6 +111,7 @@ internal sealed class SesionDeCliente
         {
             ConexionCerradaException => "cerró la conexión",
             TramaTruncadaException => $"envió una trama truncada: {exception.Message}",
+            TransferenciaDeArchivoException => $"falló durante una transferencia de archivo: {exception.Message}",
             ProtocoloException => $"provocó un error de protocolo: {exception.Message}",
             ObjectDisposedException when !_conexion.EstaAbierta =>
                 "finalizó la comunicación durante el cierre solicitado",

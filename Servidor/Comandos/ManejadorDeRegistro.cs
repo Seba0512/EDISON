@@ -1,6 +1,5 @@
 using Common.Protocolo;
 using Dominio.Fachada;
-using Servidor.Red;
 
 namespace Servidor.Comandos;
 
@@ -14,9 +13,9 @@ internal sealed class ManejadorDeRegistro : IManejadorDeComando
         _autenticacion = autenticacion;
     }
 
-    public RespuestaDelServidor Responder(ReadOnlyMemory<byte> datos, EstadoDeSesion sesion)
+    public RespuestaDelServidor Responder(SolicitudRecibida solicitud)
     {
-        Credenciales credenciales = CodecDeCredenciales.Decodificar(datos.Span);
+        Credenciales credenciales = CodecDeCredenciales.Decodificar(solicitud.Datos.Span);
         _autenticacion.Registrar(credenciales.NombreUsuario, credenciales.Clave);
         return RespuestaDelServidor.Ok($"Usuario '{credenciales.NombreUsuario}' registrado");
     }

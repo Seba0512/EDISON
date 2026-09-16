@@ -19,12 +19,12 @@ internal sealed class ManejadorDeInicioDeSesion : IManejadorDeComando
         _autenticacion = autenticacion;
     }
 
-    public RespuestaDelServidor Responder(ReadOnlyMemory<byte> datos, EstadoDeSesion sesion)
+    public RespuestaDelServidor Responder(SolicitudRecibida solicitud)
     {
-        ExigirSinSesion(sesion);
-        Credenciales credenciales = CodecDeCredenciales.Decodificar(datos.Span);
+        ExigirSinSesion(solicitud.Sesion);
+        Credenciales credenciales = CodecDeCredenciales.Decodificar(solicitud.Datos.Span);
         Usuario usuario = _autenticacion.IniciarSesion(credenciales.NombreUsuario, credenciales.Clave);
-        sesion.Autenticar(usuario);
+        solicitud.Sesion.Autenticar(usuario);
         return RespuestaDelServidor.Ok($"Bienvenido, {usuario.NombreUsuario}");
     }
 

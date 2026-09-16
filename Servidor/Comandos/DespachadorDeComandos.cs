@@ -10,6 +10,9 @@ namespace Servidor.Comandos;
 /// traduce las excepciones de negocio y de protocolo a la respuesta que le corresponde. Un CMD sin
 /// manejador o una trama que llega con HEADER RES responde PR con el mismo CMD, para que la conexión
 /// siga viva (regla del mapa: PR siempre es recuperable).
+///
+/// No atrapa <see cref="TransferenciaDeArchivoException"/>: un fallo a mitad de archivo desincroniza
+/// el stream y debe propagarse como fatal, no traducirse a una respuesta más.
 /// </summary>
 internal sealed class DespachadorDeComandos
 {
@@ -20,21 +23,20 @@ internal sealed class DespachadorDeComandos
         _manejadores = manejadores;
     }
 
-    public RespuestaDelServidor Despachar(Trama solicitud, EstadoDeSesion sesion)
+    public RespuestaDelServidor Despachar(Trama solicitud, EstadoDeSesion sesion, ArchivosDeSesion archivos)
     {
         if (!solicitud.EsSolicitud
             || !_manejadores.TryGetValue(solicitud.Comando, out IManejadorDeComando? manejador))
             return RespuestaDelServidor.Protocolo("CMD no soportado");
 
-        return Ejecutar(manejador, solicitud, sesion);
+        return Ejecutar(manejador, new SolicitudRecibida(solicitud.Datos, sesion, archivos));
     }
 
-    private static RespuestaDelServidor Ejecutar(
-        IManejadorDeComando manejador, Trama solicitud, EstadoDeSesion sesion)
+    private static RespuestaDelServidor Ejecutar(IManejadorDeComando manejador, SolicitudRecibida solicitud)
     {
         try
         {
-            return manejador.Responder(solicitud.Datos, sesion);
+            return manejador.Responder(solicitud);
         }
         catch (DominioException exception)
         {
