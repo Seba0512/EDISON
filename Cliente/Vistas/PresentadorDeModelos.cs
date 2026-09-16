@@ -16,7 +16,7 @@ internal static class PresentadorDeModelos
         foreach (ModeloListado modelo in modelos)
         {
             Console.WriteLine(
-                $"{modelo.Nombre,-30} {modelo.Precio,10:0.00} {modelo.FechaEntregaPrometida,-12:yyyy-MM-dd} {modelo.UnidadesDisponibles,11}");
+                $"{modelo.Nombre,-30} {modelo.Precio,10:0.00} {modelo.FechaEntregaPrometida,-12:dd-MM-yyyy} {modelo.UnidadesDisponibles,11}");
         }
     }
 }
