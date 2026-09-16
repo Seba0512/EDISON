@@ -25,6 +25,9 @@ internal static class AplicacionCliente
             {
                 Console.WriteLine(exception.Message);
             }
+
+            if (estado.SeguirEjecutando)
+                LectorDeConsola.EsperarEnter();
         }
     }
 }
