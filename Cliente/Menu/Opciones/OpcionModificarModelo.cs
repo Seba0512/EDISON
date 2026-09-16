@@ -5,11 +5,13 @@ namespace Cliente.Menu.Opciones;
 
 internal sealed class OpcionModificarModelo : IOpcionDeMenu
 {
+    private readonly ConsultaDeModeloRemota _consulta;
     private readonly ModificacionDeModeloRemota _modificacionDeModeloRemota;
     private readonly OfertaDeSubidaDeImagen _ofertaDeSubidaDeImagen;
 
     public OpcionModificarModelo(ConexionConServidor conexion)
     {
+        _consulta = new ConsultaDeModeloRemota(conexion);
         _modificacionDeModeloRemota = new ModificacionDeModeloRemota(conexion);
         _ofertaDeSubidaDeImagen = new OfertaDeSubidaDeImagen(conexion);
     }
@@ -22,6 +24,9 @@ internal sealed class OpcionModificarModelo : IOpcionDeMenu
         string? nombre = LectorDeConsola.LeerTexto("Nombre del modelo a modificar:");
         if (nombre is null)
             return;
+
+        // Se consulta antes de pedir el resto de los datos: si el modelo no existe, lanza y no sigue.
+        _consulta.Ejecutar(nombre);
 
         string? descripcion = LectorDeConsola.LeerTexto("Nueva descripción:");
         if (descripcion is null)
