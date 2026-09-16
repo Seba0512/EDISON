@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using Cliente.Excepciones;
 using Common.Excepciones;
 using Common.Protocolo;
 
@@ -13,6 +14,8 @@ internal sealed class ConexionConServidor : IDisposable
     private readonly long _maxFileBytes;
     private int _cerrada;
 
+    public string DownloadsDirectory { get; }
+
     private ConexionConServidor(Socket socket, ConfiguracionCliente configuracion)
     {
         _socket = socket;
@@ -20,6 +23,7 @@ internal sealed class ConexionConServidor : IDisposable
         _codec = new CodecDeTramas(configuracion.MaxPayloadBytes);
         _canalDeArchivos = new CanalDeArchivos(configuracion.FileBlockBytes);
         _maxFileBytes = configuracion.MaxFileBytes;
+        DownloadsDirectory = configuracion.DownloadsDirectory;
     }
 
     public static ConexionConServidor Conectar(ConfiguracionCliente configuracion)
@@ -77,6 +81,9 @@ internal sealed class ConexionConServidor : IDisposable
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
         FileInfo archivo = ExigirArchivoEnviable(rutaOrigen);
+        if (archivo.Length > _maxFileBytes)
+            throw new OperacionRechazadaException(
+                $"El archivo supera el tamaño máximo permitido ({_maxFileBytes} bytes)");
 
         _codec.Escribir(_stream, Trama.CrearSolicitud(comando, datos));
         using (FileStream origen = archivo.OpenRead())
