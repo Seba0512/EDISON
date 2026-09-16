@@ -68,6 +68,15 @@ internal sealed class SesionDeCliente
             respuesta.AccionPosterior?.Invoke(stream);
             return true;
         }
+        catch (PayloadDemasiadoGrandeException)
+        {
+            // La validación de tamaño es previa a escribir: no se mandó nada todavía, así que se puede
+            // avisar el error sin cortar la conexión.
+            Informar($"CMD {solicitud.Comando:D2} -> respuesta demasiado grande, se rechaza sin cerrar la conexión");
+            EscribirRespuesta(stream, solicitud.Comando, RespuestaDelServidor.Rechazo(
+                "El resultado supera el tamaño máximo de respuesta; refine la búsqueda"));
+            return true;
+        }
         catch (TransferenciaDeArchivoException)
         {
             // La transferencia quedó a medias y ya no se sabe dónde empieza la próxima trama. Hay que cerrar.
