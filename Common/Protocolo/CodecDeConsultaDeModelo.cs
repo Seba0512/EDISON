@@ -1,0 +1,61 @@
+using Common.Protocolo.Vistas;
+
+namespace Common.Protocolo;
+
+/// <summary>
+/// Serializa el pedido y el resultado de CMD 14 (CR8): el REQ es un único campo de texto con el
+/// nombre del modelo a consultar; el RES OK son los siete campos de <see cref="DetalleDeModelo"/>,
+/// en el mismo orden que documenta el contrato de payload.
+/// </summary>
+public static class CodecDeConsultaDeModelo
+{
+    public static byte[] CodificarSolicitud(string nombreModelo)
+    {
+        EscritorDeCampos escritor = new();
+        escritor.EscribirCampo(nombreModelo);
+        return escritor.ObtenerBytes();
+    }
+
+    public static string DecodificarSolicitud(ReadOnlySpan<byte> datos)
+    {
+        LectorDeCampos lector = new(datos);
+        string nombreModelo = lector.LeerCampo();
+        lector.ExigirFinDePayload();
+        return nombreModelo;
+    }
+
+    public static byte[] CodificarResultado(DetalleDeModelo detalle)
+    {
+        EscritorDeCampos escritor = new();
+        escritor.EscribirCampo(detalle.Nombre);
+        escritor.EscribirCampo(detalle.Descripcion);
+        escritor.EscribirDecimal(detalle.Precio);
+        escritor.EscribirFecha(detalle.FechaEntregaPrometida);
+        escritor.EscribirEntero(detalle.UnidadesDisponibles);
+        escritor.EscribirEntero(detalle.UnidadesReservadas);
+        escritor.EscribirCampo(detalle.NombreArchivoImagen);
+        return escritor.ObtenerBytes();
+    }
+
+    public static DetalleDeModelo DecodificarResultado(ReadOnlySpan<byte> datos)
+    {
+        LectorDeCampos lector = new(datos);
+        string nombre = lector.LeerCampo();
+        string descripcion = lector.LeerCampo();
+        decimal precio = lector.LeerDecimal();
+        DateTime fechaEntregaPrometida = lector.LeerFecha();
+        int unidadesDisponibles = lector.LeerEntero();
+        int unidadesReservadas = lector.LeerEntero();
+        string nombreArchivoImagen = lector.LeerCampo();
+        lector.ExigirFinDePayload();
+
+        return new DetalleDeModelo(
+            nombre,
+            descripcion,
+            precio,
+            fechaEntregaPrometida,
+            unidadesDisponibles,
+            unidadesReservadas,
+            nombreArchivoImagen);
+    }
+}
