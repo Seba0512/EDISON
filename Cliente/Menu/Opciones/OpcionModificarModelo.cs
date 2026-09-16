@@ -28,8 +28,7 @@ internal sealed class OpcionModificarModelo : IOpcionDeMenu
         // Se consulta antes de pedir el resto de los datos: si el modelo no existe, lanza y no sigue.
         _consulta.Ejecutar(nombre);
 
-        string? descripcion = LectorDeConsola.LeerTexto("Nueva descripción:");
-        if (descripcion is null)
+        if (!LectorDeConsola.LeerTextoOpcional("Nueva descripción (Enter para omitir):", out string? descripcion))
             return;
 
         decimal? precio = LectorDeConsola.LeerDecimal("Nuevo precio:");
@@ -46,7 +45,7 @@ internal sealed class OpcionModificarModelo : IOpcionDeMenu
             return;
 
         DatosDeAltaDeModelo datos = new(
-            nombre, descripcion, precio.Value, fechaEntregaPrometida.Value, stock.Value);
+            nombre, descripcion ?? string.Empty, precio.Value, fechaEntregaPrometida.Value, stock.Value);
         Console.WriteLine(_modificacionDeModeloRemota.Ejecutar(datos));
 
         _ofertaDeSubidaDeImagen.Ofrecer(datos.Nombre);

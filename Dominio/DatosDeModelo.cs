@@ -56,14 +56,10 @@ public class DatosDeModelo
         return nombreSinEspacios;
     }
 
+    // La descripcion es opcional: una cadena vacia significa que el modelo no tiene descripcion.
     private static string DescripcionValidada(string descripcion)
     {
-        if (string.IsNullOrWhiteSpace(descripcion))
-        {
-            throw new DominioException("La descripcion del modelo no puede estar vacia");
-        }
-
-        string descripcionSinEspacios = descripcion.Trim();
+        string descripcionSinEspacios = descripcion?.Trim() ?? string.Empty;
         if (descripcionSinEspacios.Length > LargoMaximoDescripcion)
         {
             throw new DominioException(
