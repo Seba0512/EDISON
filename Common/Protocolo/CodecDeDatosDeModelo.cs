@@ -2,7 +2,7 @@ using Common.Protocolo.Vistas;
 
 namespace Common.Protocolo;
 
-public static class CodecDeAltaDeModelo
+public static class CodecDeDatosDeModelo
 {
     public static byte[] Codificar(DatosDeAltaDeModelo datos)
     {

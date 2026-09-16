@@ -16,7 +16,7 @@ internal sealed class ManejadorDeModificacionDeModelo : ManejadorAutenticado
 
     protected override RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario)
     {
-        DatosDeAltaDeModelo datos = CodecDeModificacionDeModelo.Decodificar(solicitud.Datos.Span);
+        DatosDeAltaDeModelo datos = CodecDeDatosDeModelo.Decodificar(solicitud.Datos.Span);
         Modelo modeloVigente = _catalogoDeModelos.Consultar(datos.Nombre);
         DatosDeModelo datosDeModelo = new(
             datos.Nombre,

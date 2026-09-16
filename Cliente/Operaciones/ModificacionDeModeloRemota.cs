@@ -13,5 +13,5 @@ internal sealed class ModificacionDeModeloRemota
     }
 
     public string Ejecutar(DatosDeAltaDeModelo datos)
-        => _conexion.EnviarSolicitud(Comandos.ModificarModelo, CodecDeModificacionDeModelo.Codificar(datos));
+        => _conexion.EnviarSolicitud(Comandos.ModificarModelo, CodecDeDatosDeModelo.Codificar(datos));
 }
