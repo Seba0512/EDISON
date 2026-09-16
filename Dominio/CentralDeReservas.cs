@@ -5,22 +5,6 @@ using Dominio.Tiempo;
 
 namespace Dominio;
 
-/// <summary>
-/// Solicitud, cancelacion, consulta y resolucion diferida de reservas (CR5, CR6, CR9).
-///
-/// Responsabilidad en una frase, sin "y": administrar el ciclo de vida de las reservas. Igual que el
-/// catalogo, orquesta pero no decide: confirmar o rechazar lo resuelve el <see cref="Modelo"/>, que
-/// es quien tiene las unidades, y si una reserva puede cancelarse lo resuelve su propio estado.
-///
-/// El plazo de aprobacion y el reloj son estado propio, no parametros: quien llama a
-/// <see cref="ResolverVencidas"/> es un thread que solo golpea cada tanto y no tiene por que conocer
-/// ninguna regla de negocio.
-///
-/// El constructor recibe cinco dependencias, mas de las dos que admite el criterio de diseño del
-/// curso. La excepcion esta acotada a la inyeccion de colaboradores: agruparlos en un objeto
-/// parametro solo escondería cuantos son, y el criterio apunta a los metodos de comportamiento, que
-/// aca reciben dos o menos.
-/// </summary>
 public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
 {
     private readonly IRepositorioDeReservas reservas;
@@ -43,10 +27,6 @@ public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
         this.segundosDeAprobacion = segundosDeAprobacion;
     }
 
-    /// <summary>
-    /// Alta de una solicitud (CR5). Nace pendiente y no toma ninguna unidad todavia: la toma recien
-    /// al confirmarse, que es lo que hace que varias solicitudes compitan por el mismo stock.
-    /// </summary>
     public Guid SolicitarReserva(string nombreModelo, Usuario solicitante)
     {
         Modelo modelo = modelos.ObtenerPorNombre(nombreModelo);
@@ -58,10 +38,6 @@ public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
         return reserva.Id;
     }
 
-    /// <summary>
-    /// Cancelacion de CR6. La reserva delega en su modelo, que la cancela bajo su candado y, si
-    /// estaba confirmada, devuelve la unidad al pool.
-    /// </summary>
     public void CancelarReserva(Guid idReserva, Usuario solicitante)
     {
         Reserva reserva = reservas.ObtenerPorId(idReserva);
@@ -77,14 +53,6 @@ public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
         return reservas.DeUsuario(usuario.NombreUsuario);
     }
 
-    /// <summary>
-    /// Resolucion diferida de CR5. Toma la foto de las pendientes del repositorio, la suelta y recien
-    /// entonces opera modelo por modelo: nunca se toca un repositorio teniendo el candado de un
-    /// modelo, que es la regla que evita los deadlocks.
-    ///
-    /// Se resuelven en orden de creacion (FIFO) para que, cuando varias solicitudes compiten por el
-    /// mismo stock, gane la que llego primero y no la que el planificador haya despertado antes.
-    /// </summary>
     public void ResolverVencidas()
     {
         List<Reserva> vencidas = reservas.Pendientes()
@@ -104,7 +72,6 @@ public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
         }
     }
 
-    /// <summary>Una reserva confirmada es la compra que pide registrar CR10.</summary>
     private void RegistrarLaCompra(Reserva reserva)
     {
         Usuario comprador = usuarios.ObtenerPorNombre(reserva.NombreDelUsuario());

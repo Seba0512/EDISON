@@ -1,9 +1,5 @@
 namespace Dominio.Estados;
 
-/// <summary>
-/// Estado inicial de toda reserva (CR5): espera la resolucion diferida. Es el unico estado desde el
-/// que se puede confirmar o rechazar, y cancelarla no toca el stock porque todavia no ocupa unidad.
-/// </summary>
 public class Pendiente : EstadoDeReserva
 {
     private static readonly Lazy<Pendiente> instancia = new(() => new Pendiente());

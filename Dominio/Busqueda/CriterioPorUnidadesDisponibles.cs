@@ -2,10 +2,6 @@ using Dominio.Excepciones;
 
 namespace Dominio.Busqueda;
 
-/// <summary>
-/// Filtra por cantidad minima de unidades libres (CR7). Con minimo 1 responde el caso mas usado:
-/// "mostrar solo los vehiculos disponibles".
-/// </summary>
 public class CriterioPorUnidadesDisponibles : ICriterioDeBusqueda
 {
     private readonly int minimoDeUnidades;

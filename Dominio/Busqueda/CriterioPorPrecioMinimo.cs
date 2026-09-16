@@ -2,7 +2,6 @@ using Dominio.Excepciones;
 
 namespace Dominio.Busqueda;
 
-/// <summary>Filtra los modelos cuyo precio llega al minimo pedido (CR7).</summary>
 public class CriterioPorPrecioMinimo : ICriterioDeBusqueda
 {
     private readonly decimal precioMinimo;

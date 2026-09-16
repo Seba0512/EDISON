@@ -5,13 +5,6 @@ using Dominio.Tiempo;
 
 namespace Dominio;
 
-/// <summary>
-/// Alta, ingreso y salida de usuarios (CR1) y lectura de su historial (CR10).
-///
-/// Responsabilidad en una frase, sin "y": administrar el acceso de los usuarios al sistema. No
-/// guarda sesiones activas porque ese ciclo de vida no es una regla del dominio;
-/// <see cref="IniciarSesion"/> se limita a autenticar y devolver el usuario correspondiente.
-/// </summary>
 public class RegistroDeUsuarios : IAutenticacion, IHistorialDeUsuario
 {
     private readonly IRepositorioDeUsuarios usuarios;
@@ -31,10 +24,6 @@ public class RegistroDeUsuarios : IAutenticacion, IHistorialDeUsuario
         return usuario;
     }
 
-    /// <summary>
-    /// No distingue "no existe el usuario" de "la clave no coincide": contestar distinto permitiria
-    /// averiguar que nombres estan registrados probando de a uno.
-    /// </summary>
     public Usuario IniciarSesion(string nombreUsuario, string clave)
     {
         if (!usuarios.Existe(nombreUsuario))

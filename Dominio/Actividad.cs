@@ -2,26 +2,6 @@ using Dominio.Tiempo;
 
 namespace Dominio;
 
-/// <summary>
-/// Entrada del historial de un usuario (CR10). Es inmutable y de solo agregado: una vez registrada
-/// una actividad no se modifica ni se borra.
-///
-/// Se construye con metodos de fabricacion nombrados en lugar de un constructor publico que reciba
-/// el <see cref="TipoActividad"/>: el llamador dice que paso en vez de pasar un enum suelto, y cada
-/// fabrica arma el detalle con el formato correcto.
-///
-/// No guarda a que usuario pertenece. El <see cref="Historial"/> que la contiene ya es el de un
-/// unico usuario, asi que repetir el dato aca solo abriria la posibilidad de que los dos no
-/// coincidan.
-///
-/// La marca de tiempo sale del <see cref="IReloj"/> recibido y no de <c>DateTime.UtcNow</c> (DIP):
-/// el historial es la unica fuente del orden en que ocurrieron las cosas, y con el reloj inyectado
-/// ese orden se puede armar y verificar de forma determinista.
-///
-/// El constructor privado toma tres parametros, uno mas de los que admite el criterio de diseño del
-/// curso: la excepcion esta acotada a construir un objeto de valor inmutable desde sus propias
-/// fabricas, que son las que se usan de afuera y toman uno o dos.
-/// </summary>
 public class Actividad
 {
     public TipoActividad Tipo { get; }
@@ -76,10 +56,6 @@ public class Actividad
             TipoActividad.ReservaCancelada, $"Cancelo su reserva de {nombreModelo}", reloj);
     }
 
-    /// <summary>
-    /// Una reserva confirmada es la compra: la letra pide "compras realizadas" en CR10 pero ningun
-    /// requerimiento define una compra aparte.
-    /// </summary>
     public static Actividad Compra(string nombreModelo, IReloj reloj)
     {
         return new Actividad(
