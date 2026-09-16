@@ -44,10 +44,13 @@ internal sealed class OpcionModificarModelo : IOpcionDeMenu
         if (stock is null)
             return;
 
+        string? rutaImagen = _ofertaDeSubidaDeImagen.PreguntarRuta();
+
         DatosDeAltaDeModelo datos = new(
             nombre, descripcion ?? string.Empty, precio.Value, fechaEntregaPrometida.Value, stock.Value);
         Console.WriteLine(_modificacionDeModeloRemota.Ejecutar(datos));
 
-        _ofertaDeSubidaDeImagen.Ofrecer(datos.Nombre);
+        if (rutaImagen is not null)
+            _ofertaDeSubidaDeImagen.Subir(datos.Nombre, rutaImagen);
     }
 }
