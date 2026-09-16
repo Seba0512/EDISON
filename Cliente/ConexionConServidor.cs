@@ -19,6 +19,7 @@ internal sealed class ConexionConServidor : IDisposable
     private ConexionConServidor(Socket socket, ConfiguracionCliente configuracion)
     {
         _socket = socket;
+        // ownsSocket en false porque Dispose ya se encarga de cerrar el stream y el socket en orden.
         _stream = new NetworkStream(socket, ownsSocket: false);
         _codec = new CodecDeTramas(configuracion.MaxPayloadBytes);
         _canalDeArchivos = new CanalDeArchivos(configuracion.FileBlockBytes);
@@ -74,6 +75,7 @@ internal sealed class ConexionConServidor : IDisposable
     public string EnviarSolicitudConArchivo(int comando, byte[] datos, string rutaOrigen)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
+        // El archivo se revisa antes de anunciarlo. Anunciarlo y después no poder mandarlo rompe el protocolo.
         FileInfo archivo = ExigirArchivoEnviable(rutaOrigen);
         if (archivo.Length > _maxFileBytes)
             throw new OperacionRechazadaException(

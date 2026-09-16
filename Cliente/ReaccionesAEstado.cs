@@ -42,6 +42,7 @@ internal static class ReaccionesAEstado
             => throw new OperacionRechazadaException(respuesta.Contenido);
     }
 
+    // Un IN no tiene arreglo. La excepción llega hasta Main y el cliente cierra la conexión enseguida.
     private sealed class AbortarConexion : IReaccionAEstado
     {
         public ReadOnlyMemory<byte> Reaccionar(RespuestaDelServidor respuesta)

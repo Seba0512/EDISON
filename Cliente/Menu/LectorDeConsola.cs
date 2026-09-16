@@ -5,6 +5,7 @@ namespace Cliente.Menu;
 
 internal static class LectorDeConsola
 {
+    // Al leer entrada redirigida en UTF-8, .NET mete un carácter invisible al inicio y hay que sacarlo.
     private const char Bom = '\uFEFF';
 
     public static int? LeerOpcion(int cantidadDeOpciones)
@@ -135,6 +136,7 @@ internal static class LectorDeConsola
         }
     }
 
+    // ReadLine devuelve null cuando se acaba la entrada. Eso se toma como salida normal, no como error.
     private static string? LeerLinea()
         => Console.ReadLine()?.TrimStart(Bom);
 

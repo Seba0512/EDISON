@@ -6,6 +6,7 @@ namespace Cliente.Menu.Opciones;
 
 internal sealed class LectorDeFiltrosDeBusqueda
 {
+    // Enter vacío significa sin filtro. Solo el fin de la entrada cancela toda la búsqueda.
     public FiltrosDeBusqueda? Leer()
     {
         if (!LectorDeConsola.LeerTextoOpcional(
