@@ -32,7 +32,7 @@ public sealed class CodecDeTramas
     {
         ExigirEscritura(stream);
         ArgumentNullException.ThrowIfNull(trama);
-        ExigirLargoAdmitido(trama.Datos.Length);
+        ExigirLargoAdmitidoEnEscritura(trama.Datos.Length);
 
         byte[] prefijo = CrearPrefijo(trama);
         stream.Write(prefijo, 0, prefijo.Length);
@@ -136,6 +136,17 @@ public sealed class CodecDeTramas
             throw new ProtocoloException("LARGO no puede ser negativo");
         if (largo > _maxPayloadBytes)
             throw new ProtocoloException(
+                $"LARGO {largo} supera el máximo admitido {_maxPayloadBytes}");
+    }
+
+    // Al escribir (por ejemplo, una respuesta de historial/búsqueda demasiado grande) nada se envió
+    // aún, así que quien llama puede recuperarse enviando un error en su lugar en vez de cortar la conexión.
+    private void ExigirLargoAdmitidoEnEscritura(int largo)
+    {
+        if (largo < 0)
+            throw new ProtocoloException("LARGO no puede ser negativo");
+        if (largo > _maxPayloadBytes)
+            throw new PayloadDemasiadoGrandeException(
                 $"LARGO {largo} supera el máximo admitido {_maxPayloadBytes}");
     }
 
