@@ -16,6 +16,7 @@ internal sealed class MenuDeOpciones
         if (indice is null)
             return false;
 
+        Console.WriteLine();
         _opciones[indice.Value].Ejecutar();
         return true;
     }

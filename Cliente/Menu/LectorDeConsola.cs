@@ -39,6 +39,13 @@ internal static class LectorDeConsola
         }
     }
 
+    public static void EsperarEnter()
+    {
+        Console.WriteLine();
+        Console.WriteLine("Presione Enter para continuar...");
+        Console.ReadLine();
+    }
+
     public static bool LeerTextoOpcional(string mensaje, out string? valor)
     {
         Console.WriteLine(mensaje);
