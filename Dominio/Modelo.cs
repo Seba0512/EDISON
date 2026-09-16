@@ -178,9 +178,22 @@ public class Modelo : IVehiculoBuscable
     }
 
     /// <summary>
-    /// Modificacion atomica de CR3. Valida propietario, datos y stock antes de cambiar el agregado;
-    /// luego aplica ambos cambios bajo una unica adquisicion del candado. El stock objetivo debe
-    /// superar las reservas activas, por lo que la modificacion deja al menos una unidad libre.
+    /// Modificacion atomica de CR3. Valida propietario, datos, disponibilidad y stock antes de
+    /// cambiar el agregado; luego aplica ambos cambios bajo una unica adquisicion del candado. El
+    /// stock objetivo debe superar las reservas activas, por lo que la modificacion deja al menos
+    /// una unidad libre.
+    ///
+    /// <para>
+    /// Supuesto de diseno: la letra exige poder modificar el modelo "mientras sigan habiendo
+    /// unidades disponibles". Tomada al pie de la letra, esa regla dejaria a un modelo agotado
+    /// (sin unidades libres) congelado para siempre, sin forma de reponer stock. Por eso se agrega
+    /// una clausula explicita: la modificacion tambien se permite cuando el stock nuevo supera al
+    /// stock total actual, es decir, cuando la propia modificacion repone unidades y saca al modelo
+    /// del estado de agotado. En los hechos esta segunda clausula queda cubierta por la exigencia de
+    /// que el stock nuevo supere las reservas activas (un modelo agotado tiene tantas o mas reservas
+    /// activas que unidades totales), pero se deja expresada igual porque documenta la intencion de
+    /// negocio de forma independiente de esa otra regla.
+    /// </para>
     /// </summary>
     public void Modificar(FichaDeModelo ficha, Usuario solicitante)
     {
@@ -189,45 +202,11 @@ public class Modelo : IVehiculoBuscable
             ExigirActivo();
             ExigirPropietario(solicitante);
             ExigirMismoNombre(ficha.Datos);
+            ExigirDisponibleOStockEnAumento(ficha.Stock);
             ExigirStockSuperiorAReservasActivas(ficha.Stock);
 
             stock.AjustarA(ficha.Stock);
             datos = ficha.Datos;
-        }
-    }
-
-    /// <summary>
-    /// Modificacion de los datos descriptivos (CR3). La letra la permite "mientras sigan habiendo
-    /// unidades disponibles", asi que un modelo con todas sus unidades tomadas queda congelado.
-    /// </summary>
-    public void ActualizarDatos(DatosDeModelo datosNuevos)
-    {
-        lock (candado)
-        {
-            ExigirActivo();
-            ExigirMismoNombre(datosNuevos);
-            if (!stock.HayAlgunaDisponible)
-            {
-                throw new DominioException(
-                    $"No se puede modificar el modelo {Nombre} porque no quedan unidades disponibles");
-            }
-
-            datos = datosNuevos;
-        }
-    }
-
-    /// <summary>
-    /// Ajuste de stock de CR3: "en caso de actualizar stock este debe ser mayor a la cantidad de
-    /// reservas existentes". Se cuentan las activas, que incluyen las pendientes: todavia no ocupan
-    /// unidad, pero van a competir por una.
-    /// </summary>
-    public void AjustarStock(int stockNuevo)
-    {
-        lock (candado)
-        {
-            ExigirActivo();
-            ExigirStockSuperiorAReservasActivas(stockNuevo);
-            stock.AjustarA(stockNuevo);
         }
     }
 
@@ -377,6 +356,19 @@ public class Modelo : IVehiculoBuscable
         {
             throw new DominioException(
                 $"El stock debe ser mayor a las {activas} reservas activas del modelo {Nombre}");
+        }
+    }
+
+    /// <summary>
+    /// Guardia de disponibilidad de CR3: ver el comentario XML de <see cref="Modificar"/> para el
+    /// supuesto de diseno detras de la segunda clausula.
+    /// </summary>
+    private void ExigirDisponibleOStockEnAumento(int stockNuevo)
+    {
+        if (!stock.HayAlgunaDisponible && stockNuevo <= stock.Total)
+        {
+            throw new DominioException(
+                $"No se puede modificar el modelo {Nombre} porque no quedan unidades disponibles");
         }
     }
 
