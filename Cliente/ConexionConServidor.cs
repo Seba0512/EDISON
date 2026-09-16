@@ -9,6 +9,8 @@ internal sealed class ConexionConServidor : IDisposable
     private readonly Socket _socket;
     private readonly NetworkStream _stream;
     private readonly CodecDeTramas _codec;
+    private readonly CanalDeArchivos _canalDeArchivos;
+    private readonly long _maxFileBytes;
     private int _cerrada;
 
     private ConexionConServidor(Socket socket, ConfiguracionCliente configuracion)
@@ -16,6 +18,8 @@ internal sealed class ConexionConServidor : IDisposable
         _socket = socket;
         _stream = new NetworkStream(socket, ownsSocket: false);
         _codec = new CodecDeTramas(configuracion.MaxPayloadBytes);
+        _canalDeArchivos = new CanalDeArchivos(configuracion.FileBlockBytes);
+        _maxFileBytes = configuracion.MaxFileBytes;
     }
 
     public static ConexionConServidor Conectar(ConfiguracionCliente configuracion)
@@ -49,6 +53,65 @@ internal sealed class ConexionConServidor : IDisposable
     public string CerrarSesion()
         => EnviarSolicitud(Comandos.CerrarSesion, []);
 
+    /// <summary>Envía una solicitud y decodifica el resultado como texto (CR1 y respuestas de texto plano de CR2-CR10).</summary>
+    public string EnviarSolicitud(int comando, byte[] datos)
+    {
+        Trama respuesta = EnviarYLeer(comando, datos);
+        RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta.Datos.Span);
+        return ReaccionesAEstado.Aplicar(contenido);
+    }
+
+    /// <summary>Envía una solicitud y devuelve el cuerpo sin decodificar (respuestas OK con campos binarios de CR2-CR10).</summary>
+    public byte[] EnviarSolicitudYLeerCuerpo(int comando, byte[] datos)
+    {
+        Trama respuesta = EnviarYLeer(comando, datos);
+        RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta.Datos.Span);
+        return ReaccionesAEstado.AplicarSobreCuerpo(contenido).ToArray();
+    }
+
+    /// <summary>
+    /// Envía la solicitud y, a continuación y fuera de frame, el archivo completo (CMD 15). Valida
+    /// existencia y tamaño del archivo antes de anunciar nada.
+    /// </summary>
+    public string EnviarSolicitudConArchivo(int comando, byte[] datos, string rutaOrigen)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
+        FileInfo archivo = ExigirArchivoEnviable(rutaOrigen);
+
+        _codec.Escribir(_stream, Trama.CrearSolicitud(comando, datos));
+        using (FileStream origen = archivo.OpenRead())
+            _canalDeArchivos.Enviar(_stream, origen, archivo.Length);
+
+        Trama respuesta = LeerRespuesta(comando);
+        RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta.Datos.Span);
+        return ReaccionesAEstado.Aplicar(contenido);
+    }
+
+    /// <summary>
+    /// Recibe, fuera de frame, el archivo que sigue a la última respuesta leída (CMD 16) y lo guarda
+    /// en <paramref name="rutaDestino"/>.
+    /// </summary>
+    /// <returns>La cantidad de bytes recibidos.</returns>
+    public long RecibirArchivoEn(string rutaDestino)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
+        string rutaTemporal = rutaDestino + ".tmp";
+        try
+        {
+            long tamanio;
+            using (FileStream destino = File.Create(rutaTemporal))
+                tamanio = _canalDeArchivos.RecibirEn(_stream, destino, _maxFileBytes);
+
+            File.Move(rutaTemporal, rutaDestino, overwrite: true);
+            return tamanio;
+        }
+        catch
+        {
+            File.Delete(rutaTemporal);
+            throw;
+        }
+    }
+
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _cerrada, 1) != 0)
@@ -59,14 +122,27 @@ internal sealed class ConexionConServidor : IDisposable
         _socket.Dispose();
     }
 
-    private string EnviarSolicitud(int comando, byte[] datos)
+    private Trama EnviarYLeer(int comando, byte[] datos)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
         _codec.Escribir(_stream, Trama.CrearSolicitud(comando, datos));
+        return LeerRespuesta(comando);
+    }
+
+    private Trama LeerRespuesta(int comando)
+    {
         Trama respuesta = _codec.Leer(_stream);
         ExigirRespuestaA(comando, respuesta);
-        RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta.Datos.Span);
-        return ReaccionesAEstado.Aplicar(contenido);
+        return respuesta;
+    }
+
+    private static FileInfo ExigirArchivoEnviable(string rutaOrigen)
+    {
+        FileInfo archivo = new(rutaOrigen);
+        if (!archivo.Exists)
+            throw new FileNotFoundException("No se encontró el archivo a enviar", rutaOrigen);
+
+        return archivo;
     }
 
     private static void ExigirRespuestaA(int comando, Trama respuesta)
