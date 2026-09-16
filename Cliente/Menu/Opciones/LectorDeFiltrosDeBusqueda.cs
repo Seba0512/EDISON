@@ -6,11 +6,10 @@ namespace Cliente.Menu.Opciones;
 
 internal sealed class LectorDeFiltrosDeBusqueda
 {
-    private const char Bom = '﻿';
-
     public FiltrosDeBusqueda? Leer()
     {
-        if (!TryLeerCampoOpcional("Texto a buscar en el nombre (Enter para omitir):", out string? texto))
+        if (!LectorDeConsola.LeerTextoOpcional(
+                "Texto a buscar en el nombre (Enter para omitir):", out string? texto))
             return null;
 
         if (!TryLeerDecimalOpcional("Precio mínimo (Enter para omitir):", out decimal? precioMinimo))
@@ -33,7 +32,7 @@ internal sealed class LectorDeFiltrosDeBusqueda
     {
         while (true)
         {
-            if (!TryLeerCampoOpcional(mensaje, out string? texto))
+            if (!LectorDeConsola.LeerTextoOpcional(mensaje, out string? texto))
             {
                 valor = null;
                 return false;
@@ -61,7 +60,7 @@ internal sealed class LectorDeFiltrosDeBusqueda
     {
         while (true)
         {
-            if (!TryLeerCampoOpcional(mensaje, out string? texto))
+            if (!LectorDeConsola.LeerTextoOpcional(mensaje, out string? texto))
             {
                 valor = null;
                 return false;
@@ -89,7 +88,7 @@ internal sealed class LectorDeFiltrosDeBusqueda
     {
         while (true)
         {
-            if (!TryLeerCampoOpcional(mensaje, out string? texto))
+            if (!LectorDeConsola.LeerTextoOpcional(mensaje, out string? texto))
             {
                 valor = null;
                 return false;
@@ -111,20 +110,5 @@ internal sealed class LectorDeFiltrosDeBusqueda
                 Console.WriteLine(excepcion.Message);
             }
         }
-    }
-
-    private static bool TryLeerCampoOpcional(string mensaje, out string? valor)
-    {
-        Console.WriteLine(mensaje);
-        string? entrada = Console.ReadLine()?.TrimStart(Bom);
-        if (entrada is null)
-        {
-            valor = null;
-            return false;
-        }
-
-        string texto = entrada.Trim();
-        valor = texto.Length == 0 ? null : texto;
-        return true;
     }
 }

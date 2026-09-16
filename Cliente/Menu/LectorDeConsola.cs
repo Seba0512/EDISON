@@ -38,6 +38,21 @@ internal static class LectorDeConsola
         }
     }
 
+    public static bool LeerTextoOpcional(string mensaje, out string? valor)
+    {
+        Console.WriteLine(mensaje);
+        string? entrada = LeerLinea();
+        if (entrada is null)
+        {
+            valor = null;
+            return false;
+        }
+
+        string texto = entrada.Trim();
+        valor = texto.Length == 0 ? null : texto;
+        return true;
+    }
+
     public static bool Confirmar(string mensaje)
     {
         string? respuesta = LeerTexto(mensaje);
