@@ -14,7 +14,7 @@ internal static class MenuAutenticado
         => new([
             new OpcionAltaDeModelo(conexion),
             new OpcionNoDisponible("Modificar modelo"),
-            new OpcionNoDisponible("Eliminar modelo"),
+            new OpcionEliminarModelo(conexion),
             new OpcionBuscarModelos(conexion),
             new OpcionConsultarModelo(conexion),
             new OpcionNoDisponible("Solicitar reserva"),

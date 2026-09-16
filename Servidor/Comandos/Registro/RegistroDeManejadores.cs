@@ -18,7 +18,7 @@ internal static class RegistroDeManejadores
             [Common.Protocolo.Comandos.CerrarSesion] = new ManejadorDeCierreDeSesion(servicios.Autenticacion),
             [Common.Protocolo.Comandos.AltaDeModelo] = new ManejadorDeAltaDeModelo(servicios.CatalogoDeModelos),
             [Common.Protocolo.Comandos.ModificarModelo] = new ManejadorNoDisponible(Common.Protocolo.Comandos.ModificarModelo),
-            [Common.Protocolo.Comandos.BajaDeModelo] = new ManejadorNoDisponible(Common.Protocolo.Comandos.BajaDeModelo),
+            [Common.Protocolo.Comandos.BajaDeModelo] = new ManejadorDeBajaDeModelo(servicios.CatalogoDeModelos),
             [Common.Protocolo.Comandos.BuscarModelos] = new ManejadorDeBusquedaDeModelos(servicios.CatalogoDeModelos),
             [Common.Protocolo.Comandos.ConsultarModelo] = new ManejadorDeConsultaDeModelo(servicios.CatalogoDeModelos),
             [Common.Protocolo.Comandos.SubirImagen] = new ManejadorNoDisponible(Common.Protocolo.Comandos.SubirImagen),
