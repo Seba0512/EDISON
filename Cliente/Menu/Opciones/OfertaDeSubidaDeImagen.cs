@@ -13,19 +13,37 @@ internal sealed class OfertaDeSubidaDeImagen
 
     public void Ofrecer(string nombreModelo)
     {
+        string? rutaArchivo = PreguntarRuta();
+        if (rutaArchivo is not null)
+            Subir(nombreModelo, rutaArchivo);
+    }
+
+    // Separado de Ofrecer para poder preguntar por la imagen antes de confirmar la creación del modelo.
+    public string? PreguntarRuta()
+    {
         if (!LectorDeConsola.Confirmar("¿Desea subir una imagen para el modelo? (s/n):"))
-            return;
+            return null;
 
         string? rutaArchivo = LectorDeConsola.LeerTexto("Ruta local del archivo de imagen:");
         if (rutaArchivo is null)
-            return;
+            return null;
 
+        rutaArchivo = SinComillas(rutaArchivo);
         if (!File.Exists(rutaArchivo))
         {
             Console.WriteLine($"No se encontró el archivo '{rutaArchivo}'.");
-            return;
+            return null;
         }
 
-        Console.WriteLine(_subidaDeImagenRemota.Ejecutar(nombreModelo, rutaArchivo));
+        return rutaArchivo;
     }
+
+    // Windows "Copiar como ruta de acceso" envuelve la ruta entre comillas dobles.
+    private static string SinComillas(string ruta)
+        => ruta.Length >= 2 && ruta[0] == '"' && ruta[^1] == '"'
+            ? ruta[1..^1]
+            : ruta;
+
+    public void Subir(string nombreModelo, string rutaArchivo)
+        => Console.WriteLine(_subidaDeImagenRemota.Ejecutar(nombreModelo, rutaArchivo));
 }
