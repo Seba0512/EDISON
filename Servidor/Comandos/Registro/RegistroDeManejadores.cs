@@ -2,11 +2,7 @@ using Servidor.Composicion;
 
 namespace Servidor.Comandos.Registro;
 
-/// <summary>
-/// Mapa CMD → manejador (CR1-CR10), pre-sembrado con los quince comandos del mapa final en su orden
-/// definitivo. Cada rama hija de CR2-CR10 reemplaza exactamente una línea por su manejador real; los
-/// conflictos posibles entre ramas quedan acotados a líneas adyacentes.
-/// </summary>
+/// <summary>Mapa CMD → manejador (CR1-CR10): los quince comandos del protocolo con su manejador real.</summary>
 internal static class RegistroDeManejadores
 {
     public static IReadOnlyDictionary<int, IManejadorDeComando> Crear(ServiciosDelServidor servicios)
