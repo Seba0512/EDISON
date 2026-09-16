@@ -117,7 +117,7 @@ internal sealed class SesionDeCliente
             ProtocoloException => $"provocó un error de protocolo: {exception.Message}",
             ObjectDisposedException when !_conexion.EstaAbierta =>
                 "finalizó la comunicación durante el cierre solicitado",
-            IOException or SocketException => $"finalizó la comunicación: {exception.Message}",
+            IOException or SocketException => "finalizó la comunicación",
             _ => $"provocó un error inesperado: {exception}"
         };
 }
