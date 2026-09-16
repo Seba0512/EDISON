@@ -16,10 +16,12 @@ public sealed class RespuestaDelServidor
 
     public string Estado { get; }
 
+    // En OK el cuerpo puede ser binario. En ER, PR e IN siempre es texto UTF-8.
     public ReadOnlyMemory<byte> Cuerpo => _cuerpo;
 
     public string Contenido => _contenido ??= TextoUtf8.Decodificar(_cuerpo);
 
+    // Se ejecuta recién después de mandar la respuesta. El archivo de CMD 16 viaja fuera de la trama.
     public Action<Stream>? AccionPosterior { get; private init; }
 
     public static RespuestaDelServidor Ok(string contenido)

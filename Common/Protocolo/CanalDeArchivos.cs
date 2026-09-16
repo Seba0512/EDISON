@@ -3,6 +3,7 @@ using Common.Excepciones;
 
 namespace Common.Protocolo;
 
+// El archivo viaja fuera de la trama. Primero el tamaño en 8 bytes y después sus bytes exactos.
 public sealed class CanalDeArchivos
 {
     private readonly int _tamanioDeBloque;
@@ -53,6 +54,7 @@ public sealed class CanalDeArchivos
     {
         byte[] buffer = new byte[_tamanioDeBloque];
         long restante = tamanio;
+        // Un bloque puede llegar repartido en varios Read. Un archivo de 0 bytes es válido y no entra al bucle.
         while (restante > 0)
         {
             int aLeer = (int)Math.Min(buffer.Length, restante);

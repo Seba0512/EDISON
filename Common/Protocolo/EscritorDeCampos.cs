@@ -9,6 +9,7 @@ public sealed class EscritorDeCampos
     public void EscribirCampo(string valor)
     {
         byte[] texto = TextoUtf8.Codificar(valor);
+        // El LARGO se mide en bytes UTF-8, nunca con string.Length.
         EscribirLargo(texto.Length);
         _flujo.Write(texto);
     }

@@ -58,6 +58,7 @@ public sealed class CodecDeTramas
         while (offset < buffer.Length)
         {
             int recibidos = stream.Read(buffer, offset, buffer.Length - offset);
+            // Si llegan cero bytes antes de empezar, el otro lado cerró bien. A mitad de trama, quedó cortada.
             if (recibidos == 0 && offset == 0)
                 throw new ConexionCerradaException();
             if (recibidos == 0)
@@ -82,6 +83,7 @@ public sealed class CodecDeTramas
     {
         Campo campo = new(ConstantesDelProtocolo.LargoCampoLargo, "LARGO");
         byte[] bytes = LeerExactamente(stream, campo);
+        // LARGO viaja como número de 4 bytes y no como texto ASCII, a diferencia de HEADER y CMD.
         int largo = BinaryPrimitives.ReadInt32BigEndian(bytes);
         ExigirLargoAdmitido(largo);
         return largo;
@@ -91,6 +93,7 @@ public sealed class CodecDeTramas
     {
         byte[] buffer = new byte[campo.Largo];
         int offset = 0;
+        // Read puede devolver menos bytes de los pedidos, así que se insiste hasta completar el campo.
         while (offset < campo.Largo)
         {
             int recibidos = stream.Read(buffer, offset, campo.Largo - offset);

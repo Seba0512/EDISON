@@ -3,6 +3,7 @@ using Common.Excepciones;
 
 namespace Common.Protocolo;
 
+// Siempre InvariantCulture para que los datos no cambien según el idioma configurado en la máquina.
 public static class FormatoDeCampos
 {
     private const string FormatoFecha = "yyyyMMdd";

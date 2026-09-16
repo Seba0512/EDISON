@@ -5,6 +5,7 @@ namespace Common.Protocolo;
 
 public static class TextoUtf8
 {
+    // UTF-8 estricto. Un byte inválido tiene que dar error y no convertirse en un carácter de relleno.
     private static readonly UTF8Encoding Encoding = new(false, true);
 
     public static byte[] Codificar(string texto)
