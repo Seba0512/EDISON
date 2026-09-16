@@ -110,15 +110,6 @@ public class ModeloTests
     }
 
     [TestMethod]
-    public void AjustarStockHaciaArribaAgregaUnidadesDisponibles()
-    {
-        modelo.AjustarStock(StockInicial + 2);
-
-        Assert.AreEqual(StockInicial + 2, modelo.StockTotal);
-        Assert.AreEqual(StockInicial + 2, modelo.UnidadesDisponibles);
-    }
-
-    [TestMethod]
     public void ModificarAplicaDatosYStockComoUnaOperacionCompleta()
     {
         modelo.Modificar(new FichaDeModelo(DatosModificados(), StockInicial + 2), creadora);
@@ -170,35 +161,44 @@ public class ModeloTests
         Assert.AreEqual(2, modelo.ReservasActivas());
     }
 
+    /// <summary>
+    /// Cubre la nueva guardia de disponibilidad de <see cref="Modelo.Modificar"/>: un modelo agotado
+    /// (sin unidades libres) no puede modificarse si el stock nuevo no supera al total actual.
+    /// </summary>
     [TestMethod]
-    public void AjustarStockHaciaAbajoSoloQuitaUnidadesDisponibles()
+    public void ModificarUnModeloAgotadoSinAumentarElStockFalla()
     {
-        ReservaConfirmada();
+        for (int confirmadas = 0; confirmadas < StockInicial; confirmadas++)
+        {
+            ReservaConfirmada();
+        }
 
-        modelo.AjustarStock(2);
+        Assert.ThrowsException<DominioException>(
+            () => modelo.Modificar(new FichaDeModelo(DatosModificados(), StockInicial), creadora));
 
-        Assert.AreEqual(2, modelo.StockTotal);
-        Assert.AreEqual(1, modelo.UnidadesReservadas);
+        Assert.AreEqual("Sedan electrico", modelo.Descripcion);
+        Assert.AreEqual(StockInicial, modelo.StockTotal);
+        Assert.AreEqual(0, modelo.UnidadesDisponibles);
+    }
+
+    /// <summary>
+    /// Supuesto de diseno documentado en <see cref="Modelo.Modificar"/>: reponer stock por encima del
+    /// total actual saca a un modelo agotado de ese estado, aunque al momento de pedir la
+    /// modificacion no quedaran unidades disponibles.
+    /// </summary>
+    [TestMethod]
+    public void ModificarUnModeloAgotadoAumentandoElStockLoSaneaDelAgotamiento()
+    {
+        for (int confirmadas = 0; confirmadas < StockInicial; confirmadas++)
+        {
+            ReservaConfirmada();
+        }
+
+        modelo.Modificar(new FichaDeModelo(DatosModificados(), StockInicial + 1), creadora);
+
+        Assert.AreEqual("Sedan electrico renovado", modelo.Descripcion);
+        Assert.AreEqual(StockInicial + 1, modelo.StockTotal);
         Assert.AreEqual(1, modelo.UnidadesDisponibles);
-    }
-
-    [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void AjustarStockQueNoSupereLasReservasActivasFalla()
-    {
-        ReservaConfirmada();
-        ReservaConfirmada();
-
-        modelo.AjustarStock(2);
-    }
-
-    [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void UnaReservaPendienteTambienBloqueaLaBajaDeStock()
-    {
-        ReservaRegistrada();
-
-        modelo.AjustarStock(1);
     }
 
     [TestMethod]
@@ -220,33 +220,6 @@ public class ModeloTests
         ReservaConfirmada();
 
         Assert.AreEqual(2, modelo.ReservasActivas());
-    }
-
-    [TestMethod]
-    public void ActualizarDatosCambiaLosDatosDescriptivos()
-    {
-        modelo.ActualizarDatos(DatosCon(NombreModelo, 39990m));
-
-        Assert.AreEqual(39990m, modelo.Precio);
-    }
-
-    [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void ActualizarDatosSinUnidadesDisponiblesFalla()
-    {
-        for (int confirmadas = 0; confirmadas < StockInicial; confirmadas++)
-        {
-            ReservaConfirmada();
-        }
-
-        modelo.ActualizarDatos(DatosCon(NombreModelo, 39990m));
-    }
-
-    [TestMethod]
-    [ExpectedException(typeof(DominioException))]
-    public void ActualizarDatosConOtroNombreFalla()
-    {
-        modelo.ActualizarDatos(DatosCon("Edison X2", 39990m));
     }
 
     [TestMethod]
