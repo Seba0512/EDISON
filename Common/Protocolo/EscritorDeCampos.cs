@@ -17,6 +17,25 @@ public sealed class EscritorDeCampos
         _flujo.Write(texto);
     }
 
+    public void EscribirEntero(int valor)
+        => EscribirCampo(FormatoDeCampos.De(valor));
+
+    public void EscribirDecimal(decimal valor)
+        => EscribirCampo(FormatoDeCampos.De(valor));
+
+    public void EscribirFecha(DateTime valor)
+        => EscribirCampo(FormatoDeCampos.DeFecha(valor));
+
+    public void EscribirFechaHora(DateTime valor)
+        => EscribirCampo(FormatoDeCampos.DeFechaHora(valor));
+
+    public void EscribirGuid(Guid valor)
+        => EscribirCampo(FormatoDeCampos.De(valor));
+
+    /// <summary>Cantidad de elementos que abre una lista (CR7, CR9, CR10, CR13). Es un entero más con nombre propio.</summary>
+    public void EscribirCantidad(int cantidad)
+        => EscribirEntero(cantidad);
+
     public byte[] ObtenerBytes()
         => _flujo.ToArray();
 

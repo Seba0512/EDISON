@@ -28,6 +28,31 @@ public ref struct LectorDeCampos
         return texto;
     }
 
+    /// <summary>Un campo de largo 0 representa la ausencia del valor opcional (CR7).</summary>
+    public string? LeerCampoOpcional()
+    {
+        string campo = LeerCampo();
+        return campo.Length == 0 ? null : campo;
+    }
+
+    public int LeerEntero()
+        => FormatoDeCampos.AEntero(LeerCampo());
+
+    public decimal LeerDecimal()
+        => FormatoDeCampos.ADecimal(LeerCampo());
+
+    public DateTime LeerFecha()
+        => FormatoDeCampos.AFecha(LeerCampo());
+
+    public DateTime LeerFechaHora()
+        => FormatoDeCampos.AFechaHora(LeerCampo());
+
+    public Guid LeerGuid()
+        => FormatoDeCampos.AGuid(LeerCampo());
+
+    public int LeerCantidad()
+        => LeerEntero();
+
     public readonly void ExigirFinDePayload()
     {
         if (_posicion != _datos.Length)
