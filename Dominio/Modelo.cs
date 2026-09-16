@@ -158,15 +158,19 @@ public class Modelo : IVehiculoBuscable
     {
         lock (candado)
         {
-            ExigirActivo();
-            ExigirPropietario(solicitante);
-            ExigirMismoNombre(ficha.Datos);
-            ExigirDisponibleOStockEnAumento(ficha.Stock);
-            ExigirStockSuperiorAReservasActivas(ficha.Stock);
-
+            ValidarModificacion(ficha, solicitante);
             stock.AjustarA(ficha.Stock);
             datos = ficha.Datos;
         }
+    }
+
+    private void ValidarModificacion(FichaDeModelo ficha, Usuario solicitante)
+    {
+        ExigirActivo();
+        ExigirPropietario(solicitante);
+        ExigirMismoNombre(ficha.Datos);
+        ExigirDisponibleOStockEnAumento(ficha.Stock);
+        ExigirStockSuperiorAReservasActivas(ficha.Stock);
     }
 
     public int ReservasActivas()
