@@ -1,6 +1,5 @@
 namespace Cliente.Menu;
 
-/// <summary>Lista numerada de <see cref="IOpcionDeMenu"/>. Agregar una opción no toca esta clase.</summary>
 internal sealed class MenuDeOpciones
 {
     private readonly IReadOnlyList<IOpcionDeMenu> _opciones;
@@ -10,7 +9,6 @@ internal sealed class MenuDeOpciones
         _opciones = opciones;
     }
 
-    /// <returns>Falso si la entrada llegó a fin de flujo (EOF) y no se ejecutó ninguna opción.</returns>
     public bool MostrarYEjecutar()
     {
         Mostrar();

@@ -5,12 +5,6 @@ using Common.Protocolo.Vistas;
 
 namespace Cliente.Menu.Opciones;
 
-/// <summary>
-/// CMD 11: pide por consola los mismos cinco datos que el alta (CR3, la modificacion manda la ficha
-/// completa, no un delta) y los delega en <see cref="ModificacionDeModeloRemota"/>. Nunca ve bytes ni
-/// sockets. La lectura con reintento replica el patron de <see cref="OpcionAltaDeModelo"/>, pero con
-/// helpers propios: esa clase no se toca para no acoplar dos comandos distintos entre si.
-/// </summary>
 internal sealed class OpcionModificarModelo : IOpcionDeMenu
 {
     private readonly ModificacionDeModeloRemota _modificacionDeModeloRemota;

@@ -2,10 +2,6 @@ using Common.Protocolo.Vistas;
 
 namespace Cliente.Vistas;
 
-/// <summary>
-/// CR7: imprime en consola, en una tabla simple de ancho fijo, el resultado de una búsqueda de
-/// modelos. No sabe nada de protocolo ni de sockets: sólo recibe las filas ya decodificadas.
-/// </summary>
 internal static class PresentadorDeModelos
 {
     public static void Mostrar(IReadOnlyList<ModeloListado> modelos)

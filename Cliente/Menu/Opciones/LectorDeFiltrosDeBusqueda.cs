@@ -4,13 +4,6 @@ using Common.Protocolo.Vistas;
 
 namespace Cliente.Menu.Opciones;
 
-/// <summary>
-/// CR7: lectura de consola propia para los cinco filtros opcionales de búsqueda de modelos. Enter
-/// vacío en cualquiera de ellos significa "sin filtro"; sólo el fin de entrada (EOF, igual que
-/// <see cref="LectorDeConsola"/>) cancela toda la operación. Un valor con formato inválido se
-/// reintenta en el momento en vez de viajar al servidor, para no gastar una ida y vuelta de red en un
-/// error que ya se puede detectar acá.
-/// </summary>
 internal sealed class LectorDeFiltrosDeBusqueda
 {
     private const char Bom = '﻿';

@@ -3,11 +3,6 @@ using Cliente.Vistas;
 
 namespace Cliente.Menu.Opciones;
 
-/// <summary>
-/// Opción de menú de CMD 30 (CR10). Delega en <see cref="HistorialRemota"/> para hablar con el
-/// servidor y en <see cref="PresentadorDeHistorial"/> para mostrar el resultado: nunca ve bytes ni
-/// sockets, igual que el resto de las opciones de este menú.
-/// </summary>
 internal sealed class OpcionHistorial : IOpcionDeMenu
 {
     private readonly HistorialRemota _historialRemota;

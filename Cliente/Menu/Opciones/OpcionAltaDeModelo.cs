@@ -5,7 +5,6 @@ using Common.Protocolo.Vistas;
 
 namespace Cliente.Menu.Opciones;
 
-/// <summary>CMD 10: pide por consola los datos del alta de modelo (CR2) y los delega en <see cref="AltaDeModeloRemota"/>. Nunca ve bytes ni sockets.</summary>
 internal sealed class OpcionAltaDeModelo : IOpcionDeMenu
 {
     private readonly AltaDeModeloRemota _altaDeModeloRemota;

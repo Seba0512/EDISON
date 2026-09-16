@@ -4,11 +4,6 @@ using Common.Protocolo.Vistas;
 
 namespace Cliente.Menu.Opciones;
 
-/// <summary>
-/// CMD 13: opción de menú de CR7. Pide los cinco filtros opcionales, delega la solicitud remota en
-/// <see cref="BusquedaDeModelosRemota"/> y muestra el resultado con <see cref="PresentadorDeModelos"/>;
-/// no conoce el formato del protocolo ni el socket subyacente.
-/// </summary>
 internal sealed class OpcionBuscarModelos : IOpcionDeMenu
 {
     private readonly BusquedaDeModelosRemota _busqueda;

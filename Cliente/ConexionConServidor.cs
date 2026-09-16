@@ -57,7 +57,6 @@ internal sealed class ConexionConServidor : IDisposable
     public string CerrarSesion()
         => EnviarSolicitud(Comandos.CerrarSesion, []);
 
-    /// <summary>Envía una solicitud y decodifica el resultado como texto (CR1 y respuestas de texto plano de CR2-CR10).</summary>
     public string EnviarSolicitud(int comando, byte[] datos)
     {
         Trama respuesta = EnviarYLeer(comando, datos);
@@ -65,7 +64,6 @@ internal sealed class ConexionConServidor : IDisposable
         return ReaccionesAEstado.Aplicar(contenido);
     }
 
-    /// <summary>Envía una solicitud y devuelve el cuerpo sin decodificar (respuestas OK con campos binarios de CR2-CR10).</summary>
     public byte[] EnviarSolicitudYLeerCuerpo(int comando, byte[] datos)
     {
         Trama respuesta = EnviarYLeer(comando, datos);
@@ -73,10 +71,6 @@ internal sealed class ConexionConServidor : IDisposable
         return ReaccionesAEstado.AplicarSobreCuerpo(contenido).ToArray();
     }
 
-    /// <summary>
-    /// Envía la solicitud y, a continuación y fuera de frame, el archivo completo (CMD 15). Valida
-    /// existencia y tamaño del archivo antes de anunciar nada.
-    /// </summary>
     public string EnviarSolicitudConArchivo(int comando, byte[] datos, string rutaOrigen)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
@@ -94,11 +88,6 @@ internal sealed class ConexionConServidor : IDisposable
         return ReaccionesAEstado.Aplicar(contenido);
     }
 
-    /// <summary>
-    /// Recibe, fuera de frame, el archivo que sigue a la última respuesta leída (CMD 16) y lo guarda
-    /// en <paramref name="rutaDestino"/>.
-    /// </summary>
-    /// <returns>La cantidad de bytes recibidos.</returns>
     public long RecibirArchivoEn(string rutaDestino)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
@@ -169,11 +158,9 @@ internal sealed class ConexionConServidor : IDisposable
         }
         catch (SocketException)
         {
-            // El extremo remoto puede haber cerrado primero.
         }
         catch (ObjectDisposedException)
         {
-            // Dispose es idempotente.
         }
     }
 }

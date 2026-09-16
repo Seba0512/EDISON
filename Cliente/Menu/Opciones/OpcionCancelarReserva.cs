@@ -4,13 +4,6 @@ using Common.Protocolo;
 
 namespace Cliente.Menu.Opciones;
 
-/// <summary>
-/// CMD 21 en el menú autenticado (CR6): pide el id de la reserva a cancelar como texto (el usuario lo
-/// pega tal cual lo vio en "Mis reservas", que ya lo muestra completo), lo parsea con
-/// <see cref="FormatoDeCampos.AGuid"/> con reintento si el formato es inválido, delega la cancelación
-/// en <see cref="CancelacionDeReservaRemota"/> y muestra el texto de la respuesta. Nunca ve bytes ni
-/// sockets.
-/// </summary>
 internal sealed class OpcionCancelarReserva : IOpcionDeMenu
 {
     private readonly CancelacionDeReservaRemota _cancelacionDeReservaRemota;

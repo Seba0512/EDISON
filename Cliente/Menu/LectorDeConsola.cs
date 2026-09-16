@@ -2,18 +2,8 @@ using Common.Protocolo;
 
 namespace Cliente.Menu;
 
-/// <summary>
-/// Lectura de consola validada: texto no vacío y opción numérica dentro de rango. Si
-/// <see cref="Console.ReadLine"/> devuelve null (EOF), cada método devuelve null y quien lo llama lo
-/// trata como un cierre normal, no como un error de red.
-/// </summary>
 internal static class LectorDeConsola
 {
-    /// <summary>
-    /// Con <see cref="Console.InputEncoding"/> en UTF-8, .NET antepone un BOM fantasma a la primera
-    /// línea leída de una entrada redirigida (un archivo, una tubería), sin que ese byte exista
-    /// realmente en la entrada. Se descarta acá para no romper la primera opción o el primer campo.
-    /// </summary>
     private const char Bom = '\uFEFF';
 
     public static int? LeerOpcion(int cantidadDeOpciones)

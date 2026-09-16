@@ -2,12 +2,6 @@ using Common.Protocolo;
 
 namespace Cliente.Operaciones;
 
-/// <summary>
-/// CMD 15: sube la imagen de un modelo (paso opcional dentro de "Alta de modelo" y "Modificar
-/// modelo", nunca una opcion de menu propia). No conoce bytes ni sockets: delega en
-/// <see cref="ConexionConServidor.EnviarSolicitudConArchivo"/>, que manda el REQ y, a continuacion y
-/// fuera de frame, el archivo completo, sin esperar ninguna respuesta intermedia.
-/// </summary>
 internal sealed class SubidaDeImagenRemota
 {
     private readonly ConexionConServidor _conexion;

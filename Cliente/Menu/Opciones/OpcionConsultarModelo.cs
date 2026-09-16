@@ -4,11 +4,6 @@ using Common.Protocolo.Vistas;
 
 namespace Cliente.Menu.Opciones;
 
-/// <summary>
-/// CMD 14 en el menú autenticado (CR8): pide el nombre del modelo, delega la consulta en
-/// <see cref="ConsultaDeModeloRemota"/> y muestra el resultado con
-/// <see cref="PresentadorDeDetalleDeModelo"/>. No maneja bytes ni sockets.
-/// </summary>
 internal sealed class OpcionConsultarModelo : IOpcionDeMenu
 {
     private readonly ConsultaDeModeloRemota _consulta;

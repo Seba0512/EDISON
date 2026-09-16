@@ -1,9 +1,5 @@
 namespace Cliente.Menu;
 
-/// <summary>
-/// Navegación local entre el menú anónimo y el autenticado. No es la autoridad de autenticación
-/// (esa vive en el Servidor): sólo refleja, del lado del cliente, qué menú corresponde mostrar.
-/// </summary>
 internal sealed class EstadoDelMenu
 {
     private MenuDeOpciones? _menuAnonimo;
