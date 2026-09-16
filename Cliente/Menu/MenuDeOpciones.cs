@@ -9,16 +9,17 @@ internal sealed class MenuDeOpciones
         _opciones = opciones;
     }
 
-    public bool MostrarYEjecutar()
+    public (bool Continuar, bool RequierePausa) MostrarYEjecutar()
     {
         Mostrar();
         int? indice = LectorDeConsola.LeerOpcion(_opciones.Count);
         if (indice is null)
-            return false;
+            return (false, false);
 
         Console.WriteLine();
-        _opciones[indice.Value].Ejecutar();
-        return true;
+        IOpcionDeMenu opcion = _opciones[indice.Value];
+        opcion.Ejecutar();
+        return (true, opcion.RequierePausa);
     }
 
     private void Mostrar()
