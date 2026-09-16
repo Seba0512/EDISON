@@ -17,7 +17,7 @@ internal static class MenuAutenticado
             new OpcionNoDisponible("Eliminar modelo"),
             new OpcionBuscarModelos(conexion),
             new OpcionConsultarModelo(conexion),
-            new OpcionNoDisponible("Solicitar reserva"),
+            new OpcionSolicitarReserva(conexion),
             new OpcionNoDisponible("Cancelar reserva"),
             new OpcionMisReservas(conexion),
             new OpcionHistorial(conexion),
