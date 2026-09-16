@@ -23,8 +23,7 @@ internal sealed class OpcionAltaDeModelo : IOpcionDeMenu
         if (nombre is null)
             return;
 
-        string? descripcion = LectorDeConsola.LeerTexto("Descripción:");
-        if (descripcion is null)
+        if (!LectorDeConsola.LeerTextoOpcional("Descripción (Enter para omitir):", out string? descripcion))
             return;
 
         decimal? precio = LectorDeConsola.LeerDecimal("Precio:");
@@ -40,7 +39,7 @@ internal sealed class OpcionAltaDeModelo : IOpcionDeMenu
             return;
 
         DatosDeAltaDeModelo datos = new(
-            nombre, descripcion, precio.Value, fechaEntregaPrometida.Value, stock.Value);
+            nombre, descripcion ?? string.Empty, precio.Value, fechaEntregaPrometida.Value, stock.Value);
         Console.WriteLine(_altaDeModeloRemota.Ejecutar(datos));
 
         _ofertaDeSubidaDeImagen.Ofrecer(datos.Nombre);
