@@ -20,7 +20,7 @@ internal static class RegistroDeManejadores
             [Common.Protocolo.Comandos.ModificarModelo] = new ManejadorNoDisponible(Common.Protocolo.Comandos.ModificarModelo),
             [Common.Protocolo.Comandos.BajaDeModelo] = new ManejadorNoDisponible(Common.Protocolo.Comandos.BajaDeModelo),
             [Common.Protocolo.Comandos.BuscarModelos] = new ManejadorNoDisponible(Common.Protocolo.Comandos.BuscarModelos),
-            [Common.Protocolo.Comandos.ConsultarModelo] = new ManejadorNoDisponible(Common.Protocolo.Comandos.ConsultarModelo),
+            [Common.Protocolo.Comandos.ConsultarModelo] = new ManejadorDeConsultaDeModelo(servicios.CatalogoDeModelos),
             [Common.Protocolo.Comandos.SubirImagen] = new ManejadorNoDisponible(Common.Protocolo.Comandos.SubirImagen),
             [Common.Protocolo.Comandos.DescargarImagen] = new ManejadorNoDisponible(Common.Protocolo.Comandos.DescargarImagen),
             [Common.Protocolo.Comandos.SolicitarReserva] = new ManejadorNoDisponible(Common.Protocolo.Comandos.SolicitarReserva),
