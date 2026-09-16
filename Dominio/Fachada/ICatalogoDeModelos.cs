@@ -10,6 +10,8 @@ public interface ICatalogoDeModelos
 
     void EliminarModelo(string nombreModelo, Usuario solicitante);
 
+    string CambiarImagenDeModelo(string nombreModelo, string nuevoNombreArchivoImagen, Usuario solicitante);
+
     IReadOnlyList<Modelo> Buscar(ICriterioDeBusqueda criterio);
 
     Modelo Consultar(string nombreModelo);

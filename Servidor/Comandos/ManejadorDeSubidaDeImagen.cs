@@ -20,33 +20,26 @@ internal sealed class ManejadorDeSubidaDeImagen : ManejadorAutenticado
 
     protected override RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario)
     {
+        // El archivo se drena del stream antes de decodificar DATOS: si DATOS viene mal formado,
+        // el stream queda igual sincronizado para la próxima trama.
+        using MemoryStream buffer = new();
+        solicitud.Archivos.RecibirEn(buffer);
+
         (string nombreModelo, string nombreArchivoCliente) =
             CodecDeSubidaDeImagen.DecodificarSolicitud(solicitud.Datos.Span);
 
-        using MemoryStream buffer = new();
-        solicitud.Archivos.RecibirEn(buffer);
         buffer.Position = 0;
-
         string nombreValidado = NombreDeArchivoSeguro.Validar(nombreArchivoCliente);
         string extension = Path.GetExtension(nombreValidado);
-
-        Modelo modelo = _catalogoDeModelos.Consultar(nombreModelo);
-        string nombreArchivoAnterior = modelo.NombreArchivoImagen;
 
         string nombreArchivoNuevo = $"{Guid.NewGuid():N}{extension}";
         _repositorioDeImagenes.Guardar(nombreArchivoNuevo, buffer);
 
+        string nombreArchivoAnterior;
         try
         {
-            DatosDeModelo datosConImagen = new(
-                modelo.Nombre,
-                modelo.Descripcion,
-                modelo.Precio,
-                modelo.FechaEntregaPrometida,
-                nombreArchivoNuevo);
-            FichaDeModelo ficha = new(datosConImagen, modelo.StockTotal);
-
-            _catalogoDeModelos.ModificarModelo(ficha, usuario);
+            nombreArchivoAnterior =
+                _catalogoDeModelos.CambiarImagenDeModelo(nombreModelo, nombreArchivoNuevo, usuario);
         }
         catch (DominioException)
         {
@@ -59,6 +52,6 @@ internal sealed class ManejadorDeSubidaDeImagen : ManejadorAutenticado
             _repositorioDeImagenes.Eliminar(nombreArchivoAnterior);
         }
 
-        return RespuestaDelServidor.Ok($"Imagen subida para el modelo '{modelo.Nombre}'");
+        return RespuestaDelServidor.Ok($"Imagen subida para el modelo '{nombreModelo}'");
     }
 }

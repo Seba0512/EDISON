@@ -22,6 +22,8 @@ public class CatalogoDeModelos : ICatalogoDeModelos
 
     public void AltaDeModelo(FichaDeModelo ficha, Usuario creador)
     {
+        ExigirFechaDeEntregaFutura(ficha.Datos.FechaEntregaPrometida);
+
         Modelo modelo = new Modelo(ficha.Datos, creador);
         modelo.AgregarUnidades(ficha.Stock);
         modelos.Agregar(modelo);
@@ -32,6 +34,11 @@ public class CatalogoDeModelos : ICatalogoDeModelos
     public void ModificarModelo(FichaDeModelo ficha, Usuario solicitante)
     {
         Modelo modelo = modelos.ObtenerPorNombre(ficha.Nombre);
+        // Solo se exige futura si la fecha efectivamente cambió: así no se rompe la subida de imagen
+        // (que reusa la fecha almacenada) ni la edición tardía de otros campos de un modelo ya vencido.
+        if (ficha.Datos.FechaEntregaPrometida.Date != modelo.FechaEntregaPrometida.Date)
+            ExigirFechaDeEntregaFutura(ficha.Datos.FechaEntregaPrometida);
+
         modelo.Modificar(ficha, solicitante);
 
         solicitante.Registrar(Actividad.ModeloModificado(ficha.Nombre, reloj));
@@ -45,6 +52,24 @@ public class CatalogoDeModelos : ICatalogoDeModelos
         BorrarImagen(nombreArchivoImagen);
 
         solicitante.Registrar(Actividad.ModeloEliminado(modelo.Nombre, reloj));
+    }
+
+    public string CambiarImagenDeModelo(string nombreModelo, string nuevoNombreArchivoImagen, Usuario solicitante)
+    {
+        Modelo modelo = modelos.ObtenerPorNombre(nombreModelo);
+        string nombreArchivoAnterior = modelo.CambiarImagen(solicitante, nuevoNombreArchivoImagen);
+
+        solicitante.Registrar(Actividad.ModeloModificado(modelo.Nombre, reloj));
+
+        return nombreArchivoAnterior;
+    }
+
+    private void ExigirFechaDeEntregaFutura(DateTime fechaEntregaPrometida)
+    {
+        if (fechaEntregaPrometida.Date <= reloj.Ahora.Date)
+        {
+            throw new DominioException("La fecha de entrega debe ser futura");
+        }
     }
 
     public IReadOnlyList<Modelo> Buscar(ICriterioDeBusqueda criterio)

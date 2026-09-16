@@ -165,6 +165,27 @@ public class Modelo : IVehiculoBuscable
         }
     }
 
+    // Swap atómico bajo el candado: serializa subidas concurrentes de imagen y siempre devuelve
+    // exactamente la imagen que quedó reemplazada, para que quien llama la borre sin fugas.
+    public string CambiarImagen(Usuario solicitante, string nuevoNombreArchivoImagen)
+    {
+        lock (candado)
+        {
+            ExigirActivo();
+            ExigirPropietario(solicitante);
+
+            string nombreArchivoAnterior = datos.NombreArchivoImagen;
+            datos = new DatosDeModelo(
+                datos.Nombre,
+                datos.Descripcion,
+                datos.Precio,
+                datos.FechaEntregaPrometida,
+                nuevoNombreArchivoImagen);
+
+            return nombreArchivoAnterior;
+        }
+    }
+
     private void ValidarModificacion(FichaDeModelo ficha, Usuario solicitante)
     {
         ExigirActivo();

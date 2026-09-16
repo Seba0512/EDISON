@@ -160,4 +160,49 @@ public class CatalogoDeModelosTests
     {
         Assert.AreEqual(0, catalogo.Buscar(new CriterioQueAceptaTodo()).Count);
     }
+
+    [TestMethod]
+    [ExpectedException(typeof(DominioException))]
+    public void AltaConFechaDeEntregaHoyOAnteriorFalla()
+    {
+        DatosDeModelo datos = new DatosDeModelo(NombreModelo, "Sedan electrico", 45000m, Momento.Date, string.Empty);
+
+        catalogo.AltaDeModelo(new FichaDeModelo(datos, StockInicial), creadora);
+    }
+
+    [TestMethod]
+    [ExpectedException(typeof(DominioException))]
+    public void ModificarCambiandoAUnaFechaHoyOAnteriorFalla()
+    {
+        DarDeAlta();
+        DatosDeModelo datos = new DatosDeModelo(NombreModelo, "Sedan electrico", 45000m, Momento.Date, string.Empty);
+
+        catalogo.ModificarModelo(new FichaDeModelo(datos, StockInicial), creadora);
+    }
+
+    [TestMethod]
+    public void ModificarSinCambiarLaFechaNoLaRevalidaAunqueYaHayaVencido()
+    {
+        DarDeAlta();
+        reloj.Avanzar(TimeSpan.FromDays(400));
+        DatosDeModelo datos = new DatosDeModelo(
+            NombreModelo, "Sedan electrico renovado", 39990m, FechaEntrega, string.Empty);
+
+        catalogo.ModificarModelo(new FichaDeModelo(datos, StockInicial), creadora);
+
+        Modelo modelo = catalogo.Consultar(NombreModelo);
+        Assert.AreEqual("Sedan electrico renovado", modelo.Descripcion);
+    }
+
+    [TestMethod]
+    public void CambiarImagenDeModeloReemplazaLaImagenYRegistraActividad()
+    {
+        catalogo.AltaDeModelo(Ficha(45000m, StockInicial, Imagen), creadora);
+
+        string anterior = catalogo.CambiarImagenDeModelo(NombreModelo, "nueva.png", creadora);
+
+        Assert.AreEqual(Imagen, anterior);
+        Assert.AreEqual("nueva.png", catalogo.Consultar(NombreModelo).NombreArchivoImagen);
+        Assert.AreEqual(TipoActividad.ModeloModificado, creadora.Actividades()[1].Tipo);
+    }
 }

@@ -54,6 +54,11 @@ public class Edison : IAutenticacion, ICatalogoDeModelos, IGestionDeReservas, IR
         catalogoDeModelos.EliminarModelo(nombreModelo, solicitante);
     }
 
+    public string CambiarImagenDeModelo(string nombreModelo, string nuevoNombreArchivoImagen, Usuario solicitante)
+    {
+        return catalogoDeModelos.CambiarImagenDeModelo(nombreModelo, nuevoNombreArchivoImagen, solicitante);
+    }
+
     public IReadOnlyList<Modelo> Buscar(ICriterioDeBusqueda criterio)
     {
         return catalogoDeModelos.Buscar(criterio);
