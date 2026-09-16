@@ -9,10 +9,12 @@ namespace Cliente.Menu.Opciones;
 internal sealed class OpcionAltaDeModelo : IOpcionDeMenu
 {
     private readonly AltaDeModeloRemota _altaDeModeloRemota;
+    private readonly SubidaDeImagenRemota _subidaDeImagenRemota;
 
     public OpcionAltaDeModelo(ConexionConServidor conexion)
     {
         _altaDeModeloRemota = new AltaDeModeloRemota(conexion);
+        _subidaDeImagenRemota = new SubidaDeImagenRemota(conexion);
     }
 
     public string Titulo
@@ -43,6 +45,27 @@ internal sealed class OpcionAltaDeModelo : IOpcionDeMenu
         DatosDeAltaDeModelo datos = new(
             nombre, descripcion, precio.Value, fechaEntregaPrometida.Value, stock.Value);
         Console.WriteLine(_altaDeModeloRemota.Ejecutar(datos));
+
+        OfrecerSubidaDeImagen(datos.Nombre);
+    }
+
+    private void OfrecerSubidaDeImagen(string nombreModelo)
+    {
+        string? respuesta = LectorDeConsola.LeerTexto("¿Desea subir una imagen para el modelo? (s/n):");
+        if (respuesta is null || !respuesta.Trim().Equals("s", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        string? rutaArchivo = LectorDeConsola.LeerTexto("Ruta local del archivo de imagen:");
+        if (rutaArchivo is null)
+            return;
+
+        if (!File.Exists(rutaArchivo))
+        {
+            Console.WriteLine($"No se encontró el archivo '{rutaArchivo}'.");
+            return;
+        }
+
+        Console.WriteLine(_subidaDeImagenRemota.Ejecutar(nombreModelo, rutaArchivo));
     }
 
     private static decimal? LeerDecimal(string mensaje)

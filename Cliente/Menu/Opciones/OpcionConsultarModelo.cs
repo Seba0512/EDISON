@@ -12,10 +12,12 @@ namespace Cliente.Menu.Opciones;
 internal sealed class OpcionConsultarModelo : IOpcionDeMenu
 {
     private readonly ConsultaDeModeloRemota _consulta;
+    private readonly DescargaDeImagenRemota _descargaDeImagenRemota;
 
     public OpcionConsultarModelo(ConexionConServidor conexion)
     {
         _consulta = new ConsultaDeModeloRemota(conexion);
+        _descargaDeImagenRemota = new DescargaDeImagenRemota(conexion);
     }
 
     public string Titulo
@@ -29,5 +31,19 @@ internal sealed class OpcionConsultarModelo : IOpcionDeMenu
 
         DetalleDeModelo detalle = _consulta.Ejecutar(nombreModelo);
         PresentadorDeDetalleDeModelo.Mostrar(detalle);
+
+        OfrecerDescargaDeImagen(nombreModelo, detalle);
+    }
+
+    private void OfrecerDescargaDeImagen(string nombreModelo, DetalleDeModelo detalle)
+    {
+        if (detalle.NombreArchivoImagen.Length == 0)
+            return;
+
+        string? respuesta = LectorDeConsola.LeerTexto("¿Desea descargar la imagen? (s/n):");
+        if (respuesta is null || !respuesta.Trim().Equals("s", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        Console.WriteLine(_descargaDeImagenRemota.Ejecutar(nombreModelo));
     }
 }
