@@ -39,7 +39,7 @@ internal sealed class OpcionModificarModelo : IOpcionDeMenu
         if (precio is null)
             return;
 
-        DateTime? fechaEntregaPrometida = LeerFecha("Nueva fecha de entrega prometida (yyyyMMdd):");
+        DateTime? fechaEntregaPrometida = LeerFecha("Nueva fecha de entrega prometida (dd-MM-yyyy):");
         if (fechaEntregaPrometida is null)
             return;
 

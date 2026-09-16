@@ -27,7 +27,7 @@ internal sealed class LectorDeFiltrosDeBusqueda
             return null;
 
         if (!TryLeerFechaOpcional(
-                "Fecha de entrega máxima, formato aaaammdd (Enter para omitir):", out DateTime? fechaEntregaMaxima))
+                "Fecha de entrega máxima, formato dd-MM-yyyy (Enter para omitir):", out DateTime? fechaEntregaMaxima))
             return null;
 
         if (!TryLeerEnteroOpcional("Mínimo de unidades disponibles (Enter para omitir):", out int? minimoDisponibles))

@@ -14,7 +14,7 @@ namespace Common.Protocolo;
 /// </summary>
 public static class FormatoDeCampos
 {
-    private const string FormatoFecha = "yyyyMMdd";
+    private const string FormatoFecha = "dd-MM-yyyy";
     private const string FormatoFechaHora = "yyyyMMddHHmmss";
 
     public static string De(int valor)
