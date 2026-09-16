@@ -4,6 +4,8 @@ namespace Servidor.Reservas;
 
 internal sealed class MesaDeAprobaciones
 {
+    private static readonly TimeSpan TimeoutDeCierre = TimeSpan.FromSeconds(5);
+
     private readonly IResolucionDeReservas _resolucionDeReservas;
     private readonly TimeSpan _intervalo;
     private readonly object _candado = new();
@@ -33,7 +35,7 @@ internal sealed class MesaDeAprobaciones
             Monitor.PulseAll(_candado);
         }
 
-        _thread?.Join(TimeSpan.FromSeconds(5));
+        _thread?.Join(TimeoutDeCierre);
     }
 
     private void Ciclo()
