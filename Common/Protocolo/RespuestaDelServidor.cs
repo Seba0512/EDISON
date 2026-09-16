@@ -3,12 +3,6 @@ using Common.Excepciones;
 
 namespace Common.Protocolo;
 
-/// <summary>
-/// Contenido de un HEADER RES: <c>[ESTADO 2 ASCII][CUERPO]</c>. En CR1 el cuerpo siempre es texto
-/// UTF-8; desde CR2-CR10 un OK puede llevar campos binarios (<c>[LARGO][UTF-8]</c> repetidos), así
-/// que <see cref="Cuerpo"/> se expone crudo y <see cref="Contenido"/> lo decodifica recién si alguien
-/// lo pide. ER/PR/IN siguen siendo siempre texto: ninguna fábrica de error acepta otra cosa.
-/// </summary>
 public sealed class RespuestaDelServidor
 {
     private readonly byte[] _cuerpo;
@@ -22,26 +16,20 @@ public sealed class RespuestaDelServidor
 
     public string Estado { get; }
 
+    // En OK el cuerpo puede ser binario. En ER, PR e IN siempre es texto UTF-8.
     public ReadOnlyMemory<byte> Cuerpo => _cuerpo;
 
-    /// <summary>Decodifica el cuerpo como UTF-8. Válido siempre en ER/PR/IN; en OK sólo si ese comando responde texto plano.</summary>
     public string Contenido => _contenido ??= TextoUtf8.Decodificar(_cuerpo);
 
-    /// <summary>
-    /// Acción que se ejecuta sobre el stream de la conexión recién después de que el RES salió por la
-    /// red (CMD 16): un manejador no puede escribir el archivo durante <c>Responder</c> porque el RES
-    /// todavía no se escribió, así que la deja pendiente acá.
-    /// </summary>
+    // Se ejecuta recién después de mandar la respuesta. El archivo de CMD 16 viaja fuera de la trama.
     public Action<Stream>? AccionPosterior { get; private init; }
 
     public static RespuestaDelServidor Ok(string contenido)
         => new(CodigosDeEstado.Ok, TextoUtf8.Codificar(contenido));
 
-    /// <summary>OK con campos binarios en el cuerpo (listas y fichas de CR2-CR10).</summary>
     public static RespuestaDelServidor Ok(byte[] cuerpo)
         => new(CodigosDeEstado.Ok, cuerpo);
 
-    /// <summary>OK cuyo cuerpo va seguido, fuera de frame, por un archivo (CMD 16).</summary>
     public static RespuestaDelServidor OkConEnvioPosterior(byte[] cuerpo, Action<Stream> accionPosterior)
         => new(CodigosDeEstado.Ok, cuerpo) { AccionPosterior = accionPosterior };
 

@@ -70,9 +70,7 @@ internal sealed class SesionDeCliente
         }
         catch (TransferenciaDeArchivoException)
         {
-            // El stream quedó desincronizado a mitad de una transferencia: no hay forma de seguir
-            // atendiendo esta conexión, así que se propaga para que Atender() la cierre sin más
-            // intentos de escritura.
+            // La transferencia quedó a medias y ya no se sabe dónde empieza la próxima trama. Hay que cerrar.
             throw;
         }
         catch (Exception exception) when (exception is not IOException and not SocketException)
@@ -94,11 +92,10 @@ internal sealed class SesionDeCliente
         }
         catch (IOException)
         {
-            // El intento de avisar al cliente también puede fallar; la conexión se cierra igual.
+            // Avisar el error al cliente también puede fallar. La conexión se cierra igual.
         }
         catch (SocketException)
         {
-            // Idem.
         }
     }
 

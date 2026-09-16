@@ -2,7 +2,6 @@ using Dominio.Excepciones;
 
 namespace Dominio.Busqueda;
 
-/// <summary>Filtra por coincidencia parcial en el nombre del modelo (CR7).</summary>
 public class CriterioPorNombre : ICriterioDeBusqueda
 {
     private readonly string textoBuscado;

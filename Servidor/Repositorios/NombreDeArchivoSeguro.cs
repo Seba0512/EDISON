@@ -2,13 +2,7 @@ using Common.Excepciones;
 
 namespace Servidor.Repositorios;
 
-/// <summary>
-/// Saneamiento único de nombres de archivo de imagen (CMD 15/16). Ninguno de los dos extremos confía
-/// en el nombre que recibe: el cliente propone un nombre al subir y el servidor lo valida antes de
-/// tocar el disco; y aunque hoy el servidor deriva el nombre real del nombre del modelo (nunca de un
-/// valor arbitrario del cliente), este saneamiento es el único punto que decide qué es un nombre de
-/// archivo válido, para que no haya dos criterios distintos en el código.
-/// </summary>
+// Valida el nombre para que nadie pueda salirse de la carpeta de imágenes con rutas armadas.
 internal static class NombreDeArchivoSeguro
 {
     private static readonly string[] ExtensionesPermitidas = { ".png", ".jpg", ".jpeg" };
@@ -20,7 +14,6 @@ internal static class NombreDeArchivoSeguro
         "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
     };
 
-    /// <summary>Descarta separadores y componentes de ruta, rechaza vacíos, nombres reservados y extensiones no admitidas.</summary>
     public static string Validar(string nombrePropuesto)
     {
         string nombre = Path.GetFileName((nombrePropuesto ?? string.Empty).Trim());
@@ -39,7 +32,6 @@ internal static class NombreDeArchivoSeguro
         return nombre;
     }
 
-    /// <summary>Última verificación antes de tocar el disco: la ruta resultante debe quedar dentro de <paramref name="directorioRaiz"/>.</summary>
     public static void ExigirDentroDe(string rutaCompleta, string directorioRaiz)
     {
         string rutaCanonica = Path.GetFullPath(rutaCompleta);

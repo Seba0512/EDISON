@@ -108,10 +108,6 @@ public class UsuarioTests
         Assert.AreEqual(TipoActividad.InicioSesion, usuario.Actividades()[0].Tipo);
     }
 
-    /// <summary>
-    /// El historial de cada usuario es propio: no hay forma de que una actividad registrada en uno
-    /// aparezca en el otro, porque el historial vive por composicion y nunca se expone.
-    /// </summary>
     [TestMethod]
     public void CadaUsuarioTieneSuPropioHistorial()
     {

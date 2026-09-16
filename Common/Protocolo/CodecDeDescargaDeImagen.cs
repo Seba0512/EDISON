@@ -1,12 +1,5 @@
 namespace Common.Protocolo;
 
-/// <summary>
-/// Serializa el REQ y el RES OK de CMD 16 (descarga de imagen): el REQ es un unico campo de texto con
-/// el nombre del modelo pedido; el RES OK es un unico campo de texto con el nombre de archivo sugerido
-/// para que el cliente guarde la imagen. El archivo en si viaja fuera de frame recien despues del RES
-/// (ver <see cref="RespuestaDelServidor.OkConEnvioPosterior"/>): este codec cubre unicamente los
-/// campos de texto, nunca los bytes binarios.
-/// </summary>
 public static class CodecDeDescargaDeImagen
 {
     public static byte[] CodificarSolicitud(string nombreModelo)

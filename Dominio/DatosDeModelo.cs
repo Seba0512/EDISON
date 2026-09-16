@@ -2,12 +2,6 @@ using Dominio.Excepciones;
 
 namespace Dominio;
 
-/// <summary>
-/// Datos descriptivos de un modelo del catalogo. Es un objeto parametro inmutable: evita que el
-/// constructor de <see cref="Modelo"/> reciba cinco argumentos sueltos y se reutiliza tal cual en la
-/// modificacion (CR3), que altera exactamente estos campos.
-/// No incluye el stock: las cantidades viven en las unidades, no en estos datos.
-/// </summary>
 public class DatosDeModelo
 {
     private const int LargoMinimoNombre = 2;
@@ -22,7 +16,6 @@ public class DatosDeModelo
 
     public DateTime FechaEntregaPrometida { get; }
 
-    /// <summary>Cadena vacia cuando el modelo no tiene imagen: la imagen es opcional (CR2).</summary>
     public string NombreArchivoImagen { get; }
 
     public DatosDeModelo(

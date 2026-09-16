@@ -4,6 +4,9 @@ namespace Servidor.Red;
 
 internal sealed class ConexionActiva
 {
+    private const int Abierta = 0;
+    private const int Cerrada = 1;
+
     private readonly Socket _socket;
     private Thread? _thread;
     private int _cerrada;
@@ -16,7 +19,7 @@ internal sealed class ConexionActiva
 
     public int Numero { get; }
     public Socket Socket => _socket;
-    public bool EstaAbierta => Volatile.Read(ref _cerrada) == 0;
+    public bool EstaAbierta => Volatile.Read(ref _cerrada) == Abierta;
 
     public void AsignarThread(Thread thread)
     {
@@ -33,7 +36,7 @@ internal sealed class ConexionActiva
 
     public void Cerrar()
     {
-        if (Interlocked.Exchange(ref _cerrada, 1) != 0)
+        if (Interlocked.Exchange(ref _cerrada, Cerrada) != Abierta)
             return;
 
         IntentarShutdown();
@@ -48,11 +51,10 @@ internal sealed class ConexionActiva
         }
         catch (SocketException)
         {
-            // El socket ya puede estar cerrado por el extremo remoto.
+            // El socket ya puede estar cerrado por el cliente o por otro hilo. Cerrarlo de nuevo no es un error.
         }
         catch (ObjectDisposedException)
         {
-            // Cerrar es idempotente para coordinar handler y shutdown.
         }
     }
 

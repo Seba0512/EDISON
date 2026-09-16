@@ -4,20 +4,13 @@ using Common.Protocolo.Vistas;
 
 namespace Cliente.Menu.Opciones;
 
-/// <summary>
-/// CR7: lectura de consola propia para los cinco filtros opcionales de búsqueda de modelos. Enter
-/// vacío en cualquiera de ellos significa "sin filtro"; sólo el fin de entrada (EOF, igual que
-/// <see cref="LectorDeConsola"/>) cancela toda la operación. Un valor con formato inválido se
-/// reintenta en el momento en vez de viajar al servidor, para no gastar una ida y vuelta de red en un
-/// error que ya se puede detectar acá.
-/// </summary>
 internal sealed class LectorDeFiltrosDeBusqueda
 {
-    private const char Bom = '﻿';
-
+    // Enter vacío significa sin filtro. Solo el fin de la entrada cancela toda la búsqueda.
     public FiltrosDeBusqueda? Leer()
     {
-        if (!TryLeerCampoOpcional("Texto a buscar en el nombre (Enter para omitir):", out string? texto))
+        if (!LectorDeConsola.LeerTextoOpcional(
+                "Texto a buscar en el nombre (Enter para omitir):", out string? texto))
             return null;
 
         if (!TryLeerDecimalOpcional("Precio mínimo (Enter para omitir):", out decimal? precioMinimo))
@@ -40,7 +33,7 @@ internal sealed class LectorDeFiltrosDeBusqueda
     {
         while (true)
         {
-            if (!TryLeerCampoOpcional(mensaje, out string? texto))
+            if (!LectorDeConsola.LeerTextoOpcional(mensaje, out string? texto))
             {
                 valor = null;
                 return false;
@@ -68,7 +61,7 @@ internal sealed class LectorDeFiltrosDeBusqueda
     {
         while (true)
         {
-            if (!TryLeerCampoOpcional(mensaje, out string? texto))
+            if (!LectorDeConsola.LeerTextoOpcional(mensaje, out string? texto))
             {
                 valor = null;
                 return false;
@@ -96,7 +89,7 @@ internal sealed class LectorDeFiltrosDeBusqueda
     {
         while (true)
         {
-            if (!TryLeerCampoOpcional(mensaje, out string? texto))
+            if (!LectorDeConsola.LeerTextoOpcional(mensaje, out string? texto))
             {
                 valor = null;
                 return false;
@@ -118,20 +111,5 @@ internal sealed class LectorDeFiltrosDeBusqueda
                 Console.WriteLine(excepcion.Message);
             }
         }
-    }
-
-    private static bool TryLeerCampoOpcional(string mensaje, out string? valor)
-    {
-        Console.WriteLine(mensaje);
-        string? entrada = Console.ReadLine()?.TrimStart(Bom);
-        if (entrada is null)
-        {
-            valor = null;
-            return false;
-        }
-
-        string texto = entrada.Trim();
-        valor = texto.Length == 0 ? null : texto;
-        return true;
     }
 }

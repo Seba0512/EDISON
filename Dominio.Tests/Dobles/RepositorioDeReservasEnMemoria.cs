@@ -4,10 +4,6 @@ using Dominio.Repositorios;
 
 namespace Dominio.Tests.Dobles;
 
-/// <summary>
-/// Indice de reservas en memoria para las pruebas. El candado solo protege el diccionario; los
-/// filtros de dominio se ejecutan sobre un snapshot despues de liberar la region critica.
-/// </summary>
 public class RepositorioDeReservasEnMemoria : IRepositorioDeReservas
 {
     private readonly object candado = new();

@@ -1,11 +1,5 @@
 namespace Common.Protocolo;
 
-/// <summary>
-/// Serializa el pedido de CMD 20 (CR5): el REQ es un único campo de texto con el nombre del modelo a
-/// reservar. La respuesta viaja como texto plano (el Guid de la reserva dentro del mensaje de OK), así
-/// que no hace falta un codec de resultado: no hay campos binarios que decodificar del lado del
-/// cliente.
-/// </summary>
 public static class CodecDeSolicitudDeReserva
 {
     public static byte[] Codificar(string nombreModelo)

@@ -4,7 +4,6 @@ using Common.Protocolo.Vistas;
 
 namespace Cliente.Menu.Opciones;
 
-/// <summary>Opcion de menu de CR9: delega la consulta y la presentacion, no pide datos por consola.</summary>
 internal sealed class OpcionMisReservas : IOpcionDeMenu
 {
     private readonly ConsultaDeReservasRemota _consulta;

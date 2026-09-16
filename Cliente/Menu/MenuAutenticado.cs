@@ -2,7 +2,6 @@ using Cliente.Menu.Opciones;
 
 namespace Cliente.Menu;
 
-/// <summary>Builder del menú autenticado: las doce opciones de CR1-CR10 en el orden final del enunciado.</summary>
 internal static class MenuAutenticado
 {
     public static MenuDeOpciones Crear(ConexionConServidor conexion, EstadoDelMenu estado)

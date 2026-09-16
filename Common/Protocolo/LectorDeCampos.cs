@@ -3,11 +3,6 @@ using Common.Excepciones;
 
 namespace Common.Protocolo;
 
-/// <summary>
-/// Lee campos <c>[LARGO Int32 big-endian][UTF-8]</c> en el mismo orden en que
-/// <see cref="EscritorDeCampos"/> los escribió. Valida largos negativos, largos que exceden el
-/// payload y, mediante <see cref="ExigirFinDePayload"/>, bytes sobrantes al terminar de leer.
-/// </summary>
 public ref struct LectorDeCampos
 {
     private readonly ReadOnlySpan<byte> _datos;
@@ -28,7 +23,6 @@ public ref struct LectorDeCampos
         return texto;
     }
 
-    /// <summary>Un campo de largo 0 representa la ausencia del valor opcional (CR7).</summary>
     public string? LeerCampoOpcional()
     {
         string campo = LeerCampo();

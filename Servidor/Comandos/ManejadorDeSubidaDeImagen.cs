@@ -6,33 +6,6 @@ using Servidor.Repositorios;
 
 namespace Servidor.Comandos;
 
-/// <summary>
-/// CMD 15: subida de la imagen de un modelo. No es una opcion de menu propia, sino un paso opcional
-/// dentro de "Alta de modelo" y "Modificar modelo". Depende de <see cref="ICatalogoDeModelos"/> para
-/// las reglas de negocio y de <see cref="IRepositorioDeImagenes"/> para el disco: dos interfaces
-/// chicas en vez de recibir <c>Edison</c> completo (ISP, constructor injection).
-///
-/// <para>
-/// Punto critico de sincronizacion del stream: el cliente manda el archivo completo (Int64 + bytes)
-/// inmediatamente despues del REQ, sin esperar ninguna respuesta intermedia
-/// (<c>Cliente.ConexionConServidor.EnviarSolicitudConArchivo</c>). Por eso este manejador SIEMPRE
-/// recibe el archivo completo hacia un <see cref="MemoryStream"/> como primerisimo paso, antes de
-/// cualquier validacion de dominio: si devolviera un ER sin haber leido esos bytes, quedarian
-/// interpretados como el inicio de la proxima trama y la conexion entera quedaria rota para todo lo
-/// que venga despues, no solo para este comando. Recibir en memoria es aceptable porque el archivo
-/// pesa a lo sumo <c>maxFileBytes</c> (10 MB por defecto).
-/// </para>
-///
-/// <para>
-/// Supuesto de diseno aceptado: como esta operacion arma una <see cref="FichaDeModelo"/> con el
-/// nuevo nombre de archivo y la aplica via <see cref="ICatalogoDeModelos.ModificarModelo"/>, hereda
-/// todas sus reglas (CR3): solo el creador del modelo puede subir imagen, y un modelo agotado no
-/// admite subir imagen porque la subida no cambia el stock (no cae en la clausula que permite
-/// modificar un modelo sin unidades disponibles cuando el stock nuevo aumenta). No es un bug a
-/// corregir: es la consecuencia esperada de reusar <c>ModificarModelo</c> en lugar de duplicar sus
-/// validaciones en un camino aparte.
-/// </para>
-/// </summary>
 internal sealed class ManejadorDeSubidaDeImagen : ManejadorAutenticado
 {
     private readonly ICatalogoDeModelos _catalogoDeModelos;

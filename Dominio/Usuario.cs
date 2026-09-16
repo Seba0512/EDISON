@@ -2,14 +2,6 @@ using Dominio.Excepciones;
 
 namespace Dominio;
 
-/// <summary>
-/// Usuario registrado del sistema (CR1). El nombre es la clave natural y es inmutable: identifica
-/// al creador de los modelos (CR3, CR4) y al solicitante de las reservas (CR9).
-///
-/// Compone su <see cref="Credencial"/> y su <see cref="Historial"/> (CR10): ninguno de los dos
-/// existe fuera del usuario. La verificacion de clave y el registro de actividades se exponen como
-/// comportamiento propio y delegan, para que nadie navegue hasta los objetos internos.
-/// </summary>
 public class Usuario
 {
     private const int LargoMinimoNombre = 3;

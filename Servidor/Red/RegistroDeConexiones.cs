@@ -2,6 +2,7 @@ namespace Servidor.Red;
 
 internal sealed class RegistroDeConexiones
 {
+    // El candado solo cuida la lista. Con él tomado no se usa la red ni se espera a otro hilo.
     private readonly object _candado = new();
     private readonly HashSet<ConexionActiva> _conexiones = [];
 

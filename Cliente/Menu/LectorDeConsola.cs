@@ -1,19 +1,11 @@
+using Common.Excepciones;
 using Common.Protocolo;
 
 namespace Cliente.Menu;
 
-/// <summary>
-/// Lectura de consola validada: texto no vacío y opción numérica dentro de rango. Si
-/// <see cref="Console.ReadLine"/> devuelve null (EOF), cada método devuelve null y quien lo llama lo
-/// trata como un cierre normal, no como un error de red.
-/// </summary>
 internal static class LectorDeConsola
 {
-    /// <summary>
-    /// Con <see cref="Console.InputEncoding"/> en UTF-8, .NET antepone un BOM fantasma a la primera
-    /// línea leída de una entrada redirigida (un archivo, una tubería), sin que ese byte exista
-    /// realmente en la entrada. Se descarta acá para no romper la primera opción o el primer campo.
-    /// </summary>
+    // Al leer entrada redirigida en UTF-8, .NET mete un carácter invisible al inicio y hay que sacarlo.
     private const char Bom = '\uFEFF';
 
     public static int? LeerOpcion(int cantidadDeOpciones)
@@ -47,6 +39,104 @@ internal static class LectorDeConsola
         }
     }
 
+    public static bool LeerTextoOpcional(string mensaje, out string? valor)
+    {
+        Console.WriteLine(mensaje);
+        string? entrada = LeerLinea();
+        if (entrada is null)
+        {
+            valor = null;
+            return false;
+        }
+
+        string texto = entrada.Trim();
+        valor = texto.Length == 0 ? null : texto;
+        return true;
+    }
+
+    public static bool Confirmar(string mensaje)
+    {
+        string? respuesta = LeerTexto(mensaje);
+        return respuesta is not null && respuesta.Equals("s", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static decimal? LeerDecimal(string mensaje)
+    {
+        while (true)
+        {
+            string? texto = LeerTexto(mensaje);
+            if (texto is null)
+                return null;
+
+            try
+            {
+                return FormatoDeCampos.ADecimal(texto);
+            }
+            catch (ProtocoloException excepcion)
+            {
+                Console.WriteLine(excepcion.Message);
+            }
+        }
+    }
+
+    public static DateTime? LeerFecha(string mensaje)
+    {
+        while (true)
+        {
+            string? texto = LeerTexto(mensaje);
+            if (texto is null)
+                return null;
+
+            try
+            {
+                return FormatoDeCampos.AFecha(texto);
+            }
+            catch (ProtocoloException excepcion)
+            {
+                Console.WriteLine(excepcion.Message);
+            }
+        }
+    }
+
+    public static int? LeerEntero(string mensaje)
+    {
+        while (true)
+        {
+            string? texto = LeerTexto(mensaje);
+            if (texto is null)
+                return null;
+
+            try
+            {
+                return FormatoDeCampos.AEntero(texto);
+            }
+            catch (ProtocoloException excepcion)
+            {
+                Console.WriteLine(excepcion.Message);
+            }
+        }
+    }
+
+    public static Guid? LeerGuid(string mensaje)
+    {
+        while (true)
+        {
+            string? texto = LeerTexto(mensaje);
+            if (texto is null)
+                return null;
+
+            try
+            {
+                return FormatoDeCampos.AGuid(texto);
+            }
+            catch (ProtocoloException excepcion)
+            {
+                Console.WriteLine(excepcion.Message);
+            }
+        }
+    }
+
+    // ReadLine devuelve null cuando se acaba la entrada. Eso se toma como salida normal, no como error.
     private static string? LeerLinea()
         => Console.ReadLine()?.TrimStart(Bom);
 

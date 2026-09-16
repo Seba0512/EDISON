@@ -2,11 +2,6 @@ using Common.Protocolo.Vistas;
 
 namespace Common.Protocolo;
 
-/// <summary>
-/// Serializa el resultado de CMD 30 (CR10): una cantidad seguida de esa cantidad de
-/// <see cref="ActividadListada"/>, cada una como tres campos consecutivos (tipo, detalle, fecha/hora).
-/// Es el mismo esquema de lista que usan CR7 y CR9, aplicado a actividades en vez de modelos o reservas.
-/// </summary>
 public static class CodecDeHistorial
 {
     public static byte[] CodificarResultado(IReadOnlyList<ActividadListada> actividades)

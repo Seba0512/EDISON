@@ -2,11 +2,6 @@ using Common.Protocolo.Vistas;
 
 namespace Common.Protocolo;
 
-/// <summary>
-/// Serializa el pedido y el resultado de CMD 14 (CR8): el REQ es un único campo de texto con el
-/// nombre del modelo a consultar; el RES OK son los siete campos de <see cref="DetalleDeModelo"/>,
-/// en el mismo orden que documenta el contrato de payload.
-/// </summary>
 public static class CodecDeConsultaDeModelo
 {
     public static byte[] CodificarSolicitud(string nombreModelo)

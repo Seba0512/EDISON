@@ -4,11 +4,6 @@ using Dominio.Repositorios;
 
 namespace Servidor.Repositorios;
 
-/// <summary>
-/// Implementación productiva de <see cref="IRepositorioDeModelos"/> (CR2-CR4, CR7, CR8): modelos en
-/// memoria, vivos mientras el proceso del servidor esté en pie. Portado tal cual desde el doble ya
-/// validado por <c>RepositoriosConcurrentesTests</c> en <c>Dominio.Tests</c>.
-/// </summary>
 internal sealed class RepositorioDeModelosEnMemoria : IRepositorioDeModelos
 {
     private readonly object _candado = new();

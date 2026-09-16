@@ -2,19 +2,10 @@ using Dominio.Fachada;
 
 namespace Servidor.Reservas;
 
-/// <summary>
-/// Resolución periódica de reservas vencidas (CR5): un <see cref="Thread"/> propio despierta cada
-/// <c>intervalo</c> y llama a <see cref="IResolucionDeReservas.ResolverVencidas"/>. Usa
-/// <see cref="Monitor.Wait(object, TimeSpan)"/>/<see cref="Monitor.PulseAll"/> en vez de
-/// <see cref="Thread.Sleep(TimeSpan)"/> para que <see cref="Detener"/> despierte el ciclo de
-/// inmediato en lugar de esperar hasta el próximo intervalo.
-///
-/// No es background a propósito: SR4 exige un cierre ordenado, y un Thread background podría
-/// cortarse a mitad de una resolución si el proceso terminara antes de que <see cref="Detener"/> lo
-/// una.
-/// </summary>
 internal sealed class MesaDeAprobaciones
 {
+    private static readonly TimeSpan TimeoutDeCierre = TimeSpan.FromSeconds(5);
+
     private readonly IResolucionDeReservas _resolucionDeReservas;
     private readonly TimeSpan _intervalo;
     private readonly object _candado = new();
@@ -33,7 +24,6 @@ internal sealed class MesaDeAprobaciones
         _thread.Start();
     }
 
-    /// <summary>Idempotente: una segunda llamada no hace nada.</summary>
     public void Detener()
     {
         lock (_candado)
@@ -45,7 +35,7 @@ internal sealed class MesaDeAprobaciones
             Monitor.PulseAll(_candado);
         }
 
-        _thread?.Join(TimeSpan.FromSeconds(5));
+        _thread?.Join(TimeoutDeCierre);
     }
 
     private void Ciclo()
@@ -59,24 +49,20 @@ internal sealed class MesaDeAprobaciones
         lock (_candado)
         {
             if (!_detenida)
+                // Monitor.Wait en vez de Sleep para que Detener() pueda despertar el ciclo de inmediato.
                 Monitor.Wait(_candado, _intervalo);
 
             return !_detenida;
         }
     }
 
-    /// <summary>
-    /// Se llama fuera del candado del ciclo: <see cref="IResolucionDeReservas.ResolverVencidas"/> ya
-    /// toma sus propios candados de dominio y no tiene por qué competir con <see cref="Detener"/>.
-    /// Envuelta en try/catch porque una excepción sin atrapar mataría este Thread en silencio y CR5
-    /// dejaría de resolverse reservas para siempre.
-    /// </summary>
     private void ResolverSinPropagar()
     {
         try
         {
             _resolucionDeReservas.ResolverVencidas();
         }
+        // Sin este catch una excepción mataría el Thread en silencio y no se resolverían más reservas.
         catch (Exception exception)
         {
             Console.Error.WriteLine($"La mesa de aprobaciones falló al resolver reservas: {exception}");

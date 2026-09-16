@@ -1,9 +1,5 @@
 namespace Dominio.Estados;
 
-/// <summary>
-/// Reserva con una unidad concreta asignada (CR5). Permite cancelar; la propia reserva, como experta
-/// en esa asociacion, devuelve exactamente esa unidad al agregado (CR6).
-/// </summary>
 public class Confirmada : EstadoDeReserva
 {
     private static readonly Lazy<Confirmada> instancia = new(() => new Confirmada());

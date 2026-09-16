@@ -92,10 +92,6 @@ public class ModeloTests
         Assert.AreEqual(0, modelo.UnidadesReservadas);
     }
 
-    /// <summary>
-    /// El modelo crea sus propias reservas, asi que una reserva nunca puede quedar registrada en un
-    /// modelo distinto del suyo: la regla se cumple por construccion y no por validacion.
-    /// </summary>
     [TestMethod]
     public void CadaReservaQuedaRegistradaEnElModeloQueLaCreo()
     {
@@ -161,10 +157,6 @@ public class ModeloTests
         Assert.AreEqual(2, modelo.ReservasActivas());
     }
 
-    /// <summary>
-    /// Cubre la nueva guardia de disponibilidad de <see cref="Modelo.Modificar"/>: un modelo agotado
-    /// (sin unidades libres) no puede modificarse si el stock nuevo no supera al total actual.
-    /// </summary>
     [TestMethod]
     public void ModificarUnModeloAgotadoSinAumentarElStockFalla()
     {
@@ -181,11 +173,6 @@ public class ModeloTests
         Assert.AreEqual(0, modelo.UnidadesDisponibles);
     }
 
-    /// <summary>
-    /// Supuesto de diseno documentado en <see cref="Modelo.Modificar"/>: reponer stock por encima del
-    /// total actual saca a un modelo agotado de ese estado, aunque al momento de pedir la
-    /// modificacion no quedaran unidades disponibles.
-    /// </summary>
     [TestMethod]
     public void ModificarUnModeloAgotadoAumentandoElStockLoSaneaDelAgotamiento()
     {

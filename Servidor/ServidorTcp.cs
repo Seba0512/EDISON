@@ -9,6 +9,9 @@ namespace Servidor;
 
 internal sealed class ServidorTcp : IDisposable
 {
+    private const int Ejecutando = 1;
+    private const int Detenido = 0;
+
     private readonly ConfiguracionServidor _configuracion;
     private readonly RegistroDeConexiones _registro = new();
     private readonly CodecDeTramas _codec;
@@ -33,7 +36,7 @@ internal sealed class ServidorTcp : IDisposable
 
     public void Iniciar()
     {
-        if (Interlocked.CompareExchange(ref _ejecutando, 1, 0) != 0)
+        if (Interlocked.CompareExchange(ref _ejecutando, Ejecutando, Detenido) != Detenido)
             throw new InvalidOperationException("El servidor ya fue iniciado");
 
         try
@@ -49,7 +52,7 @@ internal sealed class ServidorTcp : IDisposable
         }
         catch
         {
-            Interlocked.Exchange(ref _ejecutando, 0);
+            Interlocked.Exchange(ref _ejecutando, Detenido);
             CerrarListener();
             throw;
         }
@@ -57,7 +60,7 @@ internal sealed class ServidorTcp : IDisposable
 
     public void Detener()
     {
-        if (Interlocked.Exchange(ref _ejecutando, 0) == 0)
+        if (Interlocked.Exchange(ref _ejecutando, Detenido) == Detenido)
             return;
 
         Console.WriteLine("Cerrando servidor...");
@@ -96,18 +99,19 @@ internal sealed class ServidorTcp : IDisposable
 
     private void AceptarConexiones()
     {
-        while (Volatile.Read(ref _ejecutando) == 1)
+        while (EstaEjecutando())
         {
             try
             {
                 Socket socket = ObtenerListener().Accept();
                 IncorporarCliente(socket);
             }
-            catch (ObjectDisposedException) when (Volatile.Read(ref _ejecutando) == 0)
+            catch (ObjectDisposedException) when (EstaDetenido())
             {
+                // Detener() cerró el listener. Este es el final esperado del bucle, no un error.
                 return;
             }
-            catch (SocketException) when (Volatile.Read(ref _ejecutando) == 0)
+            catch (SocketException) when (EstaDetenido())
             {
                 return;
             }
@@ -124,7 +128,7 @@ internal sealed class ServidorTcp : IDisposable
 
     private void IncorporarCliente(Socket socket)
     {
-        if (Volatile.Read(ref _ejecutando) == 0)
+        if (EstaDetenido())
         {
             socket.Dispose();
             return;
@@ -173,6 +177,12 @@ internal sealed class ServidorTcp : IDisposable
             _registro.Quitar(conexion);
         }
     }
+
+    private bool EstaEjecutando()
+        => Volatile.Read(ref _ejecutando) == Ejecutando;
+
+    private bool EstaDetenido()
+        => Volatile.Read(ref _ejecutando) == Detenido;
 
     private void CerrarListener()
         => Interlocked.Exchange(ref _listener, null)?.Dispose();

@@ -117,7 +117,6 @@ public class CatalogoDeModelosTests
         Assert.AreEqual(TipoActividad.ModeloEliminado, creadora.Actividades()[1].Tipo);
     }
 
-    /// <summary>SR3: al eliminar un modelo con imagen, la imagen se borra del servidor.</summary>
     [TestMethod]
     public void EliminarUnModeloConImagenBorraTambienLaImagen()
     {

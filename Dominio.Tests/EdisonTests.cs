@@ -5,11 +5,6 @@ using Dominio.Tests.Dobles;
 
 namespace Dominio.Tests;
 
-/// <summary>
-/// Recorrido completo por la fachada, con los tres colaboradores reales y repositorios en memoria.
-/// Es la prueba de que el dominio queda armable y usable de punta a punta mediante contratos
-/// expresados exclusivamente con objetos y tipos propios del modelo.
-/// </summary>
 [TestClass]
 public class EdisonTests
 {
@@ -57,10 +52,6 @@ public class EdisonTests
         Assert.AreEqual(2, edison.HistorialDe(logueado).Count);
     }
 
-    /// <summary>
-    /// El recorrido que va a correr el plan de testing de la defensa: alta, consulta, reserva,
-    /// aprobacion diferida, cancelacion y baja, todo por la fachada.
-    /// </summary>
     [TestMethod]
     public void RecorridoCompletoDeAltaReservaCancelacionYBaja()
     {
