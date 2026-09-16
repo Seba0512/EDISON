@@ -1,6 +1,4 @@
 using Cliente.Operaciones;
-using Common.Excepciones;
-using Common.Protocolo;
 using Common.Protocolo.Vistas;
 
 namespace Cliente.Menu.Opciones;
@@ -29,15 +27,16 @@ internal sealed class OpcionModificarModelo : IOpcionDeMenu
         if (descripcion is null)
             return;
 
-        decimal? precio = LeerDecimal("Nuevo precio:");
+        decimal? precio = LectorDeConsola.LeerDecimal("Nuevo precio:");
         if (precio is null)
             return;
 
-        DateTime? fechaEntregaPrometida = LeerFecha("Nueva fecha de entrega prometida (yyyyMMdd):");
+        DateTime? fechaEntregaPrometida =
+            LectorDeConsola.LeerFecha("Nueva fecha de entrega prometida (yyyyMMdd):");
         if (fechaEntregaPrometida is null)
             return;
 
-        int? stock = LeerEntero("Nuevo stock:");
+        int? stock = LectorDeConsola.LeerEntero("Nuevo stock:");
         if (stock is null)
             return;
 
@@ -65,62 +64,5 @@ internal sealed class OpcionModificarModelo : IOpcionDeMenu
         }
 
         Console.WriteLine(_subidaDeImagenRemota.Ejecutar(nombreModelo, rutaArchivo));
-    }
-
-    private static decimal? LeerDecimal(string mensaje)
-    {
-        while (true)
-        {
-            string? texto = LectorDeConsola.LeerTexto(mensaje);
-            if (texto is null)
-                return null;
-
-            try
-            {
-                return FormatoDeCampos.ADecimal(texto);
-            }
-            catch (ProtocoloException excepcion)
-            {
-                Console.WriteLine(excepcion.Message);
-            }
-        }
-    }
-
-    private static DateTime? LeerFecha(string mensaje)
-    {
-        while (true)
-        {
-            string? texto = LectorDeConsola.LeerTexto(mensaje);
-            if (texto is null)
-                return null;
-
-            try
-            {
-                return FormatoDeCampos.AFecha(texto);
-            }
-            catch (ProtocoloException excepcion)
-            {
-                Console.WriteLine(excepcion.Message);
-            }
-        }
-    }
-
-    private static int? LeerEntero(string mensaje)
-    {
-        while (true)
-        {
-            string? texto = LectorDeConsola.LeerTexto(mensaje);
-            if (texto is null)
-                return null;
-
-            try
-            {
-                return FormatoDeCampos.AEntero(texto);
-            }
-            catch (ProtocoloException excepcion)
-            {
-                Console.WriteLine(excepcion.Message);
-            }
-        }
     }
 }

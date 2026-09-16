@@ -1,3 +1,4 @@
+using Common.Excepciones;
 using Common.Protocolo;
 
 namespace Cliente.Menu;
@@ -34,6 +35,82 @@ internal static class LectorDeConsola
                 return texto;
 
             Console.WriteLine("El texto no puede estar vacío.");
+        }
+    }
+
+    public static decimal? LeerDecimal(string mensaje)
+    {
+        while (true)
+        {
+            string? texto = LeerTexto(mensaje);
+            if (texto is null)
+                return null;
+
+            try
+            {
+                return FormatoDeCampos.ADecimal(texto);
+            }
+            catch (ProtocoloException excepcion)
+            {
+                Console.WriteLine(excepcion.Message);
+            }
+        }
+    }
+
+    public static DateTime? LeerFecha(string mensaje)
+    {
+        while (true)
+        {
+            string? texto = LeerTexto(mensaje);
+            if (texto is null)
+                return null;
+
+            try
+            {
+                return FormatoDeCampos.AFecha(texto);
+            }
+            catch (ProtocoloException excepcion)
+            {
+                Console.WriteLine(excepcion.Message);
+            }
+        }
+    }
+
+    public static int? LeerEntero(string mensaje)
+    {
+        while (true)
+        {
+            string? texto = LeerTexto(mensaje);
+            if (texto is null)
+                return null;
+
+            try
+            {
+                return FormatoDeCampos.AEntero(texto);
+            }
+            catch (ProtocoloException excepcion)
+            {
+                Console.WriteLine(excepcion.Message);
+            }
+        }
+    }
+
+    public static Guid? LeerGuid(string mensaje)
+    {
+        while (true)
+        {
+            string? texto = LeerTexto(mensaje);
+            if (texto is null)
+                return null;
+
+            try
+            {
+                return FormatoDeCampos.AGuid(texto);
+            }
+            catch (ProtocoloException excepcion)
+            {
+                Console.WriteLine(excepcion.Message);
+            }
         }
     }
 
