@@ -2,12 +2,6 @@ using Dominio;
 
 namespace Dominio.Tests;
 
-/// <summary>
-/// El modelo es el limite de sincronizacion del agregado (SR2): varias conexiones, cada una en su
-/// propio thread, compiten por las mismas unidades. Estas pruebas usan <see cref="Thread"/> explicito
-/// como exige la letra, y arrancan a todos los hilos de golpe con una barrera para maximizar la
-/// probabilidad de que se pisen.
-/// </summary>
 [TestClass]
 public class ConcurrenciaDeModeloTests
 {
@@ -30,11 +24,6 @@ public class ConcurrenciaDeModeloTests
         modelo = CrearModeloConStock(StockInicial);
     }
 
-    /// <summary>
-    /// La carrera de CR5: mas solicitudes que unidades. Al resolverse todas deben quedar exactamente
-    /// <see cref="StockInicial"/> confirmadas y el resto rechazadas, sin que se entregue dos veces la
-    /// misma unidad ni sobre ninguna.
-    /// </summary>
     [TestMethod]
     public void VariosHilosCompitiendoPorElStockNoLoSobrevenden()
     {
@@ -98,10 +87,6 @@ public class ConcurrenciaDeModeloTests
         Assert.AreEqual(0, modelo.UnidadesDisponibles);
     }
 
-    /// <summary>
-    /// Cancelar en paralelo las reservas confirmadas devuelve todas las unidades al pool (CR6) y
-    /// deja el modelo sin reservas activas, sin perder ni duplicar unidades.
-    /// </summary>
     [TestMethod]
     public void CancelarEnParaleloDevuelveTodasLasUnidadesAlPool()
     {
@@ -257,7 +242,6 @@ public class ConcurrenciaDeModeloTests
         Assert.AreEqual(StockInicial, modeloEnDisputa.StockTotal);
     }
 
-    /// <summary>Ninguna excepcion se escapa de los hilos: el agregado nunca queda inconsistente.</summary>
     private List<Reserva> ReservasResueltasEnParalelo()
     {
         Reserva[] reservas = new Reserva[Solicitantes];

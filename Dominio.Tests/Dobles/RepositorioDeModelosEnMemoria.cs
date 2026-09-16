@@ -4,10 +4,6 @@ using Dominio.Repositorios;
 
 namespace Dominio.Tests.Dobles;
 
-/// <summary>
-/// Catalogo en memoria para las pruebas. Un candado privado protege el indice; las consultas de
-/// conjunto toman un snapshot para no exponer la coleccion mutable ni ejecutar filtros bajo lock.
-/// </summary>
 public class RepositorioDeModelosEnMemoria : IRepositorioDeModelos
 {
     private readonly object candado = new();

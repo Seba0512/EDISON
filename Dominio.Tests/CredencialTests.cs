@@ -5,10 +5,6 @@ using Dominio.Excepciones;
 
 namespace Dominio.Tests;
 
-/// <summary>
-/// La credencial no expone su resumen ni su salt, asi que lo que se prueba es su contrato: acepta la
-/// clave correcta, rechaza cualquier otra y no guarda la clave en texto plano.
-/// </summary>
 [TestClass]
 public class CredencialTests
 {
@@ -38,7 +34,6 @@ public class CredencialTests
         Assert.IsFalse(credencial.Verifica(Clave.ToUpperInvariant()));
     }
 
-    /// <summary>Una clave vacia se rechaza sin lanzar: no es un error, es una clave incorrecta.</summary>
     [TestMethod]
     public void VerificaRechazaLaClaveVaciaSinLanzar()
     {
@@ -65,11 +60,6 @@ public class CredencialTests
         Credencial credencial = new Credencial("abc");
     }
 
-    /// <summary>
-    /// Prueba de regresion del requisito que motiva a esta clase: ningun campo puede contener la
-    /// clave en texto plano. Mira los campos por reflexion porque el contrato publico, justamente,
-    /// no deja ver como se guarda el secreto.
-    /// </summary>
     [TestMethod]
     public void LaClaveNoQuedaGuardadaEnTextoPlano()
     {

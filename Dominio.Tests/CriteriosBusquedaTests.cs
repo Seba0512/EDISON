@@ -2,11 +2,6 @@ using Dominio.Busqueda;
 
 namespace Dominio.Tests;
 
-/// <summary>
-/// Los criterios se prueban contra un <see cref="VehiculoDePrueba"/> y no contra un
-/// <see cref="Dominio.Modelo"/>: si estas pruebas compilan, es porque la busqueda de CR7 depende de
-/// la interfaz y no de la clase concreta del catalogo.
-/// </summary>
 [TestClass]
 public class CriteriosBusquedaTests
 {

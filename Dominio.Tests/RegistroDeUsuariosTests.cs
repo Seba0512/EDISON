@@ -68,10 +68,6 @@ public class RegistroDeUsuariosTests
         registro.IniciarSesion(Nombre, "clave-incorrecta");
     }
 
-    /// <summary>
-    /// Un usuario inexistente da el mismo error que una clave incorrecta: si diera uno distinto se
-    /// podrian averiguar los nombres registrados probando de a uno.
-    /// </summary>
     [TestMethod]
     [ExpectedException(typeof(CredencialesInvalidasException))]
     public void IniciarSesionConUsuarioInexistenteDaElMismoError()

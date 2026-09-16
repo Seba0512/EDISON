@@ -3,10 +3,6 @@ using Dominio.Excepciones;
 
 namespace Dominio.Tests;
 
-/// <summary>
-/// El stock se prueba solo, sin construir una <see cref="DatosDeModelo"/> ni un <see cref="Modelo"/>:
-/// esa independencia es la ganancia de haberlo separado del catalogo (SRP).
-/// </summary>
 [TestClass]
 public class StockDeUnidadesTests
 {
@@ -69,10 +65,6 @@ public class StockDeUnidadesTests
         stock.TomarUna();
     }
 
-    /// <summary>
-    /// Las excepciones especificas siguen siendo <see cref="DominioException"/>: es lo que permite
-    /// que el borde del servidor las atrape todas con un solo catch y siga vivo.
-    /// </summary>
     [TestMethod]
     public void SinUnidadesDisponiblesEsUnErrorDeNegocio()
     {

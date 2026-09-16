@@ -98,7 +98,6 @@ public class CentralDeReservasTests
         Assert.AreEqual(StockInicial - 1, modelos.ObtenerPorNombre(NombreModelo).UnidadesDisponibles);
     }
 
-    /// <summary>CR10: una reserva confirmada es la compra, y queda registrada como tal.</summary>
     [TestMethod]
     public void LaConfirmacionQuedaRegistradaComoCompra()
     {
@@ -129,10 +128,6 @@ public class CentralDeReservasTests
         Assert.AreEqual(1, modelos.ObtenerPorNombre(NombreModelo).UnidadesReservadas);
     }
 
-    /// <summary>
-    /// La carrera de CR5 resuelta en orden de creacion: con stock 2 y tres solicitudes, se confirman
-    /// las dos primeras y se rechaza la tercera. Gana quien pidio antes, no quien se resuelve antes.
-    /// </summary>
     [TestMethod]
     public void ConMasSolicitudesQueStockSeConfirmanLasPrimerasEnOrdenDeCreacion()
     {
@@ -164,7 +159,6 @@ public class CentralDeReservasTests
         Assert.AreEqual(TipoActividad.ReservaCancelada, UltimaActividad().Tipo);
     }
 
-    /// <summary>CR6: una reserva rechazada no se puede cancelar.</summary>
     [TestMethod]
     [ExpectedException(typeof(TransicionDeReservaInvalidaException))]
     public void CancelarUnaRechazadaFalla()

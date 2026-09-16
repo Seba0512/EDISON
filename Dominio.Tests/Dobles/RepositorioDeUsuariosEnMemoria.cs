@@ -4,13 +4,6 @@ using Dominio.Repositorios;
 
 namespace Dominio.Tests.Dobles;
 
-/// <summary>
-/// Repositorio de usuarios en memoria para las pruebas. Que los colaboradores del dominio se puedan
-/// ejercitar contra un doble como este, sin base de datos ni servidor, es la evidencia de que las
-/// interfaces de repositorio quedaron del lado correcto de la dependencia (DIP).
-/// Cada operacion protege el diccionario con un candado privado. Agregar comprueba la unicidad y
-/// escribe dentro de la misma region critica, como exige el contrato de produccion.
-/// </summary>
 public class RepositorioDeUsuariosEnMemoria : IRepositorioDeUsuarios
 {
     private readonly object candado = new();
