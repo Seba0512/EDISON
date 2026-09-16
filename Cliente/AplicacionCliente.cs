@@ -16,9 +16,12 @@ internal static class AplicacionCliente
     {
         while (estado.SeguirEjecutando)
         {
+            // Ante una excepcion, MostrarYEjecutar no llega a devolver nada: se pausa igual para que el error se lea.
+            bool requierePausa = true;
             try
             {
-                if (!estado.MenuActual.MostrarYEjecutar())
+                (bool continuar, requierePausa) = estado.MenuActual.MostrarYEjecutar();
+                if (!continuar)
                     estado.Terminar();
             }
             catch (OperacionRechazadaException exception)
@@ -26,7 +29,7 @@ internal static class AplicacionCliente
                 Console.WriteLine(exception.Message);
             }
 
-            if (estado.SeguirEjecutando)
+            if (estado.SeguirEjecutando && requierePausa)
                 LectorDeConsola.EsperarEnter();
         }
     }

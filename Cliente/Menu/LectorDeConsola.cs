@@ -10,6 +10,7 @@ internal static class LectorDeConsola
 
     public static int? LeerOpcion(int cantidadDeOpciones)
     {
+        Console.Write("Ingrese opción: ");
         while (true)
         {
             string? entrada = LeerLinea();
@@ -19,6 +20,7 @@ internal static class LectorDeConsola
                 return opcion - 1;
 
             Console.WriteLine($"Ingrese un número entre 1 y {cantidadDeOpciones}.");
+            Console.Write("Ingrese opción válida: ");
         }
     }
 
@@ -157,6 +159,7 @@ internal static class LectorDeConsola
         if (clave is null)
             return null;
 
+        Console.WriteLine();
         return new Credenciales(nombreUsuario, clave);
     }
 }

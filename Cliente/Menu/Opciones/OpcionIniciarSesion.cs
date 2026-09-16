@@ -16,6 +16,9 @@ internal sealed class OpcionIniciarSesion : IOpcionDeMenu
     public string Titulo
         => "Iniciar sesión";
 
+    public bool RequierePausa
+        => false;
+
     public void Ejecutar()
     {
         Credenciales? credenciales = LectorDeConsola.LeerCredenciales();
