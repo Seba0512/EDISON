@@ -2,12 +2,6 @@ using Common.Protocolo.Vistas;
 
 namespace Common.Protocolo;
 
-/// <summary>
-/// Serializa el resultado de CMD 22 (CR9): una cantidad seguida de esa cantidad de
-/// <see cref="ReservaListada"/>, cada una con sus cinco campos en el orden fijo del contrato
-/// (id, modelo, estado, creacion, actualizacion). No hace falta un codec de request: el REQ de
-/// CMD 22 viaja vacio, igual que CerrarSesion, porque el usuario sale de la sesion autenticada.
-/// </summary>
 public static class CodecDeConsultaDeReservas
 {
     public static byte[] CodificarResultado(IReadOnlyList<ReservaListada> reservas)

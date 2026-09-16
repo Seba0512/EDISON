@@ -3,15 +3,6 @@ using Common.Excepciones;
 
 namespace Common.Protocolo;
 
-/// <summary>
-/// Conversión texto ↔ <c>int</c>/<c>decimal</c>/<c>DateTime</c>/<c>Guid</c> para los campos de
-/// CR2-CR10, toda con <see cref="CultureInfo.InvariantCulture"/>: el cable no puede depender de la
-/// configuración regional de la máquina que corre el cliente o el servidor.
-///
-/// Todo fallo de conversión se traduce a <see cref="ProtocoloException"/>: un campo mal formado es un
-/// error de protocolo recuperable (PR) y no una <see cref="FormatException"/> sin atrapar que termine
-/// cerrando la conexión con IN.
-/// </summary>
 public static class FormatoDeCampos
 {
     private const string FormatoFecha = "yyyyMMdd";
@@ -26,7 +17,6 @@ public static class FormatoDeCampos
     public static string DeFecha(DateTime fecha)
         => fecha.ToString(FormatoFecha, CultureInfo.InvariantCulture);
 
-    /// <summary>El valor se asume UTC, criterio único del protocolo para no arrastrar zonas horarias.</summary>
     public static string DeFechaHora(DateTime fechaHora)
         => fechaHora.ToUniversalTime().ToString(FormatoFechaHora, CultureInfo.InvariantCulture);
 

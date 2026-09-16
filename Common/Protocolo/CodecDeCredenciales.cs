@@ -1,6 +1,5 @@
 namespace Common.Protocolo;
 
-/// <summary>Serializa <see cref="Credenciales"/> como dos campos consecutivos (CR1).</summary>
 public static class CodecDeCredenciales
 {
     public static byte[] Codificar(Credenciales credenciales)

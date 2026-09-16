@@ -3,14 +3,6 @@ using Common.Excepciones;
 
 namespace Common.Protocolo;
 
-/// <summary>
-/// Transferencia binaria fuera de frame de CMD 15/16: <c>[Int64 big-endian][N bytes exactos]</c>,
-/// copiados por bloques de un tamaño configurable en vez de en una sola alocación, para no reservar
-/// de golpe un buffer del tamaño completo del archivo.
-///
-/// Vive en <c>Common</c> porque tanto el Cliente (que sube y descarga) como el Servidor (que recibe y
-/// devuelve) hablan exactamente este mismo formato de cable.
-/// </summary>
 public sealed class CanalDeArchivos
 {
     private readonly int _tamanioDeBloque;
@@ -23,18 +15,12 @@ public sealed class CanalDeArchivos
         _tamanioDeBloque = tamanioDeBloque;
     }
 
-    /// <summary>Anuncia <paramref name="tamanio"/> y copia exactamente esa cantidad de bytes de <paramref name="origen"/> a <paramref name="destino"/>.</summary>
     public void Enviar(Stream destino, Stream origen, long tamanio)
     {
         EscribirTamanio(destino, tamanio);
         Copiar(origen, destino, tamanio);
     }
 
-    /// <summary>
-    /// Lee el tamaño anunciado, lo valida contra <paramref name="maxBytes"/> y copia exactamente esa
-    /// cantidad de bytes de <paramref name="origen"/> a <paramref name="destino"/>.
-    /// </summary>
-    /// <returns>La cantidad de bytes recibidos.</returns>
     public long RecibirEn(Stream origen, Stream destino, long maxBytes)
     {
         long tamanio = LeerTamanio(origen);

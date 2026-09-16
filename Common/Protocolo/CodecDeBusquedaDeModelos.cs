@@ -2,12 +2,6 @@ using Common.Protocolo.Vistas;
 
 namespace Common.Protocolo;
 
-/// <summary>
-/// Serializa el payload de CMD 13 (CR7) en sus dos direcciones: el REQ con los cinco filtros, todos
-/// opcionales, y el RES con la lista de modelos encontrados. Los filtros ausentes viajan como un
-/// campo de largo 0 (<see cref="EscritorDeCampos.EscribirCampo"/>/<see cref="LectorDeCampos.LeerCampoOpcional"/>),
-/// nunca como un valor sentinela dentro del formato de <see cref="FormatoDeCampos"/>.
-/// </summary>
 public static class CodecDeBusquedaDeModelos
 {
     public static byte[] Codificar(FiltrosDeBusqueda filtros)

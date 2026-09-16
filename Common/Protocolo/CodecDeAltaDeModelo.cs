@@ -2,7 +2,6 @@ using Common.Protocolo.Vistas;
 
 namespace Common.Protocolo;
 
-/// <summary>Serializa <see cref="DatosDeAltaDeModelo"/> como cinco campos consecutivos (CR2, CMD 10).</summary>
 public static class CodecDeAltaDeModelo
 {
     public static byte[] Codificar(DatosDeAltaDeModelo datos)
