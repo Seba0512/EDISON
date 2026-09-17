@@ -65,7 +65,9 @@ public ref struct LectorDeCampos
 
     private readonly void ExigirDisponibles(int cantidad)
     {
-        if (_posicion + cantidad > _datos.Length)
+        if (cantidad < 0)
+            throw new ProtocoloException("La cantidad de bytes no puede ser negativa");
+        if (cantidad > _datos.Length - _posicion)
             throw new ProtocoloException("El payload terminó antes de lo esperado");
     }
 
