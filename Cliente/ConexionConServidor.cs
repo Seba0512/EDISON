@@ -87,22 +87,37 @@ internal sealed class ConexionConServidor : IDisposable
             throw new OperacionRechazadaException(
                 $"El archivo supera el tamaño máximo permitido ({_maxFileBytes} bytes)");
 
+        Trama solicitud = Trama.CrearSolicitud(comando, datos);
         lock (_candadoDeSocket)
         {
-            _codec.Escribir(_stream, Trama.CrearSolicitud(comando, datos));
-            using (FileStream origen = archivo.OpenRead())
-                _canalDeArchivos.Enviar(_stream, origen, archivo.Length);
-
-            Trama respuesta = LeerRespuesta(comando);
-            RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta.Datos.Span);
-            return ReaccionesAEstado.Aplicar(contenido);
+            try
+            {
+                return EnviarArchivoYLeerRespuesta(solicitud, archivo);
+            }
+            catch (TransferenciaDeArchivoException)
+            {
+                _monitor.Detener();
+                throw;
+            }
         }
+    }
+
+    private string EnviarArchivoYLeerRespuesta(Trama solicitud, FileInfo archivo)
+    {
+        _codec.Escribir(_stream, solicitud);
+        using (FileStream origen = archivo.OpenRead())
+            _canalDeArchivos.Enviar(_stream, origen, archivo.Length);
+
+        Trama respuesta = LeerRespuesta(solicitud.Comando);
+        RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta.Datos.Span);
+        return ReaccionesAEstado.Aplicar(contenido);
     }
 
     public long RecibirArchivoEn(string rutaDestino)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
         string rutaTemporal = rutaDestino + ".tmp";
+        bool transferenciaCompleta = false;
         lock (_candadoDeSocket)
         {
             try
@@ -112,12 +127,18 @@ internal sealed class ConexionConServidor : IDisposable
                     tamanio = _canalDeArchivos.RecibirEn(_stream, destino, _maxFileBytes);
 
                 File.Move(rutaTemporal, rutaDestino, overwrite: true);
+                transferenciaCompleta = true;
                 return tamanio;
             }
-            catch
+            catch (TransferenciaDeArchivoException)
             {
-                File.Delete(rutaTemporal);
+                _monitor.Detener();
                 throw;
+            }
+            finally
+            {
+                if (!transferenciaCompleta)
+                    File.Delete(rutaTemporal);
             }
         }
     }

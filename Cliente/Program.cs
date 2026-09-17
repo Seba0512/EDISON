@@ -32,6 +32,10 @@ internal static class Program
         {
             Console.Error.WriteLine($"Error de protocolo: {exception.Message}");
         }
+        catch (TransferenciaDeArchivoException exception)
+        {
+            Console.Error.WriteLine($"Falló la transferencia del archivo: {exception.Message}");
+        }
         catch (SocketException exception)
         {
             Console.Error.WriteLine($"Error de conexión: {exception.Message}");

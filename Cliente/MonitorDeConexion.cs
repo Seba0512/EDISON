@@ -71,8 +71,11 @@ internal sealed class MonitorDeConexion : IDisposable
 
     public void Dispose()
     {
-        _detenido = true;
+        Detener();
         if (_hilo.IsAlive)
             _hilo.Join();
     }
+
+    public void Detener()
+        => _detenido = true;
 }
