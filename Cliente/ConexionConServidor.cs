@@ -81,17 +81,18 @@ internal sealed class ConexionConServidor : IDisposable
     public string EnviarSolicitudConArchivo(int comando, byte[] datos, string rutaOrigen)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
-        // El archivo se revisa antes de anunciarlo. Anunciarlo y después no poder mandarlo rompe el protocolo.
-        FileInfo archivo = ExigirArchivoEnviable(rutaOrigen);
-        if (archivo.Length > _maxFileBytes)
+        // El tamaño se toma del archivo ya abierto y sin permitir escrituras ajenas: así el anuncio
+        // coincide exactamente con los bytes que se envían aunque otro proceso toque el archivo.
+        using FileStream origen = AbrirArchivoEnviable(rutaOrigen);
+        long tamanio = origen.Length;
+        if (tamanio > _maxFileBytes)
             throw new OperacionRechazadaException(
                 $"El archivo supera el tamaño máximo permitido ({_maxFileBytes} bytes)");
 
         lock (_candadoDeSocket)
         {
             _codec.Escribir(_stream, Trama.CrearSolicitud(comando, datos));
-            using (FileStream origen = archivo.OpenRead())
-                _canalDeArchivos.Enviar(_stream, origen, archivo.Length);
+            _canalDeArchivos.Enviar(_stream, origen, tamanio);
 
             Trama respuesta = LeerRespuesta(comando);
             RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta.Datos.Span);
@@ -151,13 +152,12 @@ internal sealed class ConexionConServidor : IDisposable
         return respuesta;
     }
 
-    private static FileInfo ExigirArchivoEnviable(string rutaOrigen)
+    private static FileStream AbrirArchivoEnviable(string rutaOrigen)
     {
-        FileInfo archivo = new(rutaOrigen);
-        if (!archivo.Exists)
+        if (!File.Exists(rutaOrigen))
             throw new FileNotFoundException("No se encontró el archivo a enviar", rutaOrigen);
 
-        return archivo;
+        return new FileStream(rutaOrigen, FileMode.Open, FileAccess.Read, FileShare.Read);
     }
 
     private static void ExigirRespuestaA(int comando, Trama respuesta)
