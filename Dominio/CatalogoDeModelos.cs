@@ -74,7 +74,10 @@ public class CatalogoDeModelos : ICatalogoDeModelos
 
     public IReadOnlyList<Modelo> Buscar(ICriterioDeBusqueda criterio)
     {
-        return modelos.Todos().Where(criterio.Cumple).ToList();
+        return modelos.Todos()
+            .Where(modelo => modelo.TieneUnidadDisponible)
+            .Where(criterio.Cumple)
+            .ToList();
     }
 
     public Modelo Consultar(string nombreModelo)

@@ -24,10 +24,6 @@ internal static class FabricaDeCriterios
         if (filtros.MinimoDisponibles.HasValue)
             compuesto.Agregar(new CriterioPorUnidadesDisponibles(filtros.MinimoDisponibles.Value));
 
-        // Sin ningún filtro explícito solo se muestran modelos con unidades disponibles.
-        if (compuesto.CantidadDeCriterios == 0)
-            return new CriterioPorUnidadesDisponibles(1);
-
         return compuesto;
     }
 }

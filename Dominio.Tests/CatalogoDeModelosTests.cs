@@ -9,6 +9,7 @@ namespace Dominio.Tests;
 public class CatalogoDeModelosTests
 {
     private const string NombreModelo = "Edison S1";
+    private const string NombreModeloAgotado = "Volta Uno";
     private const string Imagen = "edison-s1.png";
     private const int StockInicial = 3;
 
@@ -42,6 +43,19 @@ public class CatalogoDeModelosTests
     private void DarDeAlta()
     {
         catalogo.AltaDeModelo(Ficha(45000m, StockInicial, string.Empty), creadora);
+    }
+
+    private void DarDeAltaModeloAgotado()
+    {
+        DatosDeModelo datos = new DatosDeModelo(
+            NombreModeloAgotado,
+            "Compacto electrico",
+            72000m,
+            FechaEntrega.AddMonths(-1),
+            string.Empty);
+        catalogo.AltaDeModelo(new FichaDeModelo(datos, 1), creadora);
+        Modelo agotado = catalogo.Consultar(NombreModeloAgotado);
+        agotado.RegistrarReserva(otroUsuario, reloj).Resolver();
     }
 
     [TestMethod]
@@ -156,6 +170,32 @@ public class CatalogoDeModelosTests
     }
 
     [TestMethod]
+    public void BuscarSinFiltrosSoloDevuelveModelosDisponibles()
+    {
+        DarDeAlta();
+        DarDeAltaModeloAgotado();
+
+        IReadOnlyList<Modelo> encontrados = catalogo.Buscar(new CriterioQueAceptaTodo());
+
+        Assert.AreEqual(1, encontrados.Count);
+        Assert.IsTrue(encontrados[0].SeLlama(NombreModelo));
+    }
+
+    [TestMethod]
+    public void BuscarConFiltrosExplicitosNuncaIncluyeUnModeloAgotado()
+    {
+        DarDeAlta();
+        DarDeAltaModeloAgotado();
+
+        AfirmarAgotadoExcluido(new CriterioPorNombre("Volta"));
+        AfirmarAgotadoExcluido(new CriterioPorPrecioMinimo(70000m));
+        AfirmarAgotadoExcluido(new CriterioPorPrecioMaximo(100000m));
+        AfirmarAgotadoExcluido(
+            new CriterioPorFechaDeEntregaMaxima(FechaEntrega.AddMonths(-1)));
+        AfirmarAgotadoExcluido(new CriterioPorUnidadesDisponibles(0));
+    }
+
+    [TestMethod]
     public void BuscarSinCoincidenciasDevuelveUnaListaVaciaYNoNull()
     {
         Assert.AreEqual(0, catalogo.Buscar(new CriterioQueAceptaTodo()).Count);
@@ -204,5 +244,12 @@ public class CatalogoDeModelosTests
         Assert.AreEqual(Imagen, anterior);
         Assert.AreEqual("nueva.png", catalogo.Consultar(NombreModelo).NombreArchivoImagen);
         Assert.AreEqual(TipoActividad.ModeloModificado, creadora.Actividades()[1].Tipo);
+    }
+
+    private void AfirmarAgotadoExcluido(ICriterioDeBusqueda criterio)
+    {
+        IReadOnlyList<Modelo> encontrados = catalogo.Buscar(criterio);
+
+        Assert.IsFalse(encontrados.Any(modelo => modelo.SeLlama(NombreModeloAgotado)));
     }
 }
