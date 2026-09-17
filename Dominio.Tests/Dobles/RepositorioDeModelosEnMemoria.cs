@@ -36,6 +36,7 @@ public class RepositorioDeModelosEnMemoria : IRepositorioDeModelos
         }
     }
 
+    // Helper solo de pruebas: IRepositorioDeModelos ya no expone esta consulta.
     public bool Existe(string nombreModelo)
     {
         lock (candado)

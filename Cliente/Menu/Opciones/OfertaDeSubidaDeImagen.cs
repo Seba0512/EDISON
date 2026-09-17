@@ -12,14 +12,7 @@ internal sealed class OfertaDeSubidaDeImagen
         _subidaDeImagenRemota = new SubidaDeImagenRemota(conexion);
     }
 
-    public void Ofrecer(string nombreModelo)
-    {
-        string? rutaArchivo = PreguntarRuta();
-        if (rutaArchivo is not null)
-            Subir(nombreModelo, rutaArchivo);
-    }
-
-    // Separado de Ofrecer para poder preguntar por la imagen antes de confirmar la creación del modelo.
+    // Se pregunta por la imagen antes de confirmar la creación del modelo.
     public string? PreguntarRuta()
     {
         if (!LectorDeConsola.Confirmar("¿Desea subir una imagen para el modelo? (s/n):"))

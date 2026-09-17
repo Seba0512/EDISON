@@ -78,8 +78,8 @@ public class ReservaTests
         Assert.AreEqual(NombreModelo, reserva.VehiculoAsignado.NombreModelo);
         Assert.IsTrue(modelo.ContieneUnidad(reserva.VehiculoAsignado));
         Assert.IsFalse(reserva.VehiculoAsignado.EstaDisponible);
-        Assert.AreEqual(1, modelo.UnidadesReservadas);
-        Assert.AreEqual(StockInicial - 1, modelo.UnidadesDisponibles);
+        Assert.AreEqual(1, modelo.TomarLectura().UnidadesReservadas);
+        Assert.AreEqual(StockInicial - 1, modelo.TomarLectura().UnidadesDisponibles);
     }
 
     [TestMethod]
@@ -95,8 +95,8 @@ public class ReservaTests
         Assert.AreEqual(ResultadoResolucion.SinCambios, resultado);
         Assert.AreSame(unidad, reserva.VehiculoAsignado);
         Assert.AreEqual(fechaDeConfirmacion, reserva.UltimaActualizacion);
-        Assert.AreEqual(1, modelo.UnidadesReservadas);
-        Assert.AreEqual(StockInicial - 1, modelo.UnidadesDisponibles);
+        Assert.AreEqual(1, modelo.TomarLectura().UnidadesReservadas);
+        Assert.AreEqual(StockInicial - 1, modelo.TomarLectura().UnidadesDisponibles);
     }
 
     [TestMethod]
@@ -127,7 +127,7 @@ public class ReservaTests
         Assert.AreEqual(ResultadoResolucion.SinCambios, resultado);
         Assert.AreEqual("Rechazada", sinUnidades.NombreDelEstado());
         Assert.AreEqual(fechaDeRechazo, sinUnidades.UltimaActualizacion);
-        Assert.AreEqual(0, modeloSinStock.UnidadesReservadas);
+        Assert.AreEqual(0, modeloSinStock.TomarLectura().UnidadesReservadas);
     }
 
     [TestMethod]
@@ -139,8 +139,8 @@ public class ReservaTests
             ejecucion => ejecucion.Resultado == ResultadoResolucion.Confirmada));
         Assert.AreEqual(ResolucionesConcurrentes - 1, ejecuciones.Count(
             ejecucion => ejecucion.Resultado == ResultadoResolucion.SinCambios));
-        Assert.AreEqual(1, modelo.UnidadesReservadas);
-        Assert.AreEqual(StockInicial - 1, modelo.UnidadesDisponibles);
+        Assert.AreEqual(1, modelo.TomarLectura().UnidadesReservadas);
+        Assert.AreEqual(StockInicial - 1, modelo.TomarLectura().UnidadesDisponibles);
     }
 
     [TestMethod]
@@ -171,7 +171,7 @@ public class ReservaTests
             ejecucion => ejecucion.Resultado == ResultadoResolucion.SinCambios));
         Assert.AreEqual("Rechazada", sinUnidades.NombreDelEstado());
         Assert.IsNull(sinUnidades.VehiculoAsignado);
-        Assert.AreEqual(0, modeloSinStock.UnidadesReservadas);
+        Assert.AreEqual(0, modeloSinStock.TomarLectura().UnidadesReservadas);
     }
 
     [TestMethod]
@@ -181,8 +181,8 @@ public class ReservaTests
 
         Assert.AreEqual("Rechazada", reserva.NombreDelEstado());
         Assert.IsNull(reserva.VehiculoAsignado);
-        Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
-        Assert.AreEqual(0, modelo.UnidadesReservadas);
+        Assert.AreEqual(StockInicial, modelo.TomarLectura().UnidadesDisponibles);
+        Assert.AreEqual(0, modelo.TomarLectura().UnidadesReservadas);
     }
 
     [TestMethod]
@@ -220,7 +220,7 @@ public class ReservaTests
         Assert.AreEqual("Cancelada", reserva.NombreDelEstado());
         Assert.IsNull(reserva.VehiculoAsignado);
         Assert.IsFalse(unidadConfirmada.EstaDisponible);
-        Assert.AreEqual(StockInicial - 1, modelo.UnidadesDisponibles);
+        Assert.AreEqual(StockInicial - 1, modelo.TomarLectura().UnidadesDisponibles);
     }
 
     [TestMethod]
@@ -234,8 +234,8 @@ public class ReservaTests
         Assert.AreEqual("Cancelada", reserva.NombreDelEstado());
         Assert.IsNull(reserva.VehiculoAsignado);
         Assert.IsTrue(unidadAsignada.EstaDisponible);
-        Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
-        Assert.AreEqual(0, modelo.UnidadesReservadas);
+        Assert.AreEqual(StockInicial, modelo.TomarLectura().UnidadesDisponibles);
+        Assert.AreEqual(0, modelo.TomarLectura().UnidadesReservadas);
     }
 
     [TestMethod]
@@ -258,8 +258,8 @@ public class ReservaTests
         Assert.IsTrue(reserva.EstaConfirmada);
         Assert.AreSame(unidad, reserva.VehiculoAsignado);
         Assert.IsFalse(unidad.EstaDisponible);
-        Assert.AreEqual(1, modelo.UnidadesReservadas);
-        Assert.AreEqual(StockInicial - 1, modelo.UnidadesDisponibles);
+        Assert.AreEqual(1, modelo.TomarLectura().UnidadesReservadas);
+        Assert.AreEqual(StockInicial - 1, modelo.TomarLectura().UnidadesDisponibles);
     }
 
     [TestMethod]
@@ -307,8 +307,8 @@ public class ReservaTests
 
         Assert.IsTrue(primeraUnidad.EstaDisponible);
         Assert.IsFalse(segundaUnidad.EstaDisponible);
-        Assert.AreEqual(1, modelo.UnidadesDisponibles);
-        Assert.AreEqual(1, modelo.UnidadesReservadas);
+        Assert.AreEqual(1, modelo.TomarLectura().UnidadesDisponibles);
+        Assert.AreEqual(1, modelo.TomarLectura().UnidadesReservadas);
     }
 
     [TestMethod]
@@ -380,10 +380,9 @@ public class ReservaTests
     }
 
     [TestMethod]
-    public void EsDelModeloReconoceElNombreDelModelo()
+    public void LaLecturaDeLaReservaNombraSuModelo()
     {
-        Assert.IsTrue(reserva.EsDelModelo(NombreModelo));
-        Assert.IsFalse(reserva.EsDelModelo("Edison X2"));
+        Assert.AreEqual(NombreModelo, reserva.TomarLectura().NombreModelo);
     }
 
     private static List<EjecucionDeResolucion> ResolverConcurrentemente(Reserva reserva)

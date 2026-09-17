@@ -56,9 +56,9 @@ public class CentralDeReservasTests
         central.SolicitarReserva(NombreModelo, solicitante);
 
         Modelo modelo = modelos.ObtenerPorNombre(NombreModelo);
-        Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
-        Assert.AreEqual(1, central.ReservasDe(solicitante).Count);
-        Assert.IsTrue(central.ReservasDe(solicitante)[0].EstaPendiente);
+        Assert.AreEqual(StockInicial, modelo.TomarLectura().UnidadesDisponibles);
+        Assert.AreEqual(1, central.ConsultarReservasDe(solicitante).Count);
+        Assert.IsTrue(central.ConsultarReservasDe(solicitante)[0].EstaPendiente);
     }
 
     [TestMethod]
@@ -83,7 +83,7 @@ public class CentralDeReservasTests
 
         central.ResolverVencidas();
 
-        Assert.IsTrue(central.ReservasDe(solicitante)[0].EstaPendiente);
+        Assert.IsTrue(central.ConsultarReservasDe(solicitante)[0].EstaPendiente);
     }
 
     [TestMethod]
@@ -94,8 +94,8 @@ public class CentralDeReservasTests
 
         central.ResolverVencidas();
 
-        Assert.IsTrue(central.ReservasDe(solicitante)[0].EstaConfirmada);
-        Assert.AreEqual(StockInicial - 1, modelos.ObtenerPorNombre(NombreModelo).UnidadesDisponibles);
+        Assert.IsTrue(central.ConsultarReservasDe(solicitante)[0].EstaConfirmada);
+        Assert.AreEqual(StockInicial - 1, modelos.ObtenerPorNombre(NombreModelo).TomarLectura().UnidadesDisponibles);
     }
 
     [TestMethod]
@@ -125,7 +125,7 @@ public class CentralDeReservasTests
         Assert.IsTrue(ejecuciones.All(ejecucion => ejecucion.Falla is null));
         Assert.AreEqual(1, solicitante.Actividades().Count(
             actividad => actividad.Tipo == TipoActividad.Compra));
-        Assert.AreEqual(1, modelos.ObtenerPorNombre(NombreModelo).UnidadesReservadas);
+        Assert.AreEqual(1, modelos.ObtenerPorNombre(NombreModelo).TomarLectura().UnidadesReservadas);
     }
 
     [TestMethod]
@@ -143,7 +143,7 @@ public class CentralDeReservasTests
         Assert.IsTrue(ReservaCon(primera).EstaConfirmada);
         Assert.IsTrue(ReservaCon(segunda).EstaConfirmada);
         Assert.IsFalse(ReservaCon(tercera).EstaActiva);
-        Assert.AreEqual(0, modelos.ObtenerPorNombre(NombreModelo).UnidadesDisponibles);
+        Assert.AreEqual(0, modelos.ObtenerPorNombre(NombreModelo).TomarLectura().UnidadesDisponibles);
     }
 
     [TestMethod]
@@ -155,7 +155,7 @@ public class CentralDeReservasTests
 
         central.CancelarReserva(id, solicitante);
 
-        Assert.AreEqual(StockInicial, modelos.ObtenerPorNombre(NombreModelo).UnidadesDisponibles);
+        Assert.AreEqual(StockInicial, modelos.ObtenerPorNombre(NombreModelo).TomarLectura().UnidadesDisponibles);
         Assert.AreEqual(TipoActividad.ReservaCancelada, UltimaActividad().Tipo);
     }
 
@@ -187,12 +187,12 @@ public class CentralDeReservasTests
     {
         Usuario sinReservas = new Usuario("sgomez", "edison2026");
 
-        Assert.AreEqual(0, central.ReservasDe(sinReservas).Count);
+        Assert.AreEqual(0, central.ConsultarReservasDe(sinReservas).Count);
     }
 
-    private Reserva ReservaCon(Guid id)
+    private LecturaDeReserva ReservaCon(Guid id)
     {
-        return central.ReservasDe(solicitante).First(reserva => reserva.Id == id);
+        return central.ConsultarReservasDe(solicitante).First(reserva => reserva.Id == id);
     }
 
     private Actividad UltimaActividad()

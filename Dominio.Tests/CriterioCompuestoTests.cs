@@ -36,9 +36,9 @@ public class CriterioCompuestoTests
         return modelo;
     }
 
-    private List<Modelo> Resultado()
+    private List<LecturaDeModelo> Resultado()
     {
-        return catalogo.Where(modelo => criterio.Cumple(modelo)).ToList();
+        return catalogo.Select(modelo => modelo.TomarLectura()).Where(criterio.Cumple).ToList();
     }
 
     [TestMethod]
@@ -60,7 +60,7 @@ public class CriterioCompuestoTests
     {
         criterio.Agregar(new CriterioPorPrecioMaximo(50000m));
 
-        List<Modelo> encontrados = Resultado();
+        List<LecturaDeModelo> encontrados = Resultado();
 
         Assert.AreEqual(2, encontrados.Count);
         Assert.IsFalse(encontrados.Exists(modelo => modelo.SeLlama("Edison X2")));
@@ -71,7 +71,7 @@ public class CriterioCompuestoTests
     {
         criterio.Agregar(new CriterioPorPrecioMinimo(50000m));
 
-        List<Modelo> encontrados = Resultado();
+        List<LecturaDeModelo> encontrados = Resultado();
 
         Assert.AreEqual(1, encontrados.Count);
         Assert.IsTrue(encontrados[0].SeLlama("Edison X2"));
@@ -82,7 +82,7 @@ public class CriterioCompuestoTests
     {
         criterio.Agregar(new CriterioPorUnidadesDisponibles(1));
 
-        List<Modelo> encontrados = Resultado();
+        List<LecturaDeModelo> encontrados = Resultado();
 
         Assert.AreEqual(2, encontrados.Count);
         Assert.IsFalse(encontrados.Exists(modelo => modelo.SeLlama("Volta Uno")));
@@ -103,7 +103,7 @@ public class CriterioCompuestoTests
         criterio.Agregar(new CriterioPorPrecioMaximo(50000m));
         criterio.Agregar(new CriterioPorUnidadesDisponibles(1));
 
-        List<Modelo> encontrados = Resultado();
+        List<LecturaDeModelo> encontrados = Resultado();
 
         Assert.AreEqual(3, criterio.CantidadDeCriterios);
         Assert.AreEqual(1, encontrados.Count);
@@ -115,7 +115,7 @@ public class CriterioCompuestoTests
     {
         criterio.Agregar(new CriterioPorPrecioMinimo(100000m));
 
-        List<Modelo> encontrados = Resultado();
+        List<LecturaDeModelo> encontrados = Resultado();
 
         Assert.IsNotNull(encontrados);
         Assert.AreEqual(0, encontrados.Count);
@@ -142,7 +142,7 @@ public class CriterioCompuestoTests
     {
         CriterioQueAceptaTodo aceptaTodo = new CriterioQueAceptaTodo();
 
-        Assert.IsTrue(catalogo.TrueForAll(modelo => aceptaTodo.Cumple(modelo)));
+        Assert.IsTrue(catalogo.TrueForAll(modelo => aceptaTodo.Cumple(modelo.TomarLectura())));
     }
 
     [TestMethod]

@@ -1,10 +1,9 @@
-using Dominio.Busqueda;
 using Dominio.Excepciones;
 using Dominio.Tiempo;
 
 namespace Dominio;
 
-public class Modelo : IVehiculoBuscable
+public class Modelo
 {
     // Este candado cuida los datos, el stock y las reservas. Nunca se toma junto al de un repositorio.
     private readonly object _candado = new();
@@ -23,105 +22,6 @@ public class Modelo : IVehiculoBuscable
 
     public string Nombre => _datos.Nombre;
 
-    public string Descripcion
-    {
-        get
-        {
-            lock (_candado)
-            {
-                return _datos.Descripcion;
-            }
-        }
-    }
-
-    public decimal Precio
-    {
-        get
-        {
-            lock (_candado)
-            {
-                return _datos.Precio;
-            }
-        }
-    }
-
-    public DateTime FechaEntregaPrometida
-    {
-        get
-        {
-            lock (_candado)
-            {
-                return _datos.FechaEntregaPrometida;
-            }
-        }
-    }
-
-    public string NombreArchivoImagen
-    {
-        get
-        {
-            lock (_candado)
-            {
-                return _datos.NombreArchivoImagen;
-            }
-        }
-    }
-
-    public bool TieneImagen
-    {
-        get
-        {
-            lock (_candado)
-            {
-                return _datos.TieneImagen;
-            }
-        }
-    }
-
-    public int StockTotal
-    {
-        get
-        {
-            lock (_candado)
-            {
-                return _stock.Total;
-            }
-        }
-    }
-
-    public int UnidadesDisponibles
-    {
-        get
-        {
-            lock (_candado)
-            {
-                return _stock.Disponibles;
-            }
-        }
-    }
-
-    public int UnidadesReservadas
-    {
-        get
-        {
-            lock (_candado)
-            {
-                return _stock.Reservadas;
-            }
-        }
-    }
-
-    public bool TieneUnidadDisponible
-    {
-        get
-        {
-            lock (_candado)
-            {
-                return _stock.HayAlgunaDisponible;
-            }
-        }
-    }
-
     public LecturaDeModelo TomarLectura()
     {
         lock (_candado)
@@ -137,30 +37,6 @@ public class Modelo : IVehiculoBuscable
                 unidadesDisponibles,
                 stockTotal - unidadesDisponibles,
                 _datos.NombreArchivoImagen);
-        }
-    }
-
-    public bool SeLlama(string nombreModelo)
-    {
-        return Nombre.Equals(nombreModelo?.Trim(), StringComparison.OrdinalIgnoreCase);
-    }
-
-    public bool FueCreadoPor(string nombreUsuario)
-    {
-        return _creador.SeLlama(nombreUsuario);
-    }
-
-    public bool EsDe(Usuario usuario)
-    {
-        return FueCreadoPor(usuario.NombreUsuario);
-    }
-
-    public void ExigirPropietario(Usuario usuario)
-    {
-        if (!EsDe(usuario))
-        {
-            throw new DominioException(
-                $"Solo el creador del modelo {Nombre} puede modificarlo o eliminarlo");
         }
     }
 
@@ -225,19 +101,12 @@ public class Modelo : IVehiculoBuscable
             _datos.NombreArchivoImagen);
     }
 
-    public int ReservasActivas()
+    // Solo la usan las pruebas para observar el invariante: ninguna unidad reservada de mas.
+    internal int ReservasActivas()
     {
         lock (_candado)
         {
             return ContarReservasActivas();
-        }
-    }
-
-    public bool PuedeEliminarse()
-    {
-        lock (_candado)
-        {
-            return !_eliminado && ContarReservasActivas() == 0;
         }
     }
 
@@ -342,6 +211,15 @@ public class Modelo : IVehiculoBuscable
     private int ContarReservasActivas()
     {
         return _reservas.Count(reserva => reserva.EstaActiva);
+    }
+
+    private void ExigirPropietario(Usuario usuario)
+    {
+        if (!_creador.SeLlama(usuario.NombreUsuario))
+        {
+            throw new DominioException(
+                $"Solo el creador del modelo {Nombre} puede modificarlo o eliminarlo");
+        }
     }
 
     private void ExigirActivo()

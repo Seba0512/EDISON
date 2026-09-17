@@ -39,7 +39,7 @@ public class RepositoriosConcurrentesTests
         var resultado = EjecutarDosVeces(() =>
         {
             catalogo.AltaDeModelo(Ficha("Edison S1"), creadora);
-            return catalogo.Consultar("Edison S1");
+            return catalogo.ConsultarLectura("Edison S1");
         });
 
         Assert.AreEqual(1, resultado.Exitos.Count);

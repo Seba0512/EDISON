@@ -34,13 +34,11 @@ public class Reserva
 
     public bool EstaPendiente => _estado.EstaPendiente;
 
-    public bool EstaConfirmada => _estado.EstaConfirmada;
+    internal bool EstaConfirmada => _estado.EstaConfirmada;
 
     public bool EstaActiva => _estado.EsActiva;
 
-    public bool PuedeCancelarse => _estado.EsActiva;
-
-    public string NombreDelEstado()
+    internal string NombreDelEstado()
     {
         return _estado.Nombre;
     }
@@ -58,11 +56,6 @@ public class Reserva
     public bool FueHechaPor(string nombreUsuario)
     {
         return _solicitante.SeLlama(nombreUsuario);
-    }
-
-    public bool EsDelModelo(string nombreModelo)
-    {
-        return _modelo.SeLlama(nombreModelo);
     }
 
     public LecturaDeReserva TomarLectura()

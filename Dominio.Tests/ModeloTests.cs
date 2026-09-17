@@ -57,9 +57,9 @@ public class ModeloTests
     [TestMethod]
     public void ElStockInicialCreaEsaCantidadDeUnidadesDisponibles()
     {
-        Assert.AreEqual(StockInicial, modelo.StockTotal);
-        Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
-        Assert.AreEqual(0, modelo.UnidadesReservadas);
+        Assert.AreEqual(StockInicial, modelo.TomarLectura().StockTotal);
+        Assert.AreEqual(StockInicial, modelo.TomarLectura().UnidadesDisponibles);
+        Assert.AreEqual(0, modelo.TomarLectura().UnidadesReservadas);
     }
 
     [TestMethod]
@@ -68,9 +68,9 @@ public class ModeloTests
         Reserva reserva = ReservaConfirmada();
 
         Assert.IsTrue(reserva.EstaConfirmada);
-        Assert.AreEqual(StockInicial - 1, modelo.UnidadesDisponibles);
-        Assert.AreEqual(1, modelo.UnidadesReservadas);
-        Assert.AreEqual(StockInicial, modelo.StockTotal);
+        Assert.AreEqual(StockInicial - 1, modelo.TomarLectura().UnidadesDisponibles);
+        Assert.AreEqual(1, modelo.TomarLectura().UnidadesReservadas);
+        Assert.AreEqual(StockInicial, modelo.TomarLectura().StockTotal);
     }
 
     [TestMethod]
@@ -85,7 +85,7 @@ public class ModeloTests
         excedente.Resolver();
 
         Assert.AreEqual("Rechazada", excedente.NombreDelEstado());
-        Assert.AreEqual(0, modelo.UnidadesDisponibles);
+        Assert.AreEqual(0, modelo.TomarLectura().UnidadesDisponibles);
     }
 
     [TestMethod]
@@ -95,8 +95,8 @@ public class ModeloTests
 
         reserva.Cancelar();
 
-        Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
-        Assert.AreEqual(0, modelo.UnidadesReservadas);
+        Assert.AreEqual(StockInicial, modelo.TomarLectura().UnidadesDisponibles);
+        Assert.AreEqual(0, modelo.TomarLectura().UnidadesReservadas);
     }
 
     [TestMethod]
@@ -107,7 +107,7 @@ public class ModeloTests
 
         Reserva ajena = otroModelo.RegistrarReserva(creadora, reloj);
 
-        Assert.IsTrue(ajena.EsDelModelo("Edison X2"));
+        Assert.AreEqual("Edison X2", ajena.TomarLectura().NombreModelo);
         Assert.AreEqual(0, modelo.ReservasActivas());
         Assert.AreEqual(1, otroModelo.ReservasActivas());
     }
@@ -117,10 +117,10 @@ public class ModeloTests
     {
         modelo.ModificarDatos(new FichaDeModelo(DatosModificados(), StockInicial + 2), creadora);
 
-        Assert.AreEqual("Sedan electrico renovado", modelo.Descripcion);
-        Assert.AreEqual(39990m, modelo.Precio);
-        Assert.AreEqual(new DateTime(2027, 6, 1), modelo.FechaEntregaPrometida);
-        Assert.AreEqual(StockInicial + 2, modelo.StockTotal);
+        Assert.AreEqual("Sedan electrico renovado", modelo.TomarLectura().Descripcion);
+        Assert.AreEqual(39990m, modelo.TomarLectura().Precio);
+        Assert.AreEqual(new DateTime(2027, 6, 1), modelo.TomarLectura().FechaEntregaPrometida);
+        Assert.AreEqual(StockInicial + 2, modelo.TomarLectura().StockTotal);
     }
 
     [TestMethod]
@@ -133,8 +133,8 @@ public class ModeloTests
 
         modelo.ModificarDatos(new FichaDeModelo(datos, 1), creadora);
 
-        Assert.AreEqual("Sedan electrico renovado", modelo.Descripcion);
-        Assert.AreEqual(1, modelo.StockTotal);
+        Assert.AreEqual("Sedan electrico renovado", modelo.TomarLectura().Descripcion);
+        Assert.AreEqual(1, modelo.TomarLectura().StockTotal);
         Assert.AreEqual(1, modelo.ReservasActivas());
     }
 
@@ -146,8 +146,8 @@ public class ModeloTests
 
         modelo.ModificarDatos(new FichaDeModelo(datos, 1), creadora);
 
-        Assert.AreEqual(39990m, modelo.Precio);
-        Assert.AreEqual(1, modelo.StockTotal);
+        Assert.AreEqual(39990m, modelo.TomarLectura().Precio);
+        Assert.AreEqual(1, modelo.TomarLectura().StockTotal);
         Assert.AreEqual(1, modelo.ReservasActivas());
     }
 
@@ -159,10 +159,10 @@ public class ModeloTests
         Assert.ThrowsException<DominioException>(
             () => modelo.ModificarDatos(new FichaDeModelo(DatosModificados(), 1), creadora));
 
-        Assert.AreEqual("Sedan electrico", modelo.Descripcion);
-        Assert.AreEqual(45000m, modelo.Precio);
-        Assert.AreEqual(new DateTime(2027, 3, 1), modelo.FechaEntregaPrometida);
-        Assert.AreEqual(StockInicial, modelo.StockTotal);
+        Assert.AreEqual("Sedan electrico", modelo.TomarLectura().Descripcion);
+        Assert.AreEqual(45000m, modelo.TomarLectura().Precio);
+        Assert.AreEqual(new DateTime(2027, 3, 1), modelo.TomarLectura().FechaEntregaPrometida);
+        Assert.AreEqual(StockInicial, modelo.TomarLectura().StockTotal);
     }
 
     [TestMethod]
@@ -174,9 +174,9 @@ public class ModeloTests
             () => modelo.ModificarDatos(new FichaDeModelo(otroNombre, StockInicial + 2), creadora));
 
         Assert.AreEqual(NombreModelo, modelo.Nombre);
-        Assert.AreEqual("Sedan electrico", modelo.Descripcion);
-        Assert.AreEqual(45000m, modelo.Precio);
-        Assert.AreEqual(StockInicial, modelo.StockTotal);
+        Assert.AreEqual("Sedan electrico", modelo.TomarLectura().Descripcion);
+        Assert.AreEqual(45000m, modelo.TomarLectura().Precio);
+        Assert.AreEqual(StockInicial, modelo.TomarLectura().StockTotal);
     }
 
     [TestMethod]
@@ -188,7 +188,7 @@ public class ModeloTests
         Assert.ThrowsException<DominioException>(
             () => modelo.ModificarDatos(new FichaDeModelo(DatosModificados(), 2), creadora));
 
-        Assert.AreEqual(StockInicial, modelo.StockTotal);
+        Assert.AreEqual(StockInicial, modelo.TomarLectura().StockTotal);
         Assert.AreEqual(2, modelo.ReservasActivas());
     }
 
@@ -203,9 +203,9 @@ public class ModeloTests
         Assert.ThrowsException<DominioException>(
             () => modelo.ModificarDatos(new FichaDeModelo(DatosModificados(), StockInicial), creadora));
 
-        Assert.AreEqual("Sedan electrico", modelo.Descripcion);
-        Assert.AreEqual(StockInicial, modelo.StockTotal);
-        Assert.AreEqual(0, modelo.UnidadesDisponibles);
+        Assert.AreEqual("Sedan electrico", modelo.TomarLectura().Descripcion);
+        Assert.AreEqual(StockInicial, modelo.TomarLectura().StockTotal);
+        Assert.AreEqual(0, modelo.TomarLectura().UnidadesDisponibles);
     }
 
     [TestMethod]
@@ -218,21 +218,22 @@ public class ModeloTests
 
         modelo.ModificarDatos(new FichaDeModelo(DatosModificados(), StockInicial + 1), creadora);
 
-        Assert.AreEqual("Sedan electrico renovado", modelo.Descripcion);
-        Assert.AreEqual(StockInicial + 1, modelo.StockTotal);
-        Assert.AreEqual(1, modelo.UnidadesDisponibles);
+        Assert.AreEqual("Sedan electrico renovado", modelo.TomarLectura().Descripcion);
+        Assert.AreEqual(StockInicial + 1, modelo.TomarLectura().StockTotal);
+        Assert.AreEqual(1, modelo.TomarLectura().UnidadesDisponibles);
     }
 
     [TestMethod]
-    public void PuedeEliminarseSoloCuandoNoQuedanReservasActivas()
+    public void NoSePuedeEliminarConReservasActivasYCancelarlasVuelveAHabilitarlo()
     {
-        Assert.IsTrue(modelo.PuedeEliminarse());
-
         Reserva reserva = ReservaRegistrada();
-        Assert.IsFalse(modelo.PuedeEliminarse());
+        Assert.AreEqual(1, modelo.ReservasActivas());
+        Assert.ThrowsException<DominioException>(() => modelo.MarcarComoEliminado(creadora));
 
         reserva.Cancelar();
-        Assert.IsTrue(modelo.PuedeEliminarse());
+
+        Assert.AreEqual(0, modelo.ReservasActivas());
+        Assert.AreEqual(string.Empty, modelo.MarcarComoEliminado(creadora));
     }
 
     [TestMethod]
@@ -245,20 +246,14 @@ public class ModeloTests
     }
 
     [TestMethod]
-    public void FueCreadoPorReconoceAlCreadorIgnorandoMayusculas()
-    {
-        Assert.IsTrue(modelo.FueCreadoPor("JFerreiro"));
-        Assert.IsFalse(modelo.FueCreadoPor("otra"));
-    }
-
-    [TestMethod]
-    public void ExigirPropietarioAceptaAlCreadorYRechazaAlResto()
+    public void SoloElCreadorPuedeModificarElModelo()
     {
         Usuario otraUsuaria = new Usuario("sgomez", "clave1234");
+        FichaDeModelo ficha = new FichaDeModelo(DatosModificados(), StockInicial);
 
-        modelo.ExigirPropietario(creadora);
+        modelo.ModificarDatos(ficha, creadora);
 
-        Assert.ThrowsException<DominioException>(() => modelo.ExigirPropietario(otraUsuaria));
+        Assert.ThrowsException<DominioException>(() => modelo.ModificarDatos(ficha, otraUsuaria));
     }
 
     [TestMethod]
@@ -271,8 +266,8 @@ public class ModeloTests
     [TestMethod]
     public void ElModeloSinImagenQuedaConCadenaVaciaYNoTieneImagen()
     {
-        Assert.AreEqual(string.Empty, modelo.NombreArchivoImagen);
-        Assert.IsFalse(modelo.TieneImagen);
+        Assert.AreEqual(string.Empty, modelo.TomarLectura().NombreArchivoImagen);
+        Assert.IsFalse(modelo.TomarLectura().TieneImagen);
     }
 
     [TestMethod]
@@ -297,7 +292,7 @@ public class ModeloTests
         string anterior = modelo.CambiarImagen(creadora, "nueva.png");
 
         Assert.AreEqual("vieja.png", anterior);
-        Assert.AreEqual("nueva.png", modelo.NombreArchivoImagen);
+        Assert.AreEqual("nueva.png", modelo.TomarLectura().NombreArchivoImagen);
     }
 
     [TestMethod]
@@ -306,7 +301,7 @@ public class ModeloTests
         string anterior = modelo.CambiarImagen(creadora, "nueva.png");
 
         Assert.AreEqual(string.Empty, anterior);
-        Assert.AreEqual("nueva.png", modelo.NombreArchivoImagen);
+        Assert.AreEqual("nueva.png", modelo.TomarLectura().NombreArchivoImagen);
     }
 
     [TestMethod]
@@ -328,7 +323,7 @@ public class ModeloTests
         Assert.ThrowsException<DominioException>(
             () => modelo.CambiarImagen(creadora, "nueva.png"));
 
-        Assert.AreEqual(string.Empty, modelo.NombreArchivoImagen);
+        Assert.AreEqual(string.Empty, modelo.TomarLectura().NombreArchivoImagen);
     }
 
     [TestMethod]
@@ -345,6 +340,6 @@ public class ModeloTests
         string anterior = modelo.CambiarImagen(creadora, "nueva.png");
 
         Assert.AreEqual(string.Empty, anterior);
-        Assert.AreEqual("nueva.png", modelo.NombreArchivoImagen);
+        Assert.AreEqual("nueva.png", modelo.TomarLectura().NombreArchivoImagen);
     }
 }

@@ -36,7 +36,8 @@ public class CatalogoDeModelos : ICatalogoDeModelos
         Modelo modelo = _modelos.ObtenerPorNombre(ficha.Nombre);
         // Solo se exige futura si la fecha efectivamente cambió, para permitir la edición tardía
         // de otros campos de un modelo cuya fecha ya venció.
-        if (ficha.Datos.FechaEntregaPrometida.Date != modelo.FechaEntregaPrometida.Date)
+        DateTime fechaVigente = modelo.TomarLectura().FechaEntregaPrometida;
+        if (ficha.Datos.FechaEntregaPrometida.Date != fechaVigente.Date)
         {
             ExigirFechaDeEntregaFutura(ficha.Datos.FechaEntregaPrometida);
         }
@@ -83,11 +84,6 @@ public class CatalogoDeModelos : ICatalogoDeModelos
             .Where(modelo => modelo.TieneUnidadDisponible)
             .Where(criterio.Cumple)
             .ToList();
-    }
-
-    public Modelo Consultar(string nombreModelo)
-    {
-        return _modelos.ObtenerPorNombre(nombreModelo);
     }
 
     public LecturaDeModelo ConsultarLectura(string nombreModelo)

@@ -48,11 +48,6 @@ public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
         solicitante.Registrar(Actividad.ReservaCancelada(reserva.NombreDelModelo(), _reloj));
     }
 
-    public IReadOnlyList<Reserva> ReservasDe(Usuario usuario)
-    {
-        return _reservas.DeUsuario(usuario.NombreUsuario);
-    }
-
     public IReadOnlyList<LecturaDeReserva> ConsultarReservasDe(Usuario usuario)
     {
         return _reservas.DeUsuario(usuario.NombreUsuario)

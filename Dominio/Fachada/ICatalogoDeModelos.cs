@@ -14,7 +14,5 @@ public interface ICatalogoDeModelos
 
     IReadOnlyList<LecturaDeModelo> Buscar(ICriterioDeBusqueda criterio);
 
-    Modelo Consultar(string nombreModelo);
-
     LecturaDeModelo ConsultarLectura(string nombreModelo);
 }

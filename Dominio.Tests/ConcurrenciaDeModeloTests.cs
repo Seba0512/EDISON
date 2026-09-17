@@ -58,8 +58,8 @@ public class ConcurrenciaDeModeloTests
         Assert.AreEqual("Cancelada", reserva.NombreDelEstado());
         Assert.IsNull(reserva.VehiculoAsignado);
         Assert.IsTrue(unidad.EstaDisponible);
-        Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
-        Assert.AreEqual(0, modelo.UnidadesReservadas);
+        Assert.AreEqual(StockInicial, modelo.TomarLectura().UnidadesDisponibles);
+        Assert.AreEqual(0, modelo.TomarLectura().UnidadesReservadas);
     }
 
     [TestMethod]
@@ -83,8 +83,8 @@ public class ConcurrenciaDeModeloTests
             reserva => reserva.NombreDelEstado() == "Rechazada"));
         Assert.AreEqual(confirmacionesEsperadas, unidades.Select(unidad => unidad.Id).Distinct().Count());
         Assert.IsTrue(unidades.TrueForAll(unidad => !unidad.EstaDisponible));
-        Assert.AreEqual(confirmacionesEsperadas, modelo.UnidadesReservadas);
-        Assert.AreEqual(0, modelo.UnidadesDisponibles);
+        Assert.AreEqual(confirmacionesEsperadas, modelo.TomarLectura().UnidadesReservadas);
+        Assert.AreEqual(0, modelo.TomarLectura().UnidadesDisponibles);
     }
 
     [TestMethod]
@@ -95,8 +95,8 @@ public class ConcurrenciaDeModeloTests
 
         EjecutarEnParalelo(confirmadas.Count, indice => confirmadas[indice].Cancelar());
 
-        Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
-        Assert.AreEqual(0, modelo.UnidadesReservadas);
+        Assert.AreEqual(StockInicial, modelo.TomarLectura().UnidadesDisponibles);
+        Assert.AreEqual(0, modelo.TomarLectura().UnidadesReservadas);
         Assert.AreEqual(0, modelo.ReservasActivas());
     }
 
@@ -180,8 +180,8 @@ public class ConcurrenciaDeModeloTests
 
         Assert.AreEqual("Cancelada", reserva.NombreDelEstado());
         Assert.IsNull(reserva.VehiculoAsignado);
-        Assert.AreEqual(1, modelo.UnidadesDisponibles);
-        Assert.AreEqual(0, modelo.UnidadesReservadas);
+        Assert.AreEqual(1, modelo.TomarLectura().UnidadesDisponibles);
+        Assert.AreEqual(0, modelo.TomarLectura().UnidadesReservadas);
         Assert.AreEqual(resultado == ResultadoResolucion.Confirmada ? 1 : 0,
             usuario.Actividades().Count(actividad => actividad.Tipo == TipoActividad.Compra));
     }
@@ -225,21 +225,21 @@ public class ConcurrenciaDeModeloTests
 
     private static void VerificarResultadoAtomico(Modelo modeloEnDisputa, Exception? falla)
     {
-        Assert.AreEqual(1, modeloEnDisputa.UnidadesReservadas);
-        Assert.IsTrue(modeloEnDisputa.StockTotal >= modeloEnDisputa.UnidadesReservadas);
+        Assert.AreEqual(1, modeloEnDisputa.TomarLectura().UnidadesReservadas);
+        Assert.IsTrue(modeloEnDisputa.TomarLectura().StockTotal >= modeloEnDisputa.TomarLectura().UnidadesReservadas);
 
         if (falla is null)
         {
-            Assert.AreEqual("Modificado", modeloEnDisputa.Descripcion);
-            Assert.AreEqual(39990m, modeloEnDisputa.Precio);
-            Assert.AreEqual(1, modeloEnDisputa.StockTotal);
+            Assert.AreEqual("Modificado", modeloEnDisputa.TomarLectura().Descripcion);
+            Assert.AreEqual(39990m, modeloEnDisputa.TomarLectura().Precio);
+            Assert.AreEqual(1, modeloEnDisputa.TomarLectura().StockTotal);
             return;
         }
 
         Assert.IsInstanceOfType<Dominio.Excepciones.DominioException>(falla);
-        Assert.AreEqual("Original", modeloEnDisputa.Descripcion);
-        Assert.AreEqual(45000m, modeloEnDisputa.Precio);
-        Assert.AreEqual(StockInicial, modeloEnDisputa.StockTotal);
+        Assert.AreEqual("Original", modeloEnDisputa.TomarLectura().Descripcion);
+        Assert.AreEqual(45000m, modeloEnDisputa.TomarLectura().Precio);
+        Assert.AreEqual(StockInicial, modeloEnDisputa.TomarLectura().StockTotal);
     }
 
     private List<Reserva> ReservasResueltasEnParalelo()

@@ -64,11 +64,6 @@ public class Edison : IAutenticacion, ICatalogoDeModelos, IGestionDeReservas, IR
         return _catalogoDeModelos.Buscar(criterio);
     }
 
-    public Modelo Consultar(string nombreModelo)
-    {
-        return _catalogoDeModelos.Consultar(nombreModelo);
-    }
-
     public LecturaDeModelo ConsultarLectura(string nombreModelo)
     {
         return _catalogoDeModelos.ConsultarLectura(nombreModelo);
@@ -82,11 +77,6 @@ public class Edison : IAutenticacion, ICatalogoDeModelos, IGestionDeReservas, IR
     public void CancelarReserva(Guid idReserva, Usuario solicitante)
     {
         _centralDeReservas.CancelarReserva(idReserva, solicitante);
-    }
-
-    public IReadOnlyList<Reserva> ReservasDe(Usuario usuario)
-    {
-        return _centralDeReservas.ReservasDe(usuario);
     }
 
     public IReadOnlyList<LecturaDeReserva> ConsultarReservasDe(Usuario usuario)
