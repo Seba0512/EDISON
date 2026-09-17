@@ -1,3 +1,4 @@
+using Cliente.Vistas;
 using Common.Excepciones;
 using Common.Protocolo;
 
@@ -10,7 +11,7 @@ internal static class LectorDeConsola
 
     public static int? LeerOpcion(int cantidadDeOpciones)
     {
-        Console.Write("Ingrese opción: ");
+        Consola.Prompt("Ingrese opción: ");
         while (true)
         {
             string? entrada = LeerLinea();
@@ -19,14 +20,14 @@ internal static class LectorDeConsola
             if (int.TryParse(entrada, out int opcion) && opcion >= 1 && opcion <= cantidadDeOpciones)
                 return opcion - 1;
 
-            Console.WriteLine($"Ingrese un número entre 1 y {cantidadDeOpciones}.");
-            Console.Write("Ingrese opción válida: ");
+            Consola.Error($"Ingrese un número entre 1 y {cantidadDeOpciones}.");
+            Consola.Prompt("Ingrese opción válida: ");
         }
     }
 
     public static string? LeerTexto(string mensaje)
     {
-        Console.WriteLine(mensaje);
+        Consola.Info(mensaje);
         while (true)
         {
             string? entrada = LeerLinea();
@@ -37,20 +38,20 @@ internal static class LectorDeConsola
             if (texto.Length > 0)
                 return texto;
 
-            Console.WriteLine("El texto no puede estar vacío.");
+            Consola.Error("El texto no puede estar vacío.");
         }
     }
 
     public static void EsperarEnter()
     {
         Console.WriteLine();
-        Console.WriteLine("Presione Enter para continuar...");
+        Consola.Sutil("Presione Enter para continuar...");
         Console.ReadLine();
     }
 
     public static bool LeerTextoOpcional(string mensaje, out string? valor)
     {
-        Console.WriteLine(mensaje);
+        Consola.Info(mensaje);
         string? entrada = LeerLinea();
         if (entrada is null)
         {
@@ -83,7 +84,7 @@ internal static class LectorDeConsola
             }
             catch (ProtocoloException excepcion)
             {
-                Console.WriteLine(excepcion.Message);
+                Consola.Error(excepcion.Message);
             }
         }
     }
@@ -102,7 +103,7 @@ internal static class LectorDeConsola
             }
             catch (ProtocoloException excepcion)
             {
-                Console.WriteLine(excepcion.Message);
+                Consola.Error(excepcion.Message);
             }
         }
     }
@@ -121,7 +122,7 @@ internal static class LectorDeConsola
             }
             catch (ProtocoloException excepcion)
             {
-                Console.WriteLine(excepcion.Message);
+                Consola.Error(excepcion.Message);
             }
         }
     }
@@ -140,7 +141,7 @@ internal static class LectorDeConsola
             }
             catch (ProtocoloException excepcion)
             {
-                Console.WriteLine(excepcion.Message);
+                Consola.Error(excepcion.Message);
             }
         }
     }
@@ -165,16 +166,52 @@ internal static class LectorDeConsola
 
     private static string? LeerClave(string mensaje)
     {
-        Console.WriteLine(mensaje);
+        Consola.Info(mensaje);
         while (true)
         {
-            string? clave = LeerLinea();
+            string? clave = LeerClaveEnmascarada();
             if (clave is null)
                 return null;
             if (!string.IsNullOrWhiteSpace(clave))
                 return clave;
 
-            Console.WriteLine("La clave no puede estar vacía.");
+            Consola.Error("La clave no puede estar vacía.");
+        }
+    }
+
+    // Con entrada redirigida (por ejemplo, corrección automatizada por pipe) no hay
+    // terminal que enmascarar: se cae al ReadLine normal, que es lo único que funciona ahí.
+    private static string? LeerClaveEnmascarada()
+    {
+        if (Console.IsInputRedirected)
+            return LeerLinea();
+
+        System.Text.StringBuilder clave = new();
+        while (true)
+        {
+            ConsoleKeyInfo tecla = Console.ReadKey(intercept: true);
+            if (tecla.Key == ConsoleKey.Enter)
+            {
+                Console.WriteLine();
+                return clave.ToString();
+            }
+
+            if (tecla.Key == ConsoleKey.Backspace)
+            {
+                if (clave.Length > 0)
+                {
+                    clave.Length--;
+                    Console.Write("\b \b");
+                }
+
+                continue;
+            }
+
+            if (!char.IsControl(tecla.KeyChar))
+            {
+                clave.Append(tecla.KeyChar);
+                Console.Write('*');
+            }
         }
     }
 }

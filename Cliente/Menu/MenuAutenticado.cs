@@ -8,17 +8,19 @@ internal static class MenuAutenticado
         ConexionConServidor conexion,
         EstadoDelMenu estado,
         DirectorioDeDescargasDeInstancia descargas)
-        => new([
-            new OpcionAltaDeModelo(conexion),
-            new OpcionModificarModelo(conexion),
-            new OpcionEliminarModelo(conexion),
-            new OpcionBuscarModelos(conexion),
-            new OpcionConsultarModelo(conexion, estado, descargas),
-            new OpcionSolicitarReserva(conexion),
-            new OpcionCancelarReserva(conexion),
-            new OpcionMisReservas(conexion),
-            new OpcionHistorial(conexion),
-            new OpcionDeDiagnostico(conexion),
-            new OpcionCerrarSesion(conexion, estado)
-        ]);
+        => new(
+            () => $"Sesión de {estado.NombreUsuarioAutenticado}",
+            [
+                new OpcionAltaDeModelo(conexion),
+                new OpcionModificarModelo(conexion),
+                new OpcionEliminarModelo(conexion),
+                new OpcionBuscarModelos(conexion),
+                new OpcionConsultarModelo(conexion, estado, descargas),
+                new OpcionSolicitarReserva(conexion),
+                new OpcionCancelarReserva(conexion),
+                new OpcionMisReservas(conexion),
+                new OpcionHistorial(conexion),
+                new OpcionDeDiagnostico(conexion),
+                new OpcionCerrarSesion(conexion, estado)
+            ]);
 }
