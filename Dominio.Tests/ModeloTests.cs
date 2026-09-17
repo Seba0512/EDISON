@@ -283,12 +283,29 @@ public class ModeloTests
     }
 
     [TestMethod]
-    public void CambiarImagenNoRequiereUnidadesDisponibles()
+    public void CambiarImagenDeUnModeloAgotadoFalla()
     {
         for (int confirmadas = 0; confirmadas < StockInicial; confirmadas++)
         {
             ReservaConfirmada();
         }
+
+        Assert.ThrowsException<DominioException>(
+            () => modelo.CambiarImagen(creadora, "nueva.png"));
+
+        Assert.AreEqual(string.Empty, modelo.NombreArchivoImagen);
+    }
+
+    [TestMethod]
+    public void CambiarImagenDespuesDeReponerStockEsValido()
+    {
+        for (int confirmadas = 0; confirmadas < StockInicial; confirmadas++)
+        {
+            ReservaConfirmada();
+        }
+
+        modelo.ModificarDatos(
+            new FichaDeModelo(DatosModificados(), StockInicial + 1), creadora);
 
         string anterior = modelo.CambiarImagen(creadora, "nueva.png");
 

@@ -174,6 +174,7 @@ public class Modelo : IVehiculoBuscable
         {
             ExigirActivo();
             ExigirPropietario(solicitante);
+            ExigirUnidadDisponibleParaCambiarImagen();
 
             string nombreArchivoAnterior = datos.NombreArchivoImagen;
             datos = new DatosDeModelo(
@@ -341,6 +342,15 @@ public class Modelo : IVehiculoBuscable
         {
             throw new DominioException(
                 $"No se puede modificar el modelo {Nombre} porque no quedan unidades disponibles");
+        }
+    }
+
+    private void ExigirUnidadDisponibleParaCambiarImagen()
+    {
+        if (!stock.HayAlgunaDisponible)
+        {
+            throw new DominioException(
+                $"No se puede cambiar la imagen del modelo {Nombre} porque no quedan unidades disponibles");
         }
     }
 
