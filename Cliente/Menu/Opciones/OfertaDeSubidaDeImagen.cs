@@ -38,6 +38,12 @@ internal sealed class OfertaDeSubidaDeImagen
             ? ruta[1..^1]
             : ruta;
 
-    public void Subir(string nombreModelo, string rutaArchivo)
-        => Consola.Exito(_subidaDeImagenRemota.Ejecutar(nombreModelo, rutaArchivo));
+    // La ruta viene de PreguntarRuta: null significa que no se ofreció o se rechazó la imagen.
+    public void SubirSiHayRuta(string nombreModelo, string? rutaArchivo)
+    {
+        if (rutaArchivo is null)
+            return;
+
+        Consola.Exito(_subidaDeImagenRemota.Ejecutar(nombreModelo, rutaArchivo));
+    }
 }

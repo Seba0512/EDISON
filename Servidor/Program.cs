@@ -5,6 +5,8 @@ namespace Servidor;
 
 internal static class Program
 {
+    private const string OrdenDeSalida = "salir";
+
     private static int Main()
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -36,13 +38,18 @@ internal static class Program
 
     private static void EsperarOrdenDeSalida()
     {
-        Console.WriteLine("Escriba 'salir' para cerrar el servidor.");
-        string? orden;
-        do
+        Console.WriteLine($"Escriba '{OrdenDeSalida}' para cerrar el servidor.");
+        while (true)
         {
-            orden = Console.ReadLine();
-            if (orden is not null && !orden.Equals("salir", StringComparison.OrdinalIgnoreCase))
-                Console.WriteLine("Orden desconocida. Escriba 'salir'.");
-        } while (orden is not null && !orden.Equals("salir", StringComparison.OrdinalIgnoreCase));
+            string? orden = Console.ReadLine();
+            // Fin de entrada (por ejemplo con la entrada redirigida) cierra igual que la orden.
+            if (orden is null || EsOrdenDeSalida(orden))
+                return;
+
+            Console.WriteLine($"Orden desconocida. Escriba '{OrdenDeSalida}'.");
+        }
     }
+
+    private static bool EsOrdenDeSalida(string orden)
+        => orden.Equals(OrdenDeSalida, StringComparison.OrdinalIgnoreCase);
 }

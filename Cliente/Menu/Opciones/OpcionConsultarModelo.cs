@@ -6,7 +6,7 @@ namespace Cliente.Menu.Opciones;
 
 internal sealed class OpcionConsultarModelo : IOpcionDeMenu
 {
-    private readonly ConsultaDeModeloRemota _consulta;
+    private readonly ConsultaDeModeloRemota _consultaDeModeloRemota;
     private readonly DescargaDeImagenRemota _descargaDeImagenRemota;
     private readonly EstadoDelMenu _estado;
 
@@ -15,7 +15,7 @@ internal sealed class OpcionConsultarModelo : IOpcionDeMenu
         EstadoDelMenu estado,
         DirectorioDeDescargasDeInstancia descargas)
     {
-        _consulta = new ConsultaDeModeloRemota(conexion);
+        _consultaDeModeloRemota = new ConsultaDeModeloRemota(conexion);
         _descargaDeImagenRemota = new DescargaDeImagenRemota(conexion, descargas);
         _estado = estado;
     }
@@ -29,7 +29,7 @@ internal sealed class OpcionConsultarModelo : IOpcionDeMenu
         if (nombreModelo is null)
             return;
 
-        DetalleDeModelo detalle = _consulta.Ejecutar(nombreModelo);
+        DetalleDeModelo detalle = _consultaDeModeloRemota.Ejecutar(nombreModelo);
         PresentadorDeDetalleDeModelo.Mostrar(detalle);
 
         OfrecerDescargaDeImagen(nombreModelo, detalle);

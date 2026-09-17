@@ -2,24 +2,16 @@ using Common.Protocolo.Vistas;
 
 namespace Cliente.Vistas;
 
-internal static class PresentadorDeModelos
+internal sealed class PresentadorDeModelos : PresentadorDeTabla<ModeloListado>
 {
-    private static readonly string[] Encabezados = ["Nombre", "Precio", "Entrega", "Disponibles"];
-    private static readonly bool[] AlinearADerecha = [false, true, false, true];
+    protected override IReadOnlyList<string> Encabezados { get; } =
+        ["Nombre", "Precio", "Entrega", "Disponibles"];
 
-    public static void Mostrar(IReadOnlyList<ModeloListado> modelos)
-    {
-        if (modelos.Count == 0)
-        {
-            Consola.Sutil("No se encontraron modelos.");
-            return;
-        }
+    protected override IReadOnlyList<bool> AlinearADerecha { get; } = [false, true, false, true];
 
-        List<string[]> filas = modelos.Select(AFila).ToList();
-        TablaDeConsola.Mostrar(Encabezados, filas, AlinearADerecha);
-    }
+    protected override string MensajeSinElementos => "No se encontraron modelos.";
 
-    private static string[] AFila(ModeloListado modelo)
+    protected override string[] AFila(ModeloListado modelo)
         =>
         [
             modelo.Nombre,
