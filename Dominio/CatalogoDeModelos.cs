@@ -72,9 +72,10 @@ public class CatalogoDeModelos : ICatalogoDeModelos
         }
     }
 
-    public IReadOnlyList<Modelo> Buscar(ICriterioDeBusqueda criterio)
+    public IReadOnlyList<LecturaDeModelo> Buscar(ICriterioDeBusqueda criterio)
     {
         return modelos.Todos()
+            .Select(modelo => modelo.TomarLectura())
             .Where(modelo => modelo.TieneUnidadDisponible)
             .Where(criterio.Cumple)
             .ToList();
@@ -83,6 +84,11 @@ public class CatalogoDeModelos : ICatalogoDeModelos
     public Modelo Consultar(string nombreModelo)
     {
         return modelos.ObtenerPorNombre(nombreModelo);
+    }
+
+    public LecturaDeModelo ConsultarLectura(string nombreModelo)
+    {
+        return modelos.ObtenerPorNombre(nombreModelo).TomarLectura();
     }
 
     private void BorrarImagen(string nombreArchivoImagen)

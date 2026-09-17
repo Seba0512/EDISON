@@ -21,7 +21,7 @@ internal sealed class ManejadorDeDescargaDeImagen : ManejadorAutenticado
     protected override RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario)
     {
         string nombreModelo = CodecDeDescargaDeImagen.DecodificarSolicitud(solicitud.Datos.Span);
-        Modelo modelo = _catalogoDeModelos.Consultar(nombreModelo);
+        LecturaDeModelo modelo = _catalogoDeModelos.ConsultarLectura(nombreModelo);
 
         if (!modelo.TieneImagen)
             throw new DominioException($"El modelo {modelo.Nombre} no tiene imagen");

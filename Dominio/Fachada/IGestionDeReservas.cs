@@ -7,4 +7,6 @@ public interface IGestionDeReservas
     void CancelarReserva(Guid idReserva, Usuario solicitante);
 
     IReadOnlyList<Reserva> ReservasDe(Usuario usuario);
+
+    IReadOnlyList<LecturaDeReserva> ConsultarReservasDe(Usuario usuario);
 }

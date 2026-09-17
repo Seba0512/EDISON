@@ -12,7 +12,9 @@ public interface ICatalogoDeModelos
 
     string CambiarImagenDeModelo(string nombreModelo, string nuevoNombreArchivoImagen, Usuario solicitante);
 
-    IReadOnlyList<Modelo> Buscar(ICriterioDeBusqueda criterio);
+    IReadOnlyList<LecturaDeModelo> Buscar(ICriterioDeBusqueda criterio);
 
     Modelo Consultar(string nombreModelo);
+
+    LecturaDeModelo ConsultarLectura(string nombreModelo);
 }

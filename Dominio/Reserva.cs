@@ -65,6 +65,11 @@ public class Reserva
         return modelo.SeLlama(nombreModelo);
     }
 
+    public LecturaDeReserva TomarLectura()
+    {
+        return modelo.TomarLecturaDe(this);
+    }
+
     public bool VencioElPlazo(int segundosDeEspera)
     {
         return EstaPendiente && reloj.Ahora >= FechaCreacion.AddSeconds(segundosDeEspera);
@@ -105,6 +110,16 @@ public class Reserva
     {
         vehiculoAsignado = null;
         PasarA(estadoCancelado);
+    }
+
+    internal LecturaDeReserva CrearLectura(string nombreModelo)
+    {
+        return new LecturaDeReserva(
+            Id,
+            nombreModelo,
+            estado.Nombre,
+            FechaCreacion,
+            UltimaActualizacion);
     }
 
     private void ExigirUnidadAsignable(Vehiculo unidad)

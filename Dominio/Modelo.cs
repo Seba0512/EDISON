@@ -122,6 +122,24 @@ public class Modelo : IVehiculoBuscable
         }
     }
 
+    public LecturaDeModelo TomarLectura()
+    {
+        lock (candado)
+        {
+            int unidadesDisponibles = stock.Disponibles;
+            int stockTotal = stock.Total;
+            return new LecturaDeModelo(
+                datos.Nombre,
+                datos.Descripcion,
+                datos.Precio,
+                datos.FechaEntregaPrometida,
+                stockTotal,
+                unidadesDisponibles,
+                stockTotal - unidadesDisponibles,
+                datos.NombreArchivoImagen);
+        }
+    }
+
     public bool SeLlama(string nombreModelo)
     {
         return Nombre.Equals(nombreModelo?.Trim(), StringComparison.OrdinalIgnoreCase);
@@ -300,6 +318,15 @@ public class Modelo : IVehiculoBuscable
         lock (candado)
         {
             return stock.Contiene(unidad);
+        }
+    }
+
+    internal LecturaDeReserva TomarLecturaDe(Reserva reserva)
+    {
+        lock (candado)
+        {
+            ExigirQueLaReservaSeaPropia(reserva);
+            return reserva.CrearLectura(datos.Nombre);
         }
     }
 

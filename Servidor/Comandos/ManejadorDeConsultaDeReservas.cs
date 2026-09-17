@@ -19,16 +19,16 @@ internal sealed class ManejadorDeConsultaDeReservas : ManejadorAutenticado
 
     protected override RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario)
     {
-        IReadOnlyList<Reserva> reservas = _gestionDeReservas.ReservasDe(usuario);
+        IReadOnlyList<LecturaDeReserva> reservas = _gestionDeReservas.ConsultarReservasDe(usuario);
         IReadOnlyList<ReservaListada> listado = reservas.Select(AListada).ToList();
         return RespuestaDelServidor.Ok(CodecDeConsultaDeReservas.CodificarResultado(listado));
     }
 
-    private static ReservaListada AListada(Reserva reserva)
+    private static ReservaListada AListada(LecturaDeReserva reserva)
         => new(
             reserva.Id,
-            reserva.NombreDelModelo(),
-            reserva.NombreDelEstado(),
+            reserva.NombreModelo,
+            reserva.Estado,
             reserva.FechaCreacion,
             reserva.UltimaActualizacion);
 }

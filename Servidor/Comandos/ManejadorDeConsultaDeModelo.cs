@@ -17,12 +17,12 @@ internal sealed class ManejadorDeConsultaDeModelo : ManejadorAutenticado
     protected override RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario)
     {
         string nombreModelo = CodecDeConsultaDeModelo.DecodificarSolicitud(solicitud.Datos.Span);
-        Modelo modelo = _catalogoDeModelos.Consultar(nombreModelo);
+        LecturaDeModelo modelo = _catalogoDeModelos.ConsultarLectura(nombreModelo);
         DetalleDeModelo detalle = MapearAVista(modelo);
         return RespuestaDelServidor.Ok(CodecDeConsultaDeModelo.CodificarResultado(detalle));
     }
 
-    private static DetalleDeModelo MapearAVista(Modelo modelo)
+    private static DetalleDeModelo MapearAVista(LecturaDeModelo modelo)
         => new(
             modelo.Nombre,
             modelo.Descripcion,

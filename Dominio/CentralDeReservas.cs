@@ -53,6 +53,13 @@ public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
         return reservas.DeUsuario(usuario.NombreUsuario);
     }
 
+    public IReadOnlyList<LecturaDeReserva> ConsultarReservasDe(Usuario usuario)
+    {
+        return reservas.DeUsuario(usuario.NombreUsuario)
+            .Select(reserva => reserva.TomarLectura())
+            .ToList();
+    }
+
     public void ResolverVencidas()
     {
         // Se resuelven en orden de llegada. Con poco stock gana la solicitud más vieja.

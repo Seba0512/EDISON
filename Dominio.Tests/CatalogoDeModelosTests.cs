@@ -175,7 +175,7 @@ public class CatalogoDeModelosTests
         DarDeAlta();
         DarDeAltaModeloAgotado();
 
-        IReadOnlyList<Modelo> encontrados = catalogo.Buscar(new CriterioQueAceptaTodo());
+        IReadOnlyList<LecturaDeModelo> encontrados = catalogo.Buscar(new CriterioQueAceptaTodo());
 
         Assert.AreEqual(1, encontrados.Count);
         Assert.IsTrue(encontrados[0].SeLlama(NombreModelo));
@@ -193,6 +193,20 @@ public class CatalogoDeModelosTests
         AfirmarAgotadoExcluido(
             new CriterioPorFechaDeEntregaMaxima(FechaEntrega.AddMonths(-1)));
         AfirmarAgotadoExcluido(new CriterioPorUnidadesDisponibles(0));
+    }
+
+    [TestMethod]
+    public void BuscarDevuelveLaMismaLecturaQueCumplioElCriterio()
+    {
+        catalogo.AltaDeModelo(Ficha(45000m, 1, string.Empty), creadora);
+        IReadOnlyList<LecturaDeModelo> encontrados =
+            catalogo.Buscar(new CriterioPorUnidadesDisponibles(1));
+
+        Modelo modelo = catalogo.Consultar(NombreModelo);
+        modelo.RegistrarReserva(otroUsuario, reloj).Resolver();
+
+        Assert.AreEqual(1, encontrados[0].UnidadesDisponibles);
+        Assert.AreEqual(0, modelo.UnidadesDisponibles);
     }
 
     [TestMethod]
@@ -248,7 +262,7 @@ public class CatalogoDeModelosTests
 
     private void AfirmarAgotadoExcluido(ICriterioDeBusqueda criterio)
     {
-        IReadOnlyList<Modelo> encontrados = catalogo.Buscar(criterio);
+        IReadOnlyList<LecturaDeModelo> encontrados = catalogo.Buscar(criterio);
 
         Assert.IsFalse(encontrados.Any(modelo => modelo.SeLlama(NombreModeloAgotado)));
     }

@@ -59,7 +59,7 @@ public class Edison : IAutenticacion, ICatalogoDeModelos, IGestionDeReservas, IR
         return catalogoDeModelos.CambiarImagenDeModelo(nombreModelo, nuevoNombreArchivoImagen, solicitante);
     }
 
-    public IReadOnlyList<Modelo> Buscar(ICriterioDeBusqueda criterio)
+    public IReadOnlyList<LecturaDeModelo> Buscar(ICriterioDeBusqueda criterio)
     {
         return catalogoDeModelos.Buscar(criterio);
     }
@@ -67,6 +67,11 @@ public class Edison : IAutenticacion, ICatalogoDeModelos, IGestionDeReservas, IR
     public Modelo Consultar(string nombreModelo)
     {
         return catalogoDeModelos.Consultar(nombreModelo);
+    }
+
+    public LecturaDeModelo ConsultarLectura(string nombreModelo)
+    {
+        return catalogoDeModelos.ConsultarLectura(nombreModelo);
     }
 
     public Guid SolicitarReserva(string nombreModelo, Usuario solicitante)
@@ -82,6 +87,11 @@ public class Edison : IAutenticacion, ICatalogoDeModelos, IGestionDeReservas, IR
     public IReadOnlyList<Reserva> ReservasDe(Usuario usuario)
     {
         return centralDeReservas.ReservasDe(usuario);
+    }
+
+    public IReadOnlyList<LecturaDeReserva> ConsultarReservasDe(Usuario usuario)
+    {
+        return centralDeReservas.ConsultarReservasDe(usuario);
     }
 
     public void ResolverVencidas()

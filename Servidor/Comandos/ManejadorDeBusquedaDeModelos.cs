@@ -20,10 +20,10 @@ internal sealed class ManejadorDeBusquedaDeModelos : ManejadorAutenticado
     {
         FiltrosDeBusqueda filtros = CodecDeBusquedaDeModelos.DecodificarFiltros(solicitud.Datos.Span);
         ICriterioDeBusqueda criterio = FabricaDeCriterios.Crear(filtros);
-        IReadOnlyList<Modelo> modelos = _catalogoDeModelos.Buscar(criterio);
+        IReadOnlyList<LecturaDeModelo> modelos = _catalogoDeModelos.Buscar(criterio);
 
         List<ModeloListado> listado = new(modelos.Count);
-        foreach (Modelo modelo in modelos)
+        foreach (LecturaDeModelo modelo in modelos)
             listado.Add(new ModeloListado(modelo.Nombre, modelo.Precio, modelo.FechaEntregaPrometida, modelo.UnidadesDisponibles));
 
         return RespuestaDelServidor.Ok(CodecDeBusquedaDeModelos.CodificarResultado(listado));
