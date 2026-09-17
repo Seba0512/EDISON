@@ -2,7 +2,7 @@ namespace Servidor.Repositorios;
 
 internal interface IRepositorioDeImagenes
 {
-    void Guardar(string nombreArchivo, Stream contenido);
+    string Guardar(string nombreUsuarioPropietario, string nombreArchivo, Stream contenido);
 
     Stream AbrirLectura(string nombreArchivo);
 

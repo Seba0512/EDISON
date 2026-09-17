@@ -12,15 +12,17 @@ internal sealed class AlmacenDeImagenesEnDisco : IRepositorioDeImagenes, Dominio
         Directory.CreateDirectory(_directorio);
     }
 
-    public void Guardar(string nombreArchivo, Stream contenido)
+    public string Guardar(string nombreUsuarioPropietario, string nombreArchivo, Stream contenido)
     {
-        string ruta = RutaDe(nombreArchivo);
+        string referencia = CrearReferencia(nombreUsuarioPropietario, nombreArchivo);
+        string ruta = RutaDe(referencia);
         // Se escribe a un .tmp y luego se mueve, para no dejar una imagen a medias si falla la copia.
         string rutaTemporal = ruta + ".tmp";
         try
         {
             EnvolverErroresDeDisco(() =>
             {
+                Directory.CreateDirectory(Path.GetDirectoryName(ruta)!);
                 using (FileStream destino = File.Create(rutaTemporal))
                     contenido.CopyTo(destino);
 
@@ -32,6 +34,8 @@ internal sealed class AlmacenDeImagenesEnDisco : IRepositorioDeImagenes, Dominio
             IntentarEliminarTemporal(rutaTemporal);
             throw;
         }
+
+        return referencia;
     }
 
     public Stream AbrirLectura(string nombreArchivo)
@@ -102,11 +106,30 @@ internal sealed class AlmacenDeImagenesEnDisco : IRepositorioDeImagenes, Dominio
         }
     }
 
-    private string RutaDe(string nombreArchivo)
+    private static string CrearReferencia(string nombreUsuarioPropietario, string nombreArchivo)
     {
+        string directorio = NombreDeDirectorioDeUsuario.Crear(nombreUsuarioPropietario);
         string nombreSaneado = NombreDeArchivoSeguro.Validar(nombreArchivo);
-        string ruta = Path.Combine(_directorio, nombreSaneado);
+        return $"{directorio}/{nombreSaneado}";
+    }
+
+    private string RutaDe(string referencia)
+    {
+        (string directorio, string nombreArchivo) = SepararReferencia(referencia);
+        string ruta = Path.Combine(_directorio, directorio, nombreArchivo);
         NombreDeArchivoSeguro.ExigirDentroDe(ruta, _directorio);
         return ruta;
+    }
+
+    private static (string Directorio, string NombreArchivo) SepararReferencia(string referencia)
+    {
+        string referenciaRecibida = referencia ?? string.Empty;
+        string[] partes = referenciaRecibida.Split('/');
+        if (partes.Length != 2 || referenciaRecibida.Contains('\\'))
+            throw new Common.Excepciones.ProtocoloException("La referencia interna de imagen es inválida");
+
+        string directorio = NombreDeDirectorioDeUsuario.Validar(partes[0]);
+        string nombreArchivo = NombreDeArchivoSeguro.Validar(partes[1]);
+        return (directorio, nombreArchivo);
     }
 }

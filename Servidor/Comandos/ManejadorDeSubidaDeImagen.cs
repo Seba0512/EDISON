@@ -37,10 +37,11 @@ internal sealed class ManejadorDeSubidaDeImagen : IManejadorDeComando
         string extension = Path.GetExtension(nombreValidado);
 
         string nombreArchivoNuevo = $"{Guid.NewGuid():N}{extension}";
-        _repositorioDeImagenes.Guardar(nombreArchivoNuevo, buffer);
+        string referenciaNueva = _repositorioDeImagenes.Guardar(
+            usuario.NombreUsuario, nombreArchivoNuevo, buffer);
 
         string nombreArchivoAnterior = CambiarImagen(
-            nombreModelo, nombreArchivoNuevo, usuario);
+            nombreModelo, referenciaNueva, usuario);
 
         if (nombreArchivoAnterior.Length > 0)
             IntentarEliminar(
@@ -51,17 +52,17 @@ internal sealed class ManejadorDeSubidaDeImagen : IManejadorDeComando
     }
 
     private string CambiarImagen(
-        string nombreModelo, string nombreArchivoNuevo, Usuario usuario)
+        string nombreModelo, string referenciaNueva, Usuario usuario)
     {
         try
         {
             return _catalogoDeModelos.CambiarImagenDeModelo(
-                nombreModelo, nombreArchivoNuevo, usuario);
+                nombreModelo, referenciaNueva, usuario);
         }
         catch (DominioException)
         {
             IntentarEliminar(
-                nombreArchivoNuevo,
+                referenciaNueva,
                 "No se pudo compensar la imagen nueva tras rechazarse el cambio");
             throw;
         }

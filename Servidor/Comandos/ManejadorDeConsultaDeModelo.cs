@@ -30,5 +30,5 @@ internal sealed class ManejadorDeConsultaDeModelo : ManejadorAutenticado
             modelo.FechaEntregaPrometida,
             modelo.UnidadesDisponibles,
             modelo.UnidadesReservadas,
-            modelo.NombreArchivoImagen);
+            Path.GetFileName(modelo.NombreArchivoImagen));
 }
