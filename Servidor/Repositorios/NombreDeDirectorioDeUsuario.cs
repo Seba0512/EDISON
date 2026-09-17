@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text;
 using Common.Excepciones;
 
@@ -6,10 +5,8 @@ namespace Servidor.Repositorios;
 
 internal static class NombreDeDirectorioDeUsuario
 {
-    private const string NombreAlternativo = "usuario";
-    private const int BytesDelSufijo = 8;
     private static readonly HashSet<char> CaracteresInvalidos =
-        new(".<>:\"/\\|?*".Concat(Enumerable.Range(0, 32).Select(valor => (char)valor)));
+        new("<>:\"/\\|?*".Concat(Enumerable.Range(0, 32).Select(valor => (char)valor)));
     private static readonly HashSet<string> NombresReservados = new(StringComparer.OrdinalIgnoreCase)
     {
         "CON", "PRN", "AUX", "NUL",
@@ -23,9 +20,7 @@ internal static class NombreDeDirectorioDeUsuario
         if (nombreNormalizado.Length == 0)
             throw new ProtocoloException("No se puede crear una carpeta para un usuario vacío");
 
-        string parteVisible = Sanitizar(nombreNormalizado);
-        string sufijo = CalcularSufijo(nombreNormalizado);
-        return $"{parteVisible}-{sufijo}";
+        return Codificar(nombreNormalizado, EsNombreReservado(nombreNormalizado));
     }
 
     public static string Validar(string nombreDirectorio)
@@ -33,26 +28,36 @@ internal static class NombreDeDirectorioDeUsuario
         string nombre = (nombreDirectorio ?? string.Empty).Trim();
         if (nombre.Length == 0 || nombre is "." or ".." || nombre != nombreDirectorio)
             throw new ProtocoloException("La referencia interna contiene una carpeta inválida");
-        if (nombre.Any(CaracteresInvalidos.Contains) || nombre.EndsWith(' '))
+        if (nombre.Any(CaracteresInvalidos.Contains) || nombre.EndsWith('.') || nombre.EndsWith(' '))
             throw new ProtocoloException("La referencia interna contiene una carpeta inválida");
-        if (NombresReservados.Contains(Path.GetFileNameWithoutExtension(nombre)))
+        if (EsNombreReservado(nombre))
             throw new ProtocoloException("La referencia interna contiene una carpeta reservada");
 
         return nombre;
     }
 
-    private static string Sanitizar(string nombre)
+    private static string Codificar(string nombre, bool nombreReservado)
     {
-        char[] caracteres = nombre
-            .Select(caracter => CaracteresInvalidos.Contains(caracter) ? '_' : caracter)
-            .ToArray();
-        string resultado = new string(caracteres).TrimEnd(' ', '.');
-        return resultado.Length == 0 ? NombreAlternativo : resultado;
+        StringBuilder resultado = new(nombre.Length);
+        for (int indice = 0; indice < nombre.Length; indice++)
+        {
+            char caracter = nombre[indice];
+            bool esUltimo = indice == nombre.Length - 1;
+            bool debeEscaparse = caracter == '%' || CaracteresInvalidos.Contains(caracter) ||
+                                 esUltimo && caracter is '.' or ' ' || indice == 0 && nombreReservado;
+
+            if (debeEscaparse)
+                resultado.Append($"%{(int)caracter:X4}");
+            else
+                resultado.Append(caracter);
+        }
+
+        return resultado.ToString();
     }
 
-    private static string CalcularSufijo(string nombreNormalizado)
+    private static bool EsNombreReservado(string nombre)
     {
-        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(nombreNormalizado));
-        return Convert.ToHexString(hash, 0, BytesDelSufijo).ToLowerInvariant();
+        string nombreBase = nombre.Split('.')[0].TrimEnd(' ');
+        return NombresReservados.Contains(nombreBase);
     }
 }
