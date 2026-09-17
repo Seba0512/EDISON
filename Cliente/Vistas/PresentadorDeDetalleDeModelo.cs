@@ -6,18 +6,17 @@ internal static class PresentadorDeDetalleDeModelo
 {
     public static void Mostrar(DetalleDeModelo detalle)
     {
-        Console.WriteLine($"Nombre: {detalle.Nombre}");
-        Console.WriteLine(
-            detalle.Descripcion.Length > 0
-                ? $"Descripción: {detalle.Descripcion}"
-                : "Descripción: (sin descripción)");
-        Console.WriteLine($"Precio: {detalle.Precio}");
-        Console.WriteLine($"Fecha de entrega prometida: {detalle.FechaEntregaPrometida:yyyy-MM-dd}");
-        Console.WriteLine($"Unidades disponibles: {detalle.UnidadesDisponibles}");
-        Console.WriteLine($"Unidades reservadas: {detalle.UnidadesReservadas}");
-        Console.WriteLine(
-            detalle.NombreArchivoImagen.Length > 0
-                ? $"Imagen: {detalle.NombreArchivoImagen}"
-                : "Imagen: (sin imagen)");
+        Consola.Titulo("Detalle del modelo");
+        Consola.Campo("Nombre", detalle.Nombre);
+        Consola.Campo(
+            "Descripción",
+            detalle.Descripcion.Length > 0 ? detalle.Descripcion : "(sin descripción)");
+        Consola.Campo("Precio", detalle.Precio.ToString());
+        Consola.Campo("Fecha de entrega prometida", detalle.FechaEntregaPrometida.ToString("yyyy-MM-dd"));
+        Consola.Campo("Unidades disponibles", detalle.UnidadesDisponibles.ToString());
+        Consola.Campo("Unidades reservadas", detalle.UnidadesReservadas.ToString());
+        Consola.Campo(
+            "Imagen",
+            detalle.NombreArchivoImagen.Length > 0 ? detalle.NombreArchivoImagen : "(sin imagen)");
     }
 }

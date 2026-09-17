@@ -4,28 +4,28 @@ namespace Cliente.Vistas;
 
 internal static class PresentadorDeReservas
 {
-    private const string Encabezado = "ID                                   MODELO               ESTADO      CREACION             ACTUALIZACION";
+    private static readonly string[] Encabezados = ["ID", "MODELO", "ESTADO", "CREACION", "ACTUALIZACION"];
 
     public static void Mostrar(IReadOnlyList<ReservaListada> reservas)
     {
-        Console.WriteLine("Mis reservas:");
+        Consola.Info("Mis reservas:");
         if (reservas.Count == 0)
         {
-            Console.WriteLine("No tenés reservas.");
+            Consola.Sutil("No tenés reservas.");
             return;
         }
 
-        Console.WriteLine(Encabezado);
-        foreach (ReservaListada reserva in reservas)
-            Console.WriteLine(AFila(reserva));
+        List<string[]> filas = reservas.Select(AFila).ToList();
+        TablaDeConsola.Mostrar(Encabezados, filas);
     }
 
-    private static string AFila(ReservaListada reserva)
-        => string.Format(
-            "{0,-36} {1,-20} {2,-11} {3,-20} {4,-20}",
-            reserva.Id,
+    private static string[] AFila(ReservaListada reserva)
+        =>
+        [
+            reserva.Id.ToString(),
             reserva.NombreModelo,
             reserva.Estado,
-            reserva.FechaCreacion,
-            reserva.UltimaActualizacion);
+            reserva.FechaCreacion.ToString(),
+            reserva.UltimaActualizacion.ToString()
+        ];
 }
