@@ -26,6 +26,6 @@ internal sealed class OpcionIniciarSesion : IOpcionDeMenu
             return;
 
         Console.WriteLine(_conexion.IniciarSesion(credenciales.Value));
-        _estado.IrAAutenticado();
+        _estado.IrAAutenticado(credenciales.Value.NombreUsuario);
     }
 }

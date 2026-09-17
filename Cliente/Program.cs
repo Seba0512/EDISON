@@ -79,10 +79,12 @@ internal static class Program
         ConexionConServidor conexion, ConfiguracionCliente configuracion)
     {
         using (conexion)
+        using (DirectorioDeDescargasDeInstancia descargas =
+               new(conexion.DownloadsDirectory))
         {
             conexion.ConexionPerdida += AlPerderConexion;
             Console.WriteLine($"Conectado a {configuracion.Endpoint}");
-            AplicacionCliente.Ejecutar(conexion);
+            AplicacionCliente.Ejecutar(conexion, descargas);
         }
     }
 

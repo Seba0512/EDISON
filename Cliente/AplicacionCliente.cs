@@ -5,10 +5,13 @@ namespace Cliente;
 
 internal static class AplicacionCliente
 {
-    public static void Ejecutar(ConexionConServidor conexion)
+    public static void Ejecutar(
+        ConexionConServidor conexion, DirectorioDeDescargasDeInstancia descargas)
     {
         EstadoDelMenu estado = new();
-        estado.Inicializar(MenuAnonimo.Crear(conexion, estado), MenuAutenticado.Crear(conexion, estado));
+        estado.Inicializar(
+            MenuAnonimo.Crear(conexion, estado),
+            MenuAutenticado.Crear(conexion, estado, descargas));
         CicloDeMenu(estado);
     }
 

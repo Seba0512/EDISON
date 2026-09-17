@@ -8,11 +8,16 @@ internal sealed class OpcionConsultarModelo : IOpcionDeMenu
 {
     private readonly ConsultaDeModeloRemota _consulta;
     private readonly DescargaDeImagenRemota _descargaDeImagenRemota;
+    private readonly EstadoDelMenu _estado;
 
-    public OpcionConsultarModelo(ConexionConServidor conexion)
+    public OpcionConsultarModelo(
+        ConexionConServidor conexion,
+        EstadoDelMenu estado,
+        DirectorioDeDescargasDeInstancia descargas)
     {
         _consulta = new ConsultaDeModeloRemota(conexion);
-        _descargaDeImagenRemota = new DescargaDeImagenRemota(conexion);
+        _descargaDeImagenRemota = new DescargaDeImagenRemota(conexion, descargas);
+        _estado = estado;
     }
 
     public string Titulo
@@ -38,6 +43,7 @@ internal sealed class OpcionConsultarModelo : IOpcionDeMenu
         if (!LectorDeConsola.Confirmar("¿Desea descargar la imagen? (s/n):"))
             return;
 
-        Console.WriteLine(_descargaDeImagenRemota.Ejecutar(nombreModelo));
+        Console.WriteLine(_descargaDeImagenRemota.Ejecutar(
+            nombreModelo, _estado.NombreUsuarioAutenticado));
     }
 }

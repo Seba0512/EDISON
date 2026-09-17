@@ -4,9 +4,14 @@ internal sealed class EstadoDelMenu
 {
     private MenuDeOpciones? _menuAnonimo;
     private MenuDeOpciones? _menuAutenticado;
+    private string _nombreUsuarioAutenticado = string.Empty;
 
     public bool SeguirEjecutando { get; private set; } = true;
     public MenuDeOpciones MenuActual { get; private set; } = null!;
+    public string NombreUsuarioAutenticado
+        => _nombreUsuarioAutenticado.Length > 0
+            ? _nombreUsuarioAutenticado
+            : throw new InvalidOperationException("No hay un usuario autenticado");
 
     public void Inicializar(MenuDeOpciones menuAnonimo, MenuDeOpciones menuAutenticado)
     {
@@ -15,11 +20,17 @@ internal sealed class EstadoDelMenu
         MenuActual = menuAnonimo;
     }
 
-    public void IrAAutenticado()
-        => MenuActual = ObtenerMenu(_menuAutenticado);
+    public void IrAAutenticado(string nombreUsuario)
+    {
+        _nombreUsuarioAutenticado = nombreUsuario;
+        MenuActual = ObtenerMenu(_menuAutenticado);
+    }
 
     public void IrAAnonimo()
-        => MenuActual = ObtenerMenu(_menuAnonimo);
+    {
+        _nombreUsuarioAutenticado = string.Empty;
+        MenuActual = ObtenerMenu(_menuAnonimo);
+    }
 
     public void Terminar()
         => SeguirEjecutando = false;

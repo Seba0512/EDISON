@@ -4,13 +4,16 @@ namespace Cliente.Menu;
 
 internal static class MenuAutenticado
 {
-    public static MenuDeOpciones Crear(ConexionConServidor conexion, EstadoDelMenu estado)
+    public static MenuDeOpciones Crear(
+        ConexionConServidor conexion,
+        EstadoDelMenu estado,
+        DirectorioDeDescargasDeInstancia descargas)
         => new([
             new OpcionAltaDeModelo(conexion),
             new OpcionModificarModelo(conexion),
             new OpcionEliminarModelo(conexion),
             new OpcionBuscarModelos(conexion),
-            new OpcionConsultarModelo(conexion),
+            new OpcionConsultarModelo(conexion, estado, descargas),
             new OpcionSolicitarReserva(conexion),
             new OpcionCancelarReserva(conexion),
             new OpcionMisReservas(conexion),
