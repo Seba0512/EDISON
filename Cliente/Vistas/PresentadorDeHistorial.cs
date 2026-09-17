@@ -3,23 +3,13 @@ using Common.Protocolo.Vistas;
 
 namespace Cliente.Vistas;
 
-internal static class PresentadorDeHistorial
+internal sealed class PresentadorDeHistorial : PresentadorDeTabla<ActividadListada>
 {
-    private static readonly string[] Encabezados = ["Fecha (UTC)", "Tipo", "Detalle"];
+    protected override IReadOnlyList<string> Encabezados { get; } = ["Fecha (UTC)", "Tipo", "Detalle"];
 
-    public static void Mostrar(IReadOnlyList<ActividadListada> actividades)
-    {
-        if (actividades.Count == 0)
-        {
-            Consola.Sutil("No hay actividades registradas.");
-            return;
-        }
+    protected override string MensajeSinElementos => "No hay actividades registradas.";
 
-        List<string[]> filas = actividades.Select(AFila).ToList();
-        TablaDeConsola.Mostrar(Encabezados, filas);
-    }
-
-    private static string[] AFila(ActividadListada actividad)
+    protected override string[] AFila(ActividadListada actividad)
         =>
         [
             actividad.FechaHora.ToString("yyyy-MM-dd HH:mm:ss"),

@@ -6,6 +6,9 @@ namespace Common.Protocolo;
 // El archivo viaja fuera de la trama. Primero el tamaño en 8 bytes y después sus bytes exactos.
 public sealed class CanalDeArchivos
 {
+    private const string ConexionCortada =
+        "La conexión se cerró antes de completar la transferencia del archivo";
+
     private readonly int _tamanioDeBloque;
 
     public CanalDeArchivos(int tamanioDeBloque)
@@ -58,11 +61,7 @@ public sealed class CanalDeArchivos
         while (restante > 0)
         {
             int aLeer = (int)Math.Min(buffer.Length, restante);
-            int leidos = origen.Read(buffer, 0, aLeer);
-            if (leidos == 0)
-                throw new TransferenciaDeArchivoException(
-                    "La conexión se cerró antes de completar la transferencia del archivo");
-
+            int leidos = LeerAlgo(origen, buffer, 0, aLeer);
             destino.Write(buffer, 0, leidos);
             restante -= leidos;
         }
@@ -74,14 +73,18 @@ public sealed class CanalDeArchivos
         int offset = 0;
         while (offset < cantidad)
         {
-            int leidos = origen.Read(buffer, offset, cantidad - offset);
-            if (leidos == 0)
-                throw new TransferenciaDeArchivoException(
-                    "La conexión se cerró antes de completar la transferencia del archivo");
-
-            offset += leidos;
+            offset += LeerAlgo(origen, buffer, offset, cantidad - offset);
         }
 
         return buffer;
+    }
+
+    private static int LeerAlgo(Stream origen, byte[] buffer, int offset, int cantidad)
+    {
+        int leidos = origen.Read(buffer, offset, cantidad);
+        if (leidos == 0)
+            throw new TransferenciaDeArchivoException(ConexionCortada);
+
+        return leidos;
     }
 }

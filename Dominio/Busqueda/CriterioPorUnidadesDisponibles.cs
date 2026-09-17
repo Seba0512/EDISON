@@ -4,7 +4,7 @@ namespace Dominio.Busqueda;
 
 public class CriterioPorUnidadesDisponibles : ICriterioDeBusqueda
 {
-    private readonly int minimoDeUnidades;
+    private readonly int _minimoDeUnidades;
 
     public CriterioPorUnidadesDisponibles(int minimoDeUnidades)
     {
@@ -13,11 +13,11 @@ public class CriterioPorUnidadesDisponibles : ICriterioDeBusqueda
             throw new DominioException("El minimo de unidades disponibles no puede ser negativo");
         }
 
-        this.minimoDeUnidades = minimoDeUnidades;
+        _minimoDeUnidades = minimoDeUnidades;
     }
 
     public bool Cumple(IVehiculoBuscable vehiculo)
     {
-        return vehiculo.UnidadesDisponibles >= minimoDeUnidades;
+        return vehiculo.UnidadesDisponibles >= _minimoDeUnidades;
     }
 }

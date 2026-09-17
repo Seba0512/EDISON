@@ -1,3 +1,4 @@
+using Common.Excepciones;
 using Dominio.Excepciones;
 
 namespace Servidor.Repositorios;
@@ -89,20 +90,8 @@ internal sealed class AlmacenDeImagenesEnDisco : IRepositorioDeImagenes, Dominio
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            InformarFallaDeCleanup(
+            DiagnosticoDeLimpieza.Informar(
                 $"No se pudo limpiar el archivo temporal '{rutaTemporal}': {exception}");
-        }
-    }
-
-    private static void InformarFallaDeCleanup(string mensaje)
-    {
-        try
-        {
-            Console.Error.WriteLine(mensaje);
-        }
-        catch (Exception exception) when (exception is IOException or ObjectDisposedException)
-        {
-            // El diagnóstico es best-effort: nunca debe sustituir la excepción original de Guardar.
         }
     }
 
@@ -126,7 +115,7 @@ internal sealed class AlmacenDeImagenesEnDisco : IRepositorioDeImagenes, Dominio
         string referenciaRecibida = referencia ?? string.Empty;
         string[] partes = referenciaRecibida.Split('/');
         if (partes.Length != 2 || referenciaRecibida.Contains('\\'))
-            throw new Common.Excepciones.ProtocoloException("La referencia interna de imagen es inválida");
+            throw new ProtocoloException("La referencia interna de imagen es inválida");
 
         string directorio = NombreDeDirectorioDeUsuario.Validar(partes[0]);
         string nombreArchivo = NombreDeArchivoSeguro.Validar(partes[1]);

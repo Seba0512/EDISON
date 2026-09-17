@@ -47,6 +47,15 @@ public sealed class RespuestaDelServidor : IDisposable
     public static RespuestaDelServidor Interno(string mensaje)
         => new(CodigosDeEstado.Interno, TextoUtf8.Codificar(mensaje));
 
+    public static RespuestaDelServidor Decodificar(ReadOnlySpan<byte> datos)
+    {
+        ExigirLargoMinimo(datos);
+        string estado = Encoding.ASCII.GetString(datos[..CodigosDeEstado.LargoEstado]);
+        ExigirEstadoConocido(estado);
+        byte[] cuerpo = datos[CodigosDeEstado.LargoEstado..].ToArray();
+        return new RespuestaDelServidor(estado, cuerpo);
+    }
+
     public byte[] Codificar()
     {
         byte[] estado = Encoding.ASCII.GetBytes(Estado);
@@ -58,15 +67,6 @@ public sealed class RespuestaDelServidor : IDisposable
 
     public void Dispose()
         => Interlocked.Exchange(ref _recursoPoseido, null)?.Dispose();
-
-    public static RespuestaDelServidor Decodificar(ReadOnlySpan<byte> datos)
-    {
-        ExigirLargoMinimo(datos);
-        string estado = Encoding.ASCII.GetString(datos[..CodigosDeEstado.LargoEstado]);
-        ExigirEstadoConocido(estado);
-        byte[] cuerpo = datos[CodigosDeEstado.LargoEstado..].ToArray();
-        return new RespuestaDelServidor(estado, cuerpo);
-    }
 
     private static void ExigirLargoMinimo(ReadOnlySpan<byte> datos)
     {

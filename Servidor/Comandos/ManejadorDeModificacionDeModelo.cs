@@ -17,15 +17,8 @@ internal sealed class ManejadorDeModificacionDeModelo : ManejadorAutenticado
     protected override RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario)
     {
         DatosDeAltaDeModelo datos = CodecDeDatosDeModelo.Decodificar(solicitud.Datos.Span);
-        DatosDeModelo datosDeModelo = new(
-            datos.Nombre,
-            datos.Descripcion,
-            datos.Precio,
-            datos.FechaEntregaPrometida,
-            string.Empty);
-        FichaDeModelo ficha = new(datosDeModelo, datos.Stock);
 
-        _catalogoDeModelos.ModificarModelo(ficha, usuario);
+        _catalogoDeModelos.ModificarModelo(FichaRecibida.Desde(datos), usuario);
 
         return RespuestaDelServidor.Ok($"Modelo '{datos.Nombre}' modificado");
     }

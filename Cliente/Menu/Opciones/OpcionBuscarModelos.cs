@@ -6,12 +6,13 @@ namespace Cliente.Menu.Opciones;
 
 internal sealed class OpcionBuscarModelos : IOpcionDeMenu
 {
-    private readonly BusquedaDeModelosRemota _busqueda;
+    private readonly PresentadorDeModelos _presentador = new();
+    private readonly BusquedaDeModelosRemota _busquedaDeModelosRemota;
     private readonly LectorDeFiltrosDeBusqueda _lectorDeFiltros = new();
 
     public OpcionBuscarModelos(ConexionConServidor conexion)
     {
-        _busqueda = new BusquedaDeModelosRemota(conexion);
+        _busquedaDeModelosRemota = new BusquedaDeModelosRemota(conexion);
     }
 
     public string Titulo
@@ -23,7 +24,7 @@ internal sealed class OpcionBuscarModelos : IOpcionDeMenu
         if (filtros is null)
             return;
 
-        IReadOnlyList<ModeloListado> modelos = _busqueda.Ejecutar(filtros.Value);
-        PresentadorDeModelos.Mostrar(modelos);
+        IReadOnlyList<ModeloListado> modelos = _busquedaDeModelosRemota.Ejecutar(filtros.Value);
+        _presentador.Mostrar(modelos);
     }
 }

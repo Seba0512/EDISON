@@ -1,6 +1,3 @@
-using Cliente.Vistas;
-using Common.Excepciones;
-using Common.Protocolo;
 using Common.Protocolo.Vistas;
 
 namespace Cliente.Menu.Opciones;
@@ -10,107 +7,32 @@ internal sealed class LectorDeFiltrosDeBusqueda
     // Enter vacío significa sin filtro. Solo el fin de la entrada cancela toda la búsqueda.
     public FiltrosDeBusqueda? Leer()
     {
-        if (!LectorDeConsola.LeerTextoOpcional(
-                "Texto a buscar en el nombre (Enter para omitir):", out string? texto))
+        (bool sinEntrada, string? texto) =
+            LectorDeConsola.LeerTextoOpcional("Texto a buscar en el nombre (Enter para omitir):");
+        if (sinEntrada)
             return null;
 
-        if (!TryLeerDecimalOpcional("Precio mínimo (Enter para omitir):", out decimal? precioMinimo))
+        (bool canceloPrecioMinimo, decimal? precioMinimo) =
+            LectorDeConsola.LeerDecimalOpcional("Precio mínimo (Enter para omitir):");
+        if (canceloPrecioMinimo)
             return null;
 
-        if (!TryLeerDecimalOpcional("Precio máximo (Enter para omitir):", out decimal? precioMaximo))
+        (bool canceloPrecioMaximo, decimal? precioMaximo) =
+            LectorDeConsola.LeerDecimalOpcional("Precio máximo (Enter para omitir):");
+        if (canceloPrecioMaximo)
             return null;
 
-        if (!TryLeerFechaOpcional(
-                "Fecha de entrega máxima, formato dd-MM-yyyy (Enter para omitir):", out DateTime? fechaEntregaMaxima))
+        (bool canceloFecha, DateTime? fechaEntregaMaxima) = LectorDeConsola.LeerFechaOpcional(
+            "Fecha de entrega máxima, formato dd-MM-yyyy (Enter para omitir):");
+        if (canceloFecha)
             return null;
 
-        if (!TryLeerEnteroOpcional("Mínimo de unidades disponibles (Enter para omitir):", out int? minimoDisponibles))
+        (bool canceloMinimo, int? minimoDisponibles) =
+            LectorDeConsola.LeerEnteroOpcional("Mínimo de unidades disponibles (Enter para omitir):");
+        if (canceloMinimo)
             return null;
 
-        return new FiltrosDeBusqueda(texto, precioMinimo, precioMaximo, fechaEntregaMaxima, minimoDisponibles);
-    }
-
-    private static bool TryLeerDecimalOpcional(string mensaje, out decimal? valor)
-    {
-        while (true)
-        {
-            if (!LectorDeConsola.LeerTextoOpcional(mensaje, out string? texto))
-            {
-                valor = null;
-                return false;
-            }
-
-            if (texto is null)
-            {
-                valor = null;
-                return true;
-            }
-
-            try
-            {
-                valor = FormatoDeCampos.ADecimal(texto);
-                return true;
-            }
-            catch (ProtocoloException excepcion)
-            {
-                Consola.Error(excepcion.Message);
-            }
-        }
-    }
-
-    private static bool TryLeerEnteroOpcional(string mensaje, out int? valor)
-    {
-        while (true)
-        {
-            if (!LectorDeConsola.LeerTextoOpcional(mensaje, out string? texto))
-            {
-                valor = null;
-                return false;
-            }
-
-            if (texto is null)
-            {
-                valor = null;
-                return true;
-            }
-
-            try
-            {
-                valor = FormatoDeCampos.AEntero(texto);
-                return true;
-            }
-            catch (ProtocoloException excepcion)
-            {
-                Consola.Error(excepcion.Message);
-            }
-        }
-    }
-
-    private static bool TryLeerFechaOpcional(string mensaje, out DateTime? valor)
-    {
-        while (true)
-        {
-            if (!LectorDeConsola.LeerTextoOpcional(mensaje, out string? texto))
-            {
-                valor = null;
-                return false;
-            }
-
-            if (texto is null)
-            {
-                valor = null;
-                return true;
-            }
-
-            try
-            {
-                valor = FormatoDeCampos.AFecha(texto);
-                return true;
-            }
-            catch (ProtocoloException excepcion)
-            {
-                Consola.Error(excepcion.Message);
-            }
-        }
+        return new FiltrosDeBusqueda(
+            texto, precioMinimo, precioMaximo, fechaEntregaMaxima, minimoDisponibles);
     }
 }

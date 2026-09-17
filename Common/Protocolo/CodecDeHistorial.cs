@@ -9,7 +9,7 @@ public static class CodecDeHistorial
     public static byte[] CodificarResultado(IReadOnlyList<ActividadListada> actividades)
     {
         EscritorDeCampos escritor = new();
-        escritor.EscribirCantidad(actividades.Count);
+        escritor.EscribirEntero(actividades.Count);
         foreach (ActividadListada actividad in actividades)
         {
             escritor.EscribirCampo(actividad.Tipo);

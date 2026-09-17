@@ -8,6 +8,8 @@ namespace Cliente;
 
 internal static class Program
 {
+    private const string OpcionDeSalida = "S";
+
     private static int Main()
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -95,12 +97,12 @@ internal static class Program
         Consola.Error("No fue posible conectarse al servidor.");
         Console.WriteLine();
         Consola.Info("[Enter] Reintentar");
-        Consola.Info("[S] Salir");
+        Consola.Info($"[{OpcionDeSalida}] Salir");
 
         while (true)
         {
             string? entrada = Console.ReadLine();
-            if (entrada is null || entrada.Trim().Equals("S", StringComparison.OrdinalIgnoreCase))
+            if (entrada is null || entrada.Trim().Equals(OpcionDeSalida, StringComparison.OrdinalIgnoreCase))
                 return false;
             if (entrada.Length == 0)
                 return true;

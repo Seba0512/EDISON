@@ -32,12 +32,6 @@ internal sealed class RepositorioDeModelosEnMemoria : IRepositorioDeModelos
         }
     }
 
-    public bool Existe(string nombreModelo)
-    {
-        lock (_candado)
-            return _modelos.ContainsKey(nombreModelo.Trim());
-    }
-
     public void Eliminar(Modelo modelo)
     {
         string nombre = modelo.Nombre;

@@ -1,17 +1,19 @@
 using Cliente.Operaciones;
 using Cliente.Vistas;
+using Common.Protocolo;
 using Common.Protocolo.Vistas;
 
 namespace Cliente.Menu.Opciones;
 
 internal sealed class OpcionCancelarReserva : IOpcionDeMenu
 {
-    private readonly ConsultaDeReservasRemota _consulta;
+    private readonly PresentadorDeReservas _presentador = new();
+    private readonly ConsultaDeReservasRemota _consultaDeReservasRemota;
     private readonly CancelacionDeReservaRemota _cancelacionDeReservaRemota;
 
     public OpcionCancelarReserva(ConexionConServidor conexion)
     {
-        _consulta = new ConsultaDeReservasRemota(conexion);
+        _consultaDeReservasRemota = new ConsultaDeReservasRemota(conexion);
         _cancelacionDeReservaRemota = new CancelacionDeReservaRemota(conexion);
     }
 
@@ -20,8 +22,8 @@ internal sealed class OpcionCancelarReserva : IOpcionDeMenu
 
     public void Ejecutar()
     {
-        IReadOnlyList<ReservaListada> reservas = _consulta.Ejecutar();
-        PresentadorDeReservas.Mostrar(reservas);
+        IReadOnlyList<ReservaListada> reservas = _consultaDeReservasRemota.Ejecutar();
+        _presentador.Mostrar(reservas);
         if (reservas.Count == 0)
             return;
 
@@ -42,17 +44,16 @@ internal sealed class OpcionCancelarReserva : IOpcionDeMenu
             if (candidato is null)
                 return null;
 
-            int indice = IndiceDe(reservas, candidato.Value);
-            if (indice < 0)
+            ReservaListada? reserva = ReservaConId(reservas, candidato.Value);
+            if (reserva is null)
             {
                 Consola.Error("Ese id no corresponde a ninguna de tus reservas.");
                 continue;
             }
 
-            ReservaListada reserva = reservas[indice];
-            if (reserva.Estado is not ("Pendiente" or "Confirmada"))
+            if (!EstadosDeReserva.SePuedeCancelar(reserva.Value.Estado))
             {
-                Consola.Error($"No se puede cancelar una reserva {reserva.Estado}.");
+                Consola.Error($"No se puede cancelar una reserva {reserva.Value.Estado}.");
                 continue;
             }
 
@@ -60,14 +61,8 @@ internal sealed class OpcionCancelarReserva : IOpcionDeMenu
         }
     }
 
-    private static int IndiceDe(IReadOnlyList<ReservaListada> reservas, Guid id)
-    {
-        for (int i = 0; i < reservas.Count; i++)
-        {
-            if (reservas[i].Id == id)
-                return i;
-        }
-
-        return -1;
-    }
+    // ReservaListada es un record struct: un FirstOrDefault normal devolvería una reserva vacía
+    // en vez de null, y "ese id no existe" nunca se detectaría. Por eso se pide el tipo nullable.
+    private static ReservaListada? ReservaConId(IReadOnlyList<ReservaListada> reservas, Guid id)
+        => reservas.Cast<ReservaListada?>().FirstOrDefault(reserva => reserva!.Value.Id == id);
 }

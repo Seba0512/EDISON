@@ -59,17 +59,17 @@ public class EdisonTests
         Usuario compradora = edison.Registrar("sgomez", "edison2026");
 
         edison.AltaDeModelo(Ficha(1), vendedora);
-        Assert.AreEqual(1, edison.Consultar(NombreModelo).UnidadesDisponibles);
+        Assert.AreEqual(1, edison.ConsultarLectura(NombreModelo).UnidadesDisponibles);
 
         Guid reserva = edison.SolicitarReserva(NombreModelo, compradora);
         reloj.Avanzar(TimeSpan.FromSeconds(SegundosDeAprobacion + 1));
         edison.ResolverVencidas();
 
-        Assert.IsTrue(edison.ReservasDe(compradora)[0].EstaConfirmada);
-        Assert.AreEqual(0, edison.Consultar(NombreModelo).UnidadesDisponibles);
+        Assert.IsTrue(edison.ConsultarReservasDe(compradora)[0].EstaConfirmada);
+        Assert.AreEqual(0, edison.ConsultarLectura(NombreModelo).UnidadesDisponibles);
 
         edison.CancelarReserva(reserva, compradora);
-        Assert.AreEqual(1, edison.Consultar(NombreModelo).UnidadesDisponibles);
+        Assert.AreEqual(1, edison.ConsultarLectura(NombreModelo).UnidadesDisponibles);
 
         edison.EliminarModelo(NombreModelo, vendedora);
         Assert.AreEqual(0, edison.Buscar(new CriterioQueAceptaTodo()).Count);
@@ -98,7 +98,7 @@ public class EdisonTests
             NombreModelo, "Sedan electrico renovado", 39990m, new DateTime(2027, 6, 1), string.Empty);
         edison.ModificarModelo(new FichaDeModelo(nuevos, 5), vendedora);
 
-        Modelo modelo = edison.Consultar(NombreModelo);
+        LecturaDeModelo modelo = edison.ConsultarLectura(NombreModelo);
         Assert.AreEqual(39990m, modelo.Precio);
         Assert.AreEqual(5, modelo.StockTotal);
     }

@@ -17,11 +17,8 @@ internal sealed class ManejadorDeAltaDeModelo : ManejadorAutenticado
     protected override RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario)
     {
         DatosDeAltaDeModelo datos = CodecDeDatosDeModelo.Decodificar(solicitud.Datos.Span);
-        DatosDeModelo datosDeModelo = new(
-            datos.Nombre, datos.Descripcion, datos.Precio, datos.FechaEntregaPrometida, string.Empty);
-        FichaDeModelo ficha = new(datosDeModelo, datos.Stock);
 
-        _catalogoDeModelos.AltaDeModelo(ficha, usuario);
+        _catalogoDeModelos.AltaDeModelo(FichaRecibida.Desde(datos), usuario);
 
         return RespuestaDelServidor.Ok($"Modelo '{datos.Nombre}' creado");
     }

@@ -18,6 +18,7 @@ public class CatalogoDeModelosTests
 
     private RelojFalso reloj = null!;
     private AlmacenDeImagenesFalso almacen = null!;
+    private RepositorioDeModelosEnMemoria modelos = null!;
     private CatalogoDeModelos catalogo = null!;
     private Usuario creadora = null!;
     private Usuario otroUsuario = null!;
@@ -27,7 +28,8 @@ public class CatalogoDeModelosTests
     {
         reloj = new RelojFalso(Momento);
         almacen = new AlmacenDeImagenesFalso();
-        catalogo = new CatalogoDeModelos(new RepositorioDeModelosEnMemoria(), almacen, reloj);
+        modelos = new RepositorioDeModelosEnMemoria();
+        catalogo = new CatalogoDeModelos(modelos, almacen, reloj);
         creadora = new Usuario("jferreiro", "edison2026");
         otroUsuario = new Usuario("sgomez", "edison2026");
     }
@@ -54,8 +56,7 @@ public class CatalogoDeModelosTests
             FechaEntrega.AddMonths(-1),
             string.Empty);
         catalogo.AltaDeModelo(new FichaDeModelo(datos, 1), creadora);
-        Modelo agotado = catalogo.Consultar(NombreModeloAgotado);
-        agotado.RegistrarReserva(otroUsuario, reloj).Resolver();
+        modelos.ObtenerPorNombre(NombreModeloAgotado).RegistrarReserva(otroUsuario, reloj).Resolver();
     }
 
     [TestMethod]
@@ -63,7 +64,7 @@ public class CatalogoDeModelosTests
     {
         DarDeAlta();
 
-        Modelo modelo = catalogo.Consultar(NombreModelo);
+        LecturaDeModelo modelo = catalogo.ConsultarLectura(NombreModelo);
 
         Assert.AreEqual(StockInicial, modelo.StockTotal);
         Assert.AreEqual(StockInicial, modelo.UnidadesDisponibles);
@@ -83,7 +84,7 @@ public class CatalogoDeModelosTests
     [ExpectedException(typeof(ModeloInexistenteException))]
     public void ConsultarUnModeloInexistenteFalla()
     {
-        catalogo.Consultar("Edison X2");
+        catalogo.ConsultarLectura("Edison X2");
     }
 
     [TestMethod]
@@ -96,7 +97,7 @@ public class CatalogoDeModelosTests
 
         catalogo.ModificarModelo(new FichaDeModelo(datos, StockInicial + 2), creadora);
 
-        Modelo modelo = catalogo.Consultar(NombreModelo);
+        LecturaDeModelo modelo = catalogo.ConsultarLectura(NombreModelo);
         Assert.AreEqual("Sedan electrico renovado", modelo.Descripcion);
         Assert.AreEqual(39990m, modelo.Precio);
         Assert.AreEqual(nuevaFecha, modelo.FechaEntregaPrometida);
@@ -112,7 +113,7 @@ public class CatalogoDeModelosTests
         Assert.ThrowsException<DominioException>(
             () => catalogo.ModificarModelo(Ficha(39990m, StockInicial + 2, string.Empty), otroUsuario));
 
-        Modelo modelo = catalogo.Consultar(NombreModelo);
+        LecturaDeModelo modelo = catalogo.ConsultarLectura(NombreModelo);
         Assert.AreEqual("Sedan electrico", modelo.Descripcion);
         Assert.AreEqual(45000m, modelo.Precio);
         Assert.AreEqual(FechaEntrega, modelo.FechaEntregaPrometida);
@@ -228,11 +229,10 @@ public class CatalogoDeModelosTests
         IReadOnlyList<LecturaDeModelo> encontrados =
             catalogo.Buscar(new CriterioPorUnidadesDisponibles(1));
 
-        Modelo modelo = catalogo.Consultar(NombreModelo);
-        modelo.RegistrarReserva(otroUsuario, reloj).Resolver();
+        modelos.ObtenerPorNombre(NombreModelo).RegistrarReserva(otroUsuario, reloj).Resolver();
 
         Assert.AreEqual(1, encontrados[0].UnidadesDisponibles);
-        Assert.AreEqual(0, modelo.UnidadesDisponibles);
+        Assert.AreEqual(0, catalogo.ConsultarLectura(NombreModelo).UnidadesDisponibles);
     }
 
     [TestMethod]
@@ -270,7 +270,7 @@ public class CatalogoDeModelosTests
 
         catalogo.ModificarModelo(new FichaDeModelo(datos, StockInicial), creadora);
 
-        Modelo modelo = catalogo.Consultar(NombreModelo);
+        LecturaDeModelo modelo = catalogo.ConsultarLectura(NombreModelo);
         Assert.AreEqual("Sedan electrico renovado", modelo.Descripcion);
     }
 
@@ -282,7 +282,7 @@ public class CatalogoDeModelosTests
         string anterior = catalogo.CambiarImagenDeModelo(NombreModelo, "nueva.png", creadora);
 
         Assert.AreEqual(Imagen, anterior);
-        Assert.AreEqual("nueva.png", catalogo.Consultar(NombreModelo).NombreArchivoImagen);
+        Assert.AreEqual("nueva.png", catalogo.ConsultarLectura(NombreModelo).NombreArchivoImagen);
         Assert.AreEqual(TipoActividad.ModeloModificado, creadora.Actividades()[1].Tipo);
     }
 

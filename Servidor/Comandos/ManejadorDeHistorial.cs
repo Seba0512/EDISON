@@ -20,11 +20,10 @@ internal sealed class ManejadorDeHistorial : ManejadorAutenticado
     protected override RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario)
     {
         IReadOnlyList<Actividad> historial = _historialDeUsuario.HistorialDe(usuario);
-        List<ActividadListada> actividades = historial
-            .Select(actividad => new ActividadListada(
-                actividad.Tipo.ToString(), actividad.Detalle, actividad.FechaHora))
-            .ToList();
-
+        IReadOnlyList<ActividadListada> actividades = historial.Select(AVista).ToList();
         return RespuestaDelServidor.Ok(CodecDeHistorial.CodificarResultado(actividades));
     }
+
+    private static ActividadListada AVista(Actividad actividad)
+        => new(actividad.Tipo.ToString(), actividad.Detalle, actividad.FechaHora);
 }

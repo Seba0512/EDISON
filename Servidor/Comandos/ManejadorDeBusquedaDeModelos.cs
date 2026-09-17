@@ -22,10 +22,14 @@ internal sealed class ManejadorDeBusquedaDeModelos : ManejadorAutenticado
         ICriterioDeBusqueda criterio = FabricaDeCriterios.Crear(filtros);
         IReadOnlyList<LecturaDeModelo> modelos = _catalogoDeModelos.Buscar(criterio);
 
-        List<ModeloListado> listado = new(modelos.Count);
-        foreach (LecturaDeModelo modelo in modelos)
-            listado.Add(new ModeloListado(modelo.Nombre, modelo.Precio, modelo.FechaEntregaPrometida, modelo.UnidadesDisponibles));
-
+        IReadOnlyList<ModeloListado> listado = modelos.Select(AVista).ToList();
         return RespuestaDelServidor.Ok(CodecDeBusquedaDeModelos.CodificarResultado(listado));
     }
+
+    private static ModeloListado AVista(LecturaDeModelo modelo)
+        => new(
+            modelo.Nombre,
+            modelo.Precio,
+            modelo.FechaEntregaPrometida,
+            modelo.UnidadesDisponibles);
 }

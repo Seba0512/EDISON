@@ -7,7 +7,9 @@ public sealed record LecturaDeReserva(
     DateTime FechaCreacion,
     DateTime UltimaActualizacion)
 {
-    public bool EstaPendiente => Estado == "Pendiente";
+    public bool EstaPendiente => Estado == Estados.Pendiente.Instancia.Nombre;
 
-    public bool EstaConfirmada => Estado == "Confirmada";
+    public bool EstaConfirmada => Estado == Estados.Confirmada.Instancia.Nombre;
+
+    public bool EstaActiva => EstaPendiente || EstaConfirmada;
 }

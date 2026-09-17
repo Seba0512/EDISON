@@ -5,6 +5,7 @@ namespace Cliente.Menu.Opciones;
 
 internal sealed class OpcionHistorial : IOpcionDeMenu
 {
+    private readonly PresentadorDeHistorial _presentador = new();
     private readonly HistorialRemota _historialRemota;
 
     public OpcionHistorial(ConexionConServidor conexion)
@@ -16,5 +17,5 @@ internal sealed class OpcionHistorial : IOpcionDeMenu
         => "Historial";
 
     public void Ejecutar()
-        => PresentadorDeHistorial.Mostrar(_historialRemota.Ejecutar());
+        => _presentador.Mostrar(_historialRemota.Ejecutar());
 }

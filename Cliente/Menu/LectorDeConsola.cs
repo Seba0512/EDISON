@@ -1,13 +1,17 @@
+using System.Text;
 using Cliente.Vistas;
 using Common.Excepciones;
 using Common.Protocolo;
 
 namespace Cliente.Menu;
 
+// Todas las lecturas comparten el mismo esqueleto: pedir, convertir, validar y reintentar.
+// Devolver null significa siempre lo mismo: se acabó la entrada.
 internal static class LectorDeConsola
 {
     // Al leer entrada redirigida en UTF-8, .NET mete un carácter invisible al inicio y hay que sacarlo.
-    private const char Bom = '﻿';
+    private const char Bom = '\uFEFF';
+    private const string Afirmacion = "s";
 
     public static int? LeerOpcion(int cantidadDeOpciones)
     {
@@ -25,9 +29,6 @@ internal static class LectorDeConsola
         }
     }
 
-    // El validador es opcional: quien no lo pasa mantiene el comportamiento de siempre
-    // (solo se exige que el texto no esté vacío). Quien lo pasa reintenta el mismo campo
-    // ante una regla de negocio, igual que ya se hace con los errores de formato.
     public static string? LeerTexto(string mensaje, Func<string, string?>? validar = null)
     {
         Consola.Info(mensaje);
@@ -44,164 +45,58 @@ internal static class LectorDeConsola
                 continue;
             }
 
-            string? error = validar?.Invoke(texto);
-            if (error is not null)
-            {
-                Consola.Error(error);
-                continue;
-            }
-
-            return texto;
+            if (EsAceptable(texto, validar))
+                return texto;
         }
     }
 
-    public static void EsperarEnter()
-    {
-        Console.WriteLine();
-        Consola.Sutil("Presione Enter para continuar...");
-        Console.ReadLine();
-    }
-
-    public static bool LeerTextoOpcional(string mensaje, out string? valor, Func<string, string?>? validar = null)
+    // Enter vacío omite el campo. Se devuelve el valor junto con el aviso de entrada agotada,
+    // en vez de un parámetro de salida, porque son dos desenlaces distintos.
+    public static (bool Cancelada, string? Valor) LeerTextoOpcional(
+        string mensaje, Func<string, string?>? validar = null)
     {
         Consola.Info(mensaje);
         while (true)
         {
             string? entrada = LeerLinea();
             if (entrada is null)
-            {
-                valor = null;
-                return false;
-            }
+                return (true, null);
 
             string texto = entrada.Trim();
             if (texto.Length == 0)
-            {
-                valor = null;
-                return true;
-            }
+                return (false, null);
 
-            string? error = validar?.Invoke(texto);
-            if (error is not null)
-            {
-                Consola.Error(error);
-                continue;
-            }
-
-            valor = texto;
-            return true;
+            if (EsAceptable(texto, validar))
+                return (false, texto);
         }
     }
+
+    public static decimal? LeerDecimal(string mensaje, Func<decimal, string?>? validar = null)
+        => LeerConvertido(mensaje, FormatoDeCampos.ADecimal, validar);
+
+    public static DateTime? LeerFecha(string mensaje, Func<DateTime, string?>? validar = null)
+        => LeerConvertido(mensaje, FormatoDeCampos.AFecha, validar);
+
+    public static int? LeerEntero(string mensaje, Func<int, string?>? validar = null)
+        => LeerConvertido(mensaje, FormatoDeCampos.AEntero, validar);
+
+    public static Guid? LeerGuid(string mensaje)
+        => LeerConvertido<Guid>(mensaje, FormatoDeCampos.AGuid, null);
+
+    public static (bool Cancelada, decimal? Valor) LeerDecimalOpcional(string mensaje)
+        => LeerConvertidoOpcional(mensaje, FormatoDeCampos.ADecimal);
+
+    public static (bool Cancelada, DateTime? Valor) LeerFechaOpcional(string mensaje)
+        => LeerConvertidoOpcional(mensaje, FormatoDeCampos.AFecha);
+
+    public static (bool Cancelada, int? Valor) LeerEnteroOpcional(string mensaje)
+        => LeerConvertidoOpcional(mensaje, FormatoDeCampos.AEntero);
 
     public static bool Confirmar(string mensaje)
     {
         string? respuesta = LeerTexto(mensaje);
-        return respuesta is not null && respuesta.Equals("s", StringComparison.OrdinalIgnoreCase);
+        return respuesta is not null && respuesta.Equals(Afirmacion, StringComparison.OrdinalIgnoreCase);
     }
-
-    public static decimal? LeerDecimal(string mensaje, Func<decimal, string?>? validar = null)
-    {
-        while (true)
-        {
-            string? texto = LeerTexto(mensaje);
-            if (texto is null)
-                return null;
-
-            try
-            {
-                decimal valor = FormatoDeCampos.ADecimal(texto);
-                string? error = validar?.Invoke(valor);
-                if (error is not null)
-                {
-                    Consola.Error(error);
-                    continue;
-                }
-
-                return valor;
-            }
-            catch (ProtocoloException excepcion)
-            {
-                Consola.Error(excepcion.Message);
-            }
-        }
-    }
-
-    public static DateTime? LeerFecha(string mensaje, Func<DateTime, string?>? validar = null)
-    {
-        while (true)
-        {
-            string? texto = LeerTexto(mensaje);
-            if (texto is null)
-                return null;
-
-            try
-            {
-                DateTime valor = FormatoDeCampos.AFecha(texto);
-                string? error = validar?.Invoke(valor);
-                if (error is not null)
-                {
-                    Consola.Error(error);
-                    continue;
-                }
-
-                return valor;
-            }
-            catch (ProtocoloException excepcion)
-            {
-                Consola.Error(excepcion.Message);
-            }
-        }
-    }
-
-    public static int? LeerEntero(string mensaje, Func<int, string?>? validar = null)
-    {
-        while (true)
-        {
-            string? texto = LeerTexto(mensaje);
-            if (texto is null)
-                return null;
-
-            try
-            {
-                int valor = FormatoDeCampos.AEntero(texto);
-                string? error = validar?.Invoke(valor);
-                if (error is not null)
-                {
-                    Consola.Error(error);
-                    continue;
-                }
-
-                return valor;
-            }
-            catch (ProtocoloException excepcion)
-            {
-                Consola.Error(excepcion.Message);
-            }
-        }
-    }
-
-    public static Guid? LeerGuid(string mensaje)
-    {
-        while (true)
-        {
-            string? texto = LeerTexto(mensaje);
-            if (texto is null)
-                return null;
-
-            try
-            {
-                return FormatoDeCampos.AGuid(texto);
-            }
-            catch (ProtocoloException excepcion)
-            {
-                Consola.Error(excepcion.Message);
-            }
-        }
-    }
-
-    // ReadLine devuelve null cuando se acaba la entrada. Eso se toma como salida normal, no como error.
-    private static string? LeerLinea()
-        => Console.ReadLine()?.TrimStart(Bom);
 
     public static Credenciales? LeerCredenciales(
         Func<string, string?>? validarNombreUsuario = null, Func<string, string?>? validarClave = null)
@@ -218,7 +113,68 @@ internal static class LectorDeConsola
         return new Credenciales(nombreUsuario, clave);
     }
 
-    private static string? LeerClave(string mensaje, Func<string, string?>? validar = null)
+    public static void EsperarEnter()
+    {
+        Console.WriteLine();
+        Consola.Sutil("Presione Enter para continuar...");
+        Console.ReadLine();
+    }
+
+    private static T? LeerConvertido<T>(
+        string mensaje, Func<string, T> convertir, Func<T, string?>? validar) where T : struct
+    {
+        while (true)
+        {
+            string? texto = LeerTexto(mensaje);
+            if (texto is null)
+                return null;
+
+            if (Convertido(texto, convertir) is T valor && EsAceptable(valor, validar))
+                return valor;
+        }
+    }
+
+    private static (bool Cancelada, T? Valor) LeerConvertidoOpcional<T>(
+        string mensaje, Func<string, T> convertir) where T : struct
+    {
+        while (true)
+        {
+            (bool cancelada, string? texto) = LeerTextoOpcional(mensaje);
+            if (cancelada)
+                return (true, null);
+            if (texto is null)
+                return (false, null);
+
+            if (Convertido(texto, convertir) is T valor)
+                return (false, valor);
+        }
+    }
+
+    // Un formato inválido no cancela nada: se avisa y se vuelve a pedir el mismo campo.
+    private static T? Convertido<T>(string texto, Func<string, T> convertir) where T : struct
+    {
+        try
+        {
+            return convertir(texto);
+        }
+        catch (ProtocoloException excepcion)
+        {
+            Consola.Error(excepcion.Message);
+            return null;
+        }
+    }
+
+    private static bool EsAceptable<T>(T valor, Func<T, string?>? validar)
+    {
+        string? error = validar?.Invoke(valor);
+        if (error is null)
+            return true;
+
+        Consola.Error(error);
+        return false;
+    }
+
+    private static string? LeerClave(string mensaje, Func<string, string?>? validar)
     {
         Consola.Info(mensaje);
         while (true)
@@ -226,20 +182,15 @@ internal static class LectorDeConsola
             string? clave = LeerClaveEnmascarada();
             if (clave is null)
                 return null;
+
             if (string.IsNullOrWhiteSpace(clave))
             {
                 Consola.Error("La clave no puede estar vacía.");
                 continue;
             }
 
-            string? error = validar?.Invoke(clave);
-            if (error is not null)
-            {
-                Consola.Error(error);
-                continue;
-            }
-
-            return clave;
+            if (EsAceptable(clave, validar))
+                return clave;
         }
     }
 
@@ -250,7 +201,7 @@ internal static class LectorDeConsola
         if (Console.IsInputRedirected)
             return LeerLinea();
 
-        System.Text.StringBuilder clave = new();
+        StringBuilder clave = new();
         while (true)
         {
             ConsoleKeyInfo tecla = Console.ReadKey(intercept: true);
@@ -262,12 +213,7 @@ internal static class LectorDeConsola
 
             if (tecla.Key == ConsoleKey.Backspace)
             {
-                if (clave.Length > 0)
-                {
-                    clave.Length--;
-                    Console.Write("\b \b");
-                }
-
+                BorrarUnCaracter(clave);
                 continue;
             }
 
@@ -278,4 +224,17 @@ internal static class LectorDeConsola
             }
         }
     }
+
+    private static void BorrarUnCaracter(StringBuilder clave)
+    {
+        if (clave.Length == 0)
+            return;
+
+        clave.Length--;
+        Console.Write("\b \b");
+    }
+
+    // ReadLine devuelve null cuando se acaba la entrada. Eso se toma como salida normal, no como error.
+    private static string? LeerLinea()
+        => Console.ReadLine()?.TrimStart(Bom);
 }

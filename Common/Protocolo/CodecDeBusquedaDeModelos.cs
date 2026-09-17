@@ -40,7 +40,7 @@ public static class CodecDeBusquedaDeModelos
     public static byte[] CodificarResultado(IReadOnlyList<ModeloListado> modelos)
     {
         EscritorDeCampos escritor = new();
-        escritor.EscribirCantidad(modelos.Count);
+        escritor.EscribirEntero(modelos.Count);
         foreach (ModeloListado modelo in modelos)
         {
             escritor.EscribirCampo(modelo.Nombre);

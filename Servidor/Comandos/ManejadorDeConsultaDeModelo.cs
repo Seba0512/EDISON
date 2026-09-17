@@ -18,11 +18,11 @@ internal sealed class ManejadorDeConsultaDeModelo : ManejadorAutenticado
     {
         string nombreModelo = CodecDeConsultaDeModelo.DecodificarSolicitud(solicitud.Datos.Span);
         LecturaDeModelo modelo = _catalogoDeModelos.ConsultarLectura(nombreModelo);
-        DetalleDeModelo detalle = MapearAVista(modelo);
+        DetalleDeModelo detalle = AVista(modelo);
         return RespuestaDelServidor.Ok(CodecDeConsultaDeModelo.CodificarResultado(detalle));
     }
 
-    private static DetalleDeModelo MapearAVista(LecturaDeModelo modelo)
+    private static DetalleDeModelo AVista(LecturaDeModelo modelo)
         => new(
             modelo.Nombre,
             modelo.Descripcion,

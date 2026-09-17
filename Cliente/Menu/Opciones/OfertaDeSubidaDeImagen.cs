@@ -12,14 +12,7 @@ internal sealed class OfertaDeSubidaDeImagen
         _subidaDeImagenRemota = new SubidaDeImagenRemota(conexion);
     }
 
-    public void Ofrecer(string nombreModelo)
-    {
-        string? rutaArchivo = PreguntarRuta();
-        if (rutaArchivo is not null)
-            Subir(nombreModelo, rutaArchivo);
-    }
-
-    // Separado de Ofrecer para poder preguntar por la imagen antes de confirmar la creación del modelo.
+    // Se pregunta por la imagen antes de confirmar la creación del modelo.
     public string? PreguntarRuta()
     {
         if (!LectorDeConsola.Confirmar("¿Desea subir una imagen para el modelo? (s/n):"))
@@ -45,6 +38,12 @@ internal sealed class OfertaDeSubidaDeImagen
             ? ruta[1..^1]
             : ruta;
 
-    public void Subir(string nombreModelo, string rutaArchivo)
-        => Consola.Exito(_subidaDeImagenRemota.Ejecutar(nombreModelo, rutaArchivo));
+    // La ruta viene de PreguntarRuta: null significa que no se ofreció o se rechazó la imagen.
+    public void SubirSiHayRuta(string nombreModelo, string? rutaArchivo)
+    {
+        if (rutaArchivo is null)
+            return;
+
+        Consola.Exito(_subidaDeImagenRemota.Ejecutar(nombreModelo, rutaArchivo));
+    }
 }

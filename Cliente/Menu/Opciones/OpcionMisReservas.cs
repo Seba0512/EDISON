@@ -6,11 +6,12 @@ namespace Cliente.Menu.Opciones;
 
 internal sealed class OpcionMisReservas : IOpcionDeMenu
 {
-    private readonly ConsultaDeReservasRemota _consulta;
+    private readonly PresentadorDeReservas _presentador = new();
+    private readonly ConsultaDeReservasRemota _consultaDeReservasRemota;
 
     public OpcionMisReservas(ConexionConServidor conexion)
     {
-        _consulta = new ConsultaDeReservasRemota(conexion);
+        _consultaDeReservasRemota = new ConsultaDeReservasRemota(conexion);
     }
 
     public string Titulo
@@ -18,7 +19,7 @@ internal sealed class OpcionMisReservas : IOpcionDeMenu
 
     public void Ejecutar()
     {
-        IReadOnlyList<ReservaListada> reservas = _consulta.Ejecutar();
-        PresentadorDeReservas.Mostrar(reservas);
+        IReadOnlyList<ReservaListada> reservas = _consultaDeReservasRemota.Ejecutar();
+        _presentador.Mostrar(reservas);
     }
 }

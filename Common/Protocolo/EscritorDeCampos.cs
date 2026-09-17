@@ -29,9 +29,6 @@ public sealed class EscritorDeCampos
     public void EscribirGuid(Guid valor)
         => EscribirCampo(FormatoDeCampos.De(valor));
 
-    public void EscribirCantidad(int cantidad)
-        => EscribirEntero(cantidad);
-
     public byte[] ObtenerBytes()
         => _flujo.ToArray();
 

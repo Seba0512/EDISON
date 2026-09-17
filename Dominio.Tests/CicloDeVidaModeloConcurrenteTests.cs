@@ -186,9 +186,9 @@ public class CicloDeVidaModeloConcurrenteTests
 
         Assert.IsTrue(hiloCmd11.Join(EsperaDeHiloEnMilisegundos));
         Assert.IsTrue(modificacion.Completo);
-        Assert.AreEqual(ImagenNueva, modelo.NombreArchivoImagen);
-        Assert.AreEqual("Modificado", modelo.Descripcion);
-        Assert.AreEqual(39990m, modelo.Precio);
+        Assert.AreEqual(ImagenNueva, modelo.TomarLectura().NombreArchivoImagen);
+        Assert.AreEqual("Modificado", modelo.TomarLectura().Descripcion);
+        Assert.AreEqual(39990m, modelo.TomarLectura().Precio);
     }
 
     [TestMethod]
@@ -212,9 +212,9 @@ public class CicloDeVidaModeloConcurrenteTests
 
         Assert.IsTrue(hiloCmd15.Join(EsperaDeHiloEnMilisegundos));
         Assert.IsTrue(subida.Completo);
-        Assert.AreEqual(ImagenNueva, modelo.NombreArchivoImagen);
-        Assert.AreEqual("Modificado", modelo.Descripcion);
-        Assert.AreEqual(39990m, modelo.Precio);
+        Assert.AreEqual(ImagenNueva, modelo.TomarLectura().NombreArchivoImagen);
+        Assert.AreEqual("Modificado", modelo.TomarLectura().Descripcion);
+        Assert.AreEqual(39990m, modelo.TomarLectura().Precio);
     }
 
     [TestMethod]
@@ -229,7 +229,7 @@ public class CicloDeVidaModeloConcurrenteTests
             () => anteriorSegunda = modelo.CambiarImagen(creadora, ImagenAlternativa));
 
         Assert.AreEqual(2, CantidadDeExitos(resultado));
-        string vigente = modelo.NombreArchivoImagen;
+        string vigente = modelo.TomarLectura().NombreArchivoImagen;
         string sustituida = vigente == ImagenNueva ? ImagenAlternativa : ImagenNueva;
         CollectionAssert.AreEquivalent(
             new[] { ImagenVigente, sustituida },
@@ -288,7 +288,7 @@ public class CicloDeVidaModeloConcurrenteTests
 
         bool modificacionTermino = hiloDeModificacion.Join(EsperaDeOperacionEnMilisegundos);
         string imagenCapturada = almacen.NombreEliminado;
-        string imagenEnModelo = modelo.NombreArchivoImagen;
+        string imagenEnModelo = modelo.TomarLectura().NombreArchivoImagen;
         almacen.PermitirFinalizacion();
         bool bajaTermino = hiloDeBaja.Join(EsperaDeHiloEnMilisegundos);
 

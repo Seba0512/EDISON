@@ -1,186 +1,62 @@
-using Dominio.Busqueda;
 using Dominio.Excepciones;
 using Dominio.Tiempo;
 
 namespace Dominio;
 
-public class Modelo : IVehiculoBuscable
+public class Modelo
 {
     // Este candado cuida los datos, el stock y las reservas. Nunca se toma junto al de un repositorio.
-    private readonly object candado = new();
-    private readonly StockDeUnidades stock;
-    private readonly List<Reserva> reservas = new();
-    private readonly Usuario creador;
-    private DatosDeModelo datos;
-    private bool eliminado;
+    private readonly object _candado = new();
+    private readonly StockDeUnidades _stock;
+    private readonly List<Reserva> _reservas = new();
+    private readonly Usuario _creador;
+    private DatosDeModelo _datos;
+    private bool _eliminado;
 
     public Modelo(DatosDeModelo datos, Usuario creador)
     {
-        this.datos = datos;
-        this.creador = creador;
-        stock = new StockDeUnidades(datos.Nombre);
+        _datos = datos;
+        _creador = creador;
+        _stock = new StockDeUnidades(datos.Nombre);
     }
 
-    public string Nombre => datos.Nombre;
-
-    public string Descripcion
-    {
-        get
-        {
-            lock (candado)
-            {
-                return datos.Descripcion;
-            }
-        }
-    }
-
-    public decimal Precio
-    {
-        get
-        {
-            lock (candado)
-            {
-                return datos.Precio;
-            }
-        }
-    }
-
-    public DateTime FechaEntregaPrometida
-    {
-        get
-        {
-            lock (candado)
-            {
-                return datos.FechaEntregaPrometida;
-            }
-        }
-    }
-
-    public string NombreArchivoImagen
-    {
-        get
-        {
-            lock (candado)
-            {
-                return datos.NombreArchivoImagen;
-            }
-        }
-    }
-
-    public bool TieneImagen
-    {
-        get
-        {
-            lock (candado)
-            {
-                return datos.TieneImagen;
-            }
-        }
-    }
-
-    public int StockTotal
-    {
-        get
-        {
-            lock (candado)
-            {
-                return stock.Total;
-            }
-        }
-    }
-
-    public int UnidadesDisponibles
-    {
-        get
-        {
-            lock (candado)
-            {
-                return stock.Disponibles;
-            }
-        }
-    }
-
-    public int UnidadesReservadas
-    {
-        get
-        {
-            lock (candado)
-            {
-                return stock.Reservadas;
-            }
-        }
-    }
-
-    public bool TieneUnidadDisponible
-    {
-        get
-        {
-            lock (candado)
-            {
-                return stock.HayAlgunaDisponible;
-            }
-        }
-    }
+    public string Nombre => _datos.Nombre;
 
     public LecturaDeModelo TomarLectura()
     {
-        lock (candado)
+        lock (_candado)
         {
-            int unidadesDisponibles = stock.Disponibles;
-            int stockTotal = stock.Total;
+            int unidadesDisponibles = _stock.Disponibles;
+            int stockTotal = _stock.Total;
             return new LecturaDeModelo(
-                datos.Nombre,
-                datos.Descripcion,
-                datos.Precio,
-                datos.FechaEntregaPrometida,
+                _datos.Nombre,
+                _datos.Descripcion,
+                _datos.Precio,
+                _datos.FechaEntregaPrometida,
                 stockTotal,
                 unidadesDisponibles,
                 stockTotal - unidadesDisponibles,
-                datos.NombreArchivoImagen);
-        }
-    }
-
-    public bool SeLlama(string nombreModelo)
-    {
-        return Nombre.Equals(nombreModelo?.Trim(), StringComparison.OrdinalIgnoreCase);
-    }
-
-    public bool FueCreadoPor(string nombreUsuario)
-    {
-        return creador.SeLlama(nombreUsuario);
-    }
-
-    public bool EsDe(Usuario usuario)
-    {
-        return FueCreadoPor(usuario.NombreUsuario);
-    }
-
-    public void ExigirPropietario(Usuario usuario)
-    {
-        if (!EsDe(usuario))
-        {
-            throw new DominioException(
-                $"Solo el creador del modelo {Nombre} puede modificarlo o eliminarlo");
+                _datos.NombreArchivoImagen);
         }
     }
 
     public void AgregarUnidades(int cantidad)
     {
-        lock (candado)
+        lock (_candado)
         {
             ExigirActivo();
-            stock.Agregar(cantidad);
+            _stock.Agregar(cantidad);
         }
     }
 
     public void ModificarDatos(FichaDeModelo ficha, Usuario solicitante)
     {
-        lock (candado)
+        lock (_candado)
         {
             ValidarModificacion(ficha, solicitante);
-            stock.AjustarA(ficha.Stock);
+            _stock.AjustarA(ficha.Stock);
             // La imagen no forma parte de esta operación y se conserva desde el estado protegido.
-            datos = DatosModificadosConImagenVigente(ficha.Datos);
+            _datos = DatosModificadosConImagenVigente(ficha.Datos);
         }
     }
 
@@ -188,18 +64,18 @@ public class Modelo : IVehiculoBuscable
     // exactamente la imagen que quedó reemplazada, para que quien llama la borre sin fugas.
     public string CambiarImagen(Usuario solicitante, string nuevoNombreArchivoImagen)
     {
-        lock (candado)
+        lock (_candado)
         {
             ExigirActivo();
             ExigirPropietario(solicitante);
             ExigirUnidadDisponibleParaCambiarImagen();
 
-            string nombreArchivoAnterior = datos.NombreArchivoImagen;
-            datos = new DatosDeModelo(
-                datos.Nombre,
-                datos.Descripcion,
-                datos.Precio,
-                datos.FechaEntregaPrometida,
+            string nombreArchivoAnterior = _datos.NombreArchivoImagen;
+            _datos = new DatosDeModelo(
+                _datos.Nombre,
+                _datos.Descripcion,
+                _datos.Precio,
+                _datos.FechaEntregaPrometida,
                 nuevoNombreArchivoImagen);
 
             return nombreArchivoAnterior;
@@ -222,28 +98,21 @@ public class Modelo : IVehiculoBuscable
             datosNuevos.Descripcion,
             datosNuevos.Precio,
             datosNuevos.FechaEntregaPrometida,
-            datos.NombreArchivoImagen);
+            _datos.NombreArchivoImagen);
     }
 
-    public int ReservasActivas()
+    // Solo la usan las pruebas para observar el invariante: ninguna unidad reservada de mas.
+    internal int ReservasActivas()
     {
-        lock (candado)
+        lock (_candado)
         {
             return ContarReservasActivas();
         }
     }
 
-    public bool PuedeEliminarse()
-    {
-        lock (candado)
-        {
-            return !eliminado && ContarReservasActivas() == 0;
-        }
-    }
-
     internal string MarcarComoEliminado(Usuario solicitante)
     {
-        lock (candado)
+        lock (_candado)
         {
             ExigirActivo();
             ExigirPropietario(solicitante);
@@ -254,8 +123,8 @@ public class Modelo : IVehiculoBuscable
             }
 
             // Se guarda el nombre de la imagen para borrar el archivo después, ya fuera del candado.
-            string nombreArchivoImagen = datos.NombreArchivoImagen;
-            eliminado = true;
+            string nombreArchivoImagen = _datos.NombreArchivoImagen;
+            _eliminado = true;
 
             return nombreArchivoImagen;
         }
@@ -263,19 +132,19 @@ public class Modelo : IVehiculoBuscable
 
     internal void RestaurarTrasBajaFallida()
     {
-        lock (candado)
+        lock (_candado)
         {
-            eliminado = false;
+            _eliminado = false;
         }
     }
 
     public Reserva RegistrarReserva(Usuario solicitante, IReloj reloj)
     {
-        lock (candado)
+        lock (_candado)
         {
             ExigirActivo();
             Reserva reserva = new Reserva(solicitante, this, reloj);
-            reservas.Add(reserva);
+            _reservas.Add(reserva);
 
             return reserva;
         }
@@ -283,7 +152,7 @@ public class Modelo : IVehiculoBuscable
 
     public ResultadoResolucion ResolverReserva(Reserva reserva)
     {
-        lock (candado)
+        lock (_candado)
         {
             ExigirQueLaReservaSeaPropia(reserva);
             if (!reserva.EstaPendiente)
@@ -292,13 +161,13 @@ public class Modelo : IVehiculoBuscable
             }
 
             ExigirActivo();
-            if (!stock.HayAlgunaDisponible)
+            if (!_stock.HayAlgunaDisponible)
             {
                 reserva.Rechazar();
                 return ResultadoResolucion.Rechazada;
             }
 
-            Vehiculo unidad = stock.TomarUna();
+            Vehiculo unidad = _stock.TomarUna();
             reserva.Confirmar(unidad);
             return ResultadoResolucion.Confirmada;
         }
@@ -306,14 +175,14 @@ public class Modelo : IVehiculoBuscable
 
     public void CancelarReserva(Reserva reserva)
     {
-        lock (candado)
+        lock (_candado)
         {
             ExigirActivo();
             ExigirQueLaReservaSeaPropia(reserva);
             var estadoCancelado = reserva.PrepararCancelacion();
             if (reserva.VehiculoAsignado is Vehiculo unidad)
             {
-                stock.Liberar(unidad);
+                _stock.Liberar(unidad);
             }
 
             reserva.CompletarCancelacion(estadoCancelado);
@@ -323,30 +192,39 @@ public class Modelo : IVehiculoBuscable
     // Reserva lo llama con el candado ya tomado. Volver a tomarlo en el mismo hilo no traba.
     internal bool ContieneUnidad(Vehiculo unidad)
     {
-        lock (candado)
+        lock (_candado)
         {
-            return stock.Contiene(unidad);
+            return _stock.Contiene(unidad);
         }
     }
 
     internal LecturaDeReserva TomarLecturaDe(Reserva reserva)
     {
-        lock (candado)
+        lock (_candado)
         {
             ExigirQueLaReservaSeaPropia(reserva);
-            return reserva.CrearLectura(datos.Nombre);
+            return reserva.CrearLectura(_datos.Nombre);
         }
     }
 
     // Siempre se llama con el candado ya tomado, por eso no lo vuelve a tomar.
     private int ContarReservasActivas()
     {
-        return reservas.Count(reserva => reserva.EstaActiva);
+        return _reservas.Count(reserva => reserva.EstaActiva);
+    }
+
+    private void ExigirPropietario(Usuario usuario)
+    {
+        if (!_creador.SeLlama(usuario.NombreUsuario))
+        {
+            throw new DominioException(
+                $"Solo el creador del modelo {Nombre} puede modificarlo o eliminarlo");
+        }
     }
 
     private void ExigirActivo()
     {
-        if (eliminado)
+        if (_eliminado)
         {
             throw new DominioException($"El modelo {Nombre} fue eliminado");
         }
@@ -354,7 +232,7 @@ public class Modelo : IVehiculoBuscable
 
     private void ExigirMismoNombre(DatosDeModelo datosNuevos)
     {
-        if (!datos.DescribeAlMismoModeloQue(datosNuevos))
+        if (!_datos.DescribeAlMismoModeloQue(datosNuevos))
         {
             throw new DominioException("El nombre del modelo no se puede modificar");
         }
@@ -372,7 +250,7 @@ public class Modelo : IVehiculoBuscable
 
     private void ExigirStockSuperiorAReservasActivasSiCambia(int stockNuevo)
     {
-        if (stockNuevo != stock.Total)
+        if (stockNuevo != _stock.Total)
         {
             ExigirStockSuperiorAReservasActivas(stockNuevo);
         }
@@ -381,7 +259,7 @@ public class Modelo : IVehiculoBuscable
     // Se permite reponer stock para que un modelo agotado no quede congelado para siempre.
     private void ExigirDisponibleOStockEnAumento(int stockNuevo)
     {
-        if (!stock.HayAlgunaDisponible && stockNuevo <= stock.Total)
+        if (!_stock.HayAlgunaDisponible && stockNuevo <= _stock.Total)
         {
             throw new DominioException(
                 $"No se puede modificar el modelo {Nombre} porque no quedan unidades disponibles");
@@ -390,7 +268,7 @@ public class Modelo : IVehiculoBuscable
 
     private void ExigirUnidadDisponibleParaCambiarImagen()
     {
-        if (!stock.HayAlgunaDisponible)
+        if (!_stock.HayAlgunaDisponible)
         {
             throw new DominioException(
                 $"No se puede cambiar la imagen del modelo {Nombre} porque no quedan unidades disponibles");
@@ -399,7 +277,7 @@ public class Modelo : IVehiculoBuscable
 
     private void ExigirQueLaReservaSeaPropia(Reserva reserva)
     {
-        if (!reservas.Contains(reserva))
+        if (!_reservas.Contains(reserva))
         {
             throw new DominioException(
                 $"La reserva {reserva.Id} no esta registrada en el modelo {Nombre}");
