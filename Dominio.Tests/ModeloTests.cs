@@ -47,6 +47,13 @@ public class ModeloTests
         return reserva;
     }
 
+    private void PrepararModeloConStockUnoYUnaReservaPendiente()
+    {
+        modelo = new Modelo(DatosCon(NombreModelo, 45000m), creadora);
+        modelo.AgregarUnidades(1);
+        ReservaRegistrada();
+    }
+
     [TestMethod]
     public void ElStockInicialCreaEsaCantidadDeUnidadesDisponibles()
     {
@@ -114,6 +121,34 @@ public class ModeloTests
         Assert.AreEqual(39990m, modelo.Precio);
         Assert.AreEqual(new DateTime(2027, 6, 1), modelo.FechaEntregaPrometida);
         Assert.AreEqual(StockInicial + 2, modelo.StockTotal);
+    }
+
+    [TestMethod]
+    public void ModificarDescripcionSinCambiarStockNoValidaContraReservasActivas()
+    {
+        PrepararModeloConStockUnoYUnaReservaPendiente();
+        DatosDeModelo datos = new DatosDeModelo(
+            NombreModelo, "Sedan electrico renovado", 45000m,
+            new DateTime(2027, 3, 1), string.Empty);
+
+        modelo.ModificarDatos(new FichaDeModelo(datos, 1), creadora);
+
+        Assert.AreEqual("Sedan electrico renovado", modelo.Descripcion);
+        Assert.AreEqual(1, modelo.StockTotal);
+        Assert.AreEqual(1, modelo.ReservasActivas());
+    }
+
+    [TestMethod]
+    public void ModificarPrecioSinCambiarStockNoValidaContraReservasActivas()
+    {
+        PrepararModeloConStockUnoYUnaReservaPendiente();
+        DatosDeModelo datos = DatosCon(NombreModelo, 39990m);
+
+        modelo.ModificarDatos(new FichaDeModelo(datos, 1), creadora);
+
+        Assert.AreEqual(39990m, modelo.Precio);
+        Assert.AreEqual(1, modelo.StockTotal);
+        Assert.AreEqual(1, modelo.ReservasActivas());
     }
 
     [TestMethod]

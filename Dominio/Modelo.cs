@@ -194,7 +194,7 @@ public class Modelo : IVehiculoBuscable
         ExigirPropietario(solicitante);
         ExigirMismoNombre(ficha.Datos);
         ExigirDisponibleOStockEnAumento(ficha.Stock);
-        ExigirStockSuperiorAReservasActivas(ficha.Stock);
+        ExigirStockSuperiorAReservasActivasSiCambia(ficha.Stock);
     }
 
     private DatosDeModelo DatosModificadosConImagenVigente(DatosDeModelo datosNuevos)
@@ -332,6 +332,14 @@ public class Modelo : IVehiculoBuscable
         {
             throw new DominioException(
                 $"El stock debe ser mayor a las {activas} reservas activas del modelo {Nombre}");
+        }
+    }
+
+    private void ExigirStockSuperiorAReservasActivasSiCambia(int stockNuevo)
+    {
+        if (stockNuevo != stock.Total)
+        {
+            ExigirStockSuperiorAReservasActivas(stockNuevo);
         }
     }
 
