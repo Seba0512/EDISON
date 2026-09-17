@@ -20,21 +20,37 @@ internal static class AplicacionCliente
     {
         while (estado.SeguirEjecutando)
         {
-            // Ante una excepcion, MostrarYEjecutar no llega a devolver nada: se pausa igual para que el error se lea.
-            bool requierePausa = true;
-            try
+            estado.MenuActual.Mostrar();
+            IOpcionDeMenu? opcion = estado.MenuActual.ElegirOpcion();
+            if (opcion is null)
             {
-                (bool continuar, requierePausa) = estado.MenuActual.MostrarYEjecutar();
-                if (!continuar)
-                    estado.Terminar();
-            }
-            catch (OperacionRechazadaException exception)
-            {
-                Consola.Error(exception.Message);
+                estado.Terminar();
+                return;
             }
 
-            if (estado.SeguirEjecutando && requierePausa)
-                LectorDeConsola.EsperarEnter();
+            PausarSiCorresponde(estado, Ejecutar(opcion));
         }
+    }
+
+    // Ante una excepcion, la opcion no llega a decir si necesita pausa: se pausa igual
+    // para que el error alcance a leerse antes de redibujar el menu.
+    private static bool Ejecutar(IOpcionDeMenu opcion)
+    {
+        try
+        {
+            opcion.Ejecutar();
+            return opcion.RequierePausa;
+        }
+        catch (OperacionRechazadaException exception)
+        {
+            Consola.Error(exception.Message);
+            return true;
+        }
+    }
+
+    private static void PausarSiCorresponde(EstadoDelMenu estado, bool requierePausa)
+    {
+        if (estado.SeguirEjecutando && requierePausa)
+            LectorDeConsola.EsperarEnter();
     }
 }
