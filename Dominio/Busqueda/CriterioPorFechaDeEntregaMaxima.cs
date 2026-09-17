@@ -2,15 +2,15 @@ namespace Dominio.Busqueda;
 
 public class CriterioPorFechaDeEntregaMaxima : ICriterioDeBusqueda
 {
-    private readonly DateTime fechaLimite;
+    private readonly DateTime _fechaLimite;
 
     public CriterioPorFechaDeEntregaMaxima(DateTime fechaLimite)
     {
-        this.fechaLimite = fechaLimite;
+        _fechaLimite = fechaLimite;
     }
 
     public bool Cumple(IVehiculoBuscable vehiculo)
     {
-        return vehiculo.FechaEntregaPrometida <= fechaLimite;
+        return vehiculo.FechaEntregaPrometida <= _fechaLimite;
     }
 }

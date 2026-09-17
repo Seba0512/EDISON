@@ -4,7 +4,7 @@ namespace Dominio.Busqueda;
 
 public class CriterioPorPrecioMaximo : ICriterioDeBusqueda
 {
-    private readonly decimal precioMaximo;
+    private readonly decimal _precioMaximo;
 
     public CriterioPorPrecioMaximo(decimal precioMaximo)
     {
@@ -13,11 +13,11 @@ public class CriterioPorPrecioMaximo : ICriterioDeBusqueda
             throw new DominioException("El precio maximo debe ser mayor a cero");
         }
 
-        this.precioMaximo = precioMaximo;
+        _precioMaximo = precioMaximo;
     }
 
     public bool Cumple(IVehiculoBuscable vehiculo)
     {
-        return vehiculo.Precio <= precioMaximo;
+        return vehiculo.Precio <= _precioMaximo;
     }
 }

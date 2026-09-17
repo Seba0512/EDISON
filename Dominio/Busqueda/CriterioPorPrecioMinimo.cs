@@ -4,7 +4,7 @@ namespace Dominio.Busqueda;
 
 public class CriterioPorPrecioMinimo : ICriterioDeBusqueda
 {
-    private readonly decimal precioMinimo;
+    private readonly decimal _precioMinimo;
 
     public CriterioPorPrecioMinimo(decimal precioMinimo)
     {
@@ -13,11 +13,11 @@ public class CriterioPorPrecioMinimo : ICriterioDeBusqueda
             throw new DominioException("El precio minimo no puede ser negativo");
         }
 
-        this.precioMinimo = precioMinimo;
+        _precioMinimo = precioMinimo;
     }
 
     public bool Cumple(IVehiculoBuscable vehiculo)
     {
-        return vehiculo.Precio >= precioMinimo;
+        return vehiculo.Precio >= _precioMinimo;
     }
 }

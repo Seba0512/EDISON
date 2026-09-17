@@ -7,16 +7,16 @@ public class Usuario
     private const int LargoMinimoNombre = 3;
     private const int LargoMaximoNombre = 20;
 
-    private readonly Credencial credencial;
-    private readonly Historial historial;
+    private readonly Credencial _credencial;
+    private readonly Historial _historial;
 
     public string NombreUsuario { get; }
 
     public Usuario(string nombreUsuario, string clave)
     {
         NombreUsuario = NombreValidado(nombreUsuario);
-        credencial = new Credencial(clave);
-        historial = new Historial();
+        _credencial = new Credencial(clave);
+        _historial = new Historial();
     }
 
     public bool SeLlama(string nombreUsuario)
@@ -26,17 +26,17 @@ public class Usuario
 
     public bool VerificarClave(string claveIngresada)
     {
-        return credencial.Verifica(claveIngresada);
+        return _credencial.Verifica(claveIngresada);
     }
 
     public void Registrar(Actividad actividad)
     {
-        historial.Registrar(actividad);
+        _historial.Registrar(actividad);
     }
 
     public IReadOnlyList<Actividad> Actividades()
     {
-        return historial.Actividades;
+        return _historial.Actividades;
     }
 
     private static string NombreValidado(string nombreUsuario)

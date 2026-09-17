@@ -6,12 +6,12 @@ namespace Dominio;
 
 public class Reserva
 {
-    private readonly Usuario solicitante;
-    private readonly Modelo modelo;
-    private readonly IReloj reloj;
-    private EstadoDeReserva estado;
+    private readonly Usuario _solicitante;
+    private readonly Modelo _modelo;
+    private readonly IReloj _reloj;
+    private EstadoDeReserva _estado;
     // Solo una reserva confirmada tiene unidad asignada. En cualquier otro estado no hay unidad.
-    private Vehiculo? vehiculoAsignado;
+    private Vehiculo? _vehiculoAsignado;
 
     public Guid Id { get; }
 
@@ -19,96 +19,96 @@ public class Reserva
 
     public DateTime UltimaActualizacion { get; private set; }
 
-    public Vehiculo? VehiculoAsignado => vehiculoAsignado;
+    public Vehiculo? VehiculoAsignado => _vehiculoAsignado;
 
     internal Reserva(Usuario solicitante, Modelo modelo, IReloj reloj)
     {
-        this.solicitante = solicitante;
-        this.modelo = modelo;
-        this.reloj = reloj;
+        _solicitante = solicitante;
+        _modelo = modelo;
+        _reloj = reloj;
         Id = Guid.NewGuid();
-        estado = Pendiente.Instancia;
+        _estado = Pendiente.Instancia;
         FechaCreacion = reloj.Ahora;
         UltimaActualizacion = FechaCreacion;
     }
 
-    public bool EstaPendiente => estado.EstaPendiente;
+    public bool EstaPendiente => _estado.EstaPendiente;
 
-    public bool EstaConfirmada => estado.EstaConfirmada;
+    public bool EstaConfirmada => _estado.EstaConfirmada;
 
-    public bool EstaActiva => estado.EsActiva;
+    public bool EstaActiva => _estado.EsActiva;
 
-    public bool PuedeCancelarse => estado.EsActiva;
+    public bool PuedeCancelarse => _estado.EsActiva;
 
     public string NombreDelEstado()
     {
-        return estado.Nombre;
+        return _estado.Nombre;
     }
 
     public string NombreDelUsuario()
     {
-        return solicitante.NombreUsuario;
+        return _solicitante.NombreUsuario;
     }
 
     public string NombreDelModelo()
     {
-        return modelo.Nombre;
+        return _modelo.Nombre;
     }
 
     public bool FueHechaPor(string nombreUsuario)
     {
-        return solicitante.SeLlama(nombreUsuario);
+        return _solicitante.SeLlama(nombreUsuario);
     }
 
     public bool EsDelModelo(string nombreModelo)
     {
-        return modelo.SeLlama(nombreModelo);
+        return _modelo.SeLlama(nombreModelo);
     }
 
     public LecturaDeReserva TomarLectura()
     {
-        return modelo.TomarLecturaDe(this);
+        return _modelo.TomarLecturaDe(this);
     }
 
     public bool VencioElPlazo(int segundosDeEspera)
     {
-        return EstaPendiente && reloj.Ahora >= FechaCreacion.AddSeconds(segundosDeEspera);
+        return EstaPendiente && _reloj.Ahora >= FechaCreacion.AddSeconds(segundosDeEspera);
     }
 
     public ResultadoResolucion Resolver()
     {
-        return modelo.ResolverReserva(this);
+        return _modelo.ResolverReserva(this);
     }
 
     public void Cancelar()
     {
-        modelo.CancelarReserva(this);
+        _modelo.CancelarReserva(this);
     }
 
     internal void Confirmar(Vehiculo unidad)
     {
-        EstadoDeReserva estadoConfirmado = estado.Confirmar();
+        EstadoDeReserva estadoConfirmado = _estado.Confirmar();
         ExigirUnidadAsignable(unidad);
-        vehiculoAsignado = unidad;
+        _vehiculoAsignado = unidad;
         PasarA(estadoConfirmado);
     }
 
     internal void Rechazar()
     {
-        PasarA(estado.Rechazar());
+        PasarA(_estado.Rechazar());
     }
 
     // La cancelación va en dos pasos y el modelo libera la unidad entre uno y otro, bajo su candado.
     internal EstadoDeReserva PrepararCancelacion()
     {
-        EstadoDeReserva estadoCancelado = estado.Cancelar();
+        EstadoDeReserva estadoCancelado = _estado.Cancelar();
         ExigirInvarianteDeAsignacion();
         return estadoCancelado;
     }
 
     internal void CompletarCancelacion(EstadoDeReserva estadoCancelado)
     {
-        vehiculoAsignado = null;
+        _vehiculoAsignado = null;
         PasarA(estadoCancelado);
     }
 
@@ -117,19 +117,19 @@ public class Reserva
         return new LecturaDeReserva(
             Id,
             nombreModelo,
-            estado.Nombre,
+            _estado.Nombre,
             FechaCreacion,
             UltimaActualizacion);
     }
 
     private void ExigirUnidadAsignable(Vehiculo unidad)
     {
-        if (vehiculoAsignado is not null)
+        if (_vehiculoAsignado is not null)
         {
             throw new DominioException("La reserva ya tiene una unidad asignada");
         }
 
-        if (!modelo.ContieneUnidad(unidad))
+        if (!_modelo.ContieneUnidad(unidad))
         {
             throw new DominioException("La unidad no pertenece al modelo de la reserva");
         }
@@ -142,8 +142,8 @@ public class Reserva
 
     private void ExigirInvarianteDeAsignacion()
     {
-        bool debeTenerUnidad = estado.EstaConfirmada;
-        if (debeTenerUnidad != (vehiculoAsignado is not null))
+        bool debeTenerUnidad = _estado.EstaConfirmada;
+        if (debeTenerUnidad != (_vehiculoAsignado is not null))
         {
             throw new DominioException(
                 "Solo una reserva confirmada puede tener exactamente una unidad asignada");
@@ -152,7 +152,7 @@ public class Reserva
 
     private void PasarA(EstadoDeReserva estadoNuevo)
     {
-        estado = estadoNuevo;
-        UltimaActualizacion = reloj.Ahora;
+        _estado = estadoNuevo;
+        UltimaActualizacion = _reloj.Ahora;
     }
 }

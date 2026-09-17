@@ -7,11 +7,11 @@ namespace Dominio;
 
 public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
 {
-    private readonly IRepositorioDeReservas reservas;
-    private readonly IRepositorioDeModelos modelos;
-    private readonly IRepositorioDeUsuarios usuarios;
-    private readonly IReloj reloj;
-    private readonly int segundosDeAprobacion;
+    private readonly IRepositorioDeReservas _reservas;
+    private readonly IRepositorioDeModelos _modelos;
+    private readonly IRepositorioDeUsuarios _usuarios;
+    private readonly IReloj _reloj;
+    private readonly int _segundosDeAprobacion;
 
     public CentralDeReservas(
         IRepositorioDeReservas reservas,
@@ -20,42 +20,42 @@ public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
         IReloj reloj,
         int segundosDeAprobacion)
     {
-        this.reservas = reservas;
-        this.modelos = modelos;
-        this.usuarios = usuarios;
-        this.reloj = reloj;
-        this.segundosDeAprobacion = segundosDeAprobacion;
+        _reservas = reservas;
+        _modelos = modelos;
+        _usuarios = usuarios;
+        _reloj = reloj;
+        _segundosDeAprobacion = segundosDeAprobacion;
     }
 
     public Guid SolicitarReserva(string nombreModelo, Usuario solicitante)
     {
-        Modelo modelo = modelos.ObtenerPorNombre(nombreModelo);
-        Reserva reserva = modelo.RegistrarReserva(solicitante, reloj);
-        reservas.Agregar(reserva);
+        Modelo modelo = _modelos.ObtenerPorNombre(nombreModelo);
+        Reserva reserva = modelo.RegistrarReserva(solicitante, _reloj);
+        _reservas.Agregar(reserva);
 
-        solicitante.Registrar(Actividad.ReservaCreada(modelo.Nombre, reloj));
+        solicitante.Registrar(Actividad.ReservaCreada(modelo.Nombre, _reloj));
 
         return reserva.Id;
     }
 
     public void CancelarReserva(Guid idReserva, Usuario solicitante)
     {
-        Reserva reserva = reservas.ObtenerPorId(idReserva);
+        Reserva reserva = _reservas.ObtenerPorId(idReserva);
         ExigirQueSeaSuya(reserva, solicitante);
 
         reserva.Cancelar();
 
-        solicitante.Registrar(Actividad.ReservaCancelada(reserva.NombreDelModelo(), reloj));
+        solicitante.Registrar(Actividad.ReservaCancelada(reserva.NombreDelModelo(), _reloj));
     }
 
     public IReadOnlyList<Reserva> ReservasDe(Usuario usuario)
     {
-        return reservas.DeUsuario(usuario.NombreUsuario);
+        return _reservas.DeUsuario(usuario.NombreUsuario);
     }
 
     public IReadOnlyList<LecturaDeReserva> ConsultarReservasDe(Usuario usuario)
     {
-        return reservas.DeUsuario(usuario.NombreUsuario)
+        return _reservas.DeUsuario(usuario.NombreUsuario)
             .Select(reserva => reserva.TomarLectura())
             .ToList();
     }
@@ -63,8 +63,8 @@ public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
     public void ResolverVencidas()
     {
         // Se resuelven en orden de llegada. Con poco stock gana la solicitud más vieja.
-        List<Reserva> vencidas = reservas.Pendientes()
-            .Where(reserva => reserva.VencioElPlazo(segundosDeAprobacion))
+        List<Reserva> vencidas = _reservas.Pendientes()
+            .Where(reserva => reserva.VencioElPlazo(_segundosDeAprobacion))
             .OrderBy(reserva => reserva.FechaCreacion)
             .ToList();
 
@@ -83,8 +83,8 @@ public class CentralDeReservas : IGestionDeReservas, IResolucionDeReservas
 
     private void RegistrarLaCompra(Reserva reserva)
     {
-        Usuario comprador = usuarios.ObtenerPorNombre(reserva.NombreDelUsuario());
-        comprador.Registrar(Actividad.Compra(reserva.NombreDelModelo(), reloj));
+        Usuario comprador = _usuarios.ObtenerPorNombre(reserva.NombreDelUsuario());
+        comprador.Registrar(Actividad.Compra(reserva.NombreDelModelo(), _reloj));
     }
 
     private static void ExigirQueSeaSuya(Reserva reserva, Usuario solicitante)

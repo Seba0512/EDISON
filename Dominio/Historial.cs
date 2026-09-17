@@ -2,26 +2,26 @@ namespace Dominio;
 
 public class Historial
 {
-    private readonly object candado = new();
-    private readonly List<Actividad> actividades = new();
+    private readonly object _candado = new();
+    private readonly List<Actividad> _actividades = new();
 
     public IReadOnlyList<Actividad> Actividades
     {
         get
         {
-            lock (candado)
+            lock (_candado)
             {
                 // Devuelve una copia porque otro hilo puede agregar una actividad mientras se recorre la lista.
-                return actividades.ToList();
+                return _actividades.ToList();
             }
         }
     }
 
     public void Registrar(Actividad actividad)
     {
-        lock (candado)
+        lock (_candado)
         {
-            actividades.Add(actividad);
+            _actividades.Add(actividad);
         }
     }
 }

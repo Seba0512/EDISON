@@ -8,16 +8,16 @@ namespace Dominio;
 
 public class CatalogoDeModelos : ICatalogoDeModelos
 {
-    private readonly IRepositorioDeModelos modelos;
-    private readonly IAlmacenDeImagenes imagenes;
-    private readonly IReloj reloj;
+    private readonly IRepositorioDeModelos _modelos;
+    private readonly IAlmacenDeImagenes _imagenes;
+    private readonly IReloj _reloj;
 
     public CatalogoDeModelos(
         IRepositorioDeModelos modelos, IAlmacenDeImagenes imagenes, IReloj reloj)
     {
-        this.modelos = modelos;
-        this.imagenes = imagenes;
-        this.reloj = reloj;
+        _modelos = modelos;
+        _imagenes = imagenes;
+        _reloj = reloj;
     }
 
     public void AltaDeModelo(FichaDeModelo ficha, Usuario creador)
@@ -26,27 +26,29 @@ public class CatalogoDeModelos : ICatalogoDeModelos
 
         Modelo modelo = new Modelo(ficha.Datos, creador);
         modelo.AgregarUnidades(ficha.Stock);
-        modelos.Agregar(modelo);
+        _modelos.Agregar(modelo);
 
-        creador.Registrar(Actividad.ModeloCreado(ficha.Nombre, reloj));
+        creador.Registrar(Actividad.ModeloCreado(ficha.Nombre, _reloj));
     }
 
     public void ModificarModelo(FichaDeModelo ficha, Usuario solicitante)
     {
-        Modelo modelo = modelos.ObtenerPorNombre(ficha.Nombre);
+        Modelo modelo = _modelos.ObtenerPorNombre(ficha.Nombre);
         // Solo se exige futura si la fecha efectivamente cambió, para permitir la edición tardía
         // de otros campos de un modelo cuya fecha ya venció.
         if (ficha.Datos.FechaEntregaPrometida.Date != modelo.FechaEntregaPrometida.Date)
+        {
             ExigirFechaDeEntregaFutura(ficha.Datos.FechaEntregaPrometida);
+        }
 
         modelo.ModificarDatos(ficha, solicitante);
 
-        solicitante.Registrar(Actividad.ModeloModificado(ficha.Nombre, reloj));
+        solicitante.Registrar(Actividad.ModeloModificado(ficha.Nombre, _reloj));
     }
 
     public void EliminarModelo(string nombreModelo, Usuario solicitante)
     {
-        Modelo modelo = modelos.ObtenerPorNombre(nombreModelo);
+        Modelo modelo = _modelos.ObtenerPorNombre(nombreModelo);
         string nombreArchivoImagen = modelo.MarcarComoEliminado(solicitante);
         // Se conserva en el repositorio hasta borrar la imagen: así se reserva el nombre
         // y una falla de almacenamiento se compensa reactivando la misma entidad.
@@ -60,31 +62,23 @@ public class CatalogoDeModelos : ICatalogoDeModelos
             throw;
         }
 
-        modelos.Eliminar(modelo);
-        solicitante.Registrar(Actividad.ModeloEliminado(modelo.Nombre, reloj));
+        _modelos.Eliminar(modelo);
+        solicitante.Registrar(Actividad.ModeloEliminado(modelo.Nombre, _reloj));
     }
 
     public string CambiarImagenDeModelo(string nombreModelo, string nuevoNombreArchivoImagen, Usuario solicitante)
     {
-        Modelo modelo = modelos.ObtenerPorNombre(nombreModelo);
+        Modelo modelo = _modelos.ObtenerPorNombre(nombreModelo);
         string nombreArchivoAnterior = modelo.CambiarImagen(solicitante, nuevoNombreArchivoImagen);
 
-        solicitante.Registrar(Actividad.ModeloModificado(modelo.Nombre, reloj));
+        solicitante.Registrar(Actividad.ModeloModificado(modelo.Nombre, _reloj));
 
         return nombreArchivoAnterior;
     }
 
-    private void ExigirFechaDeEntregaFutura(DateTime fechaEntregaPrometida)
-    {
-        if (fechaEntregaPrometida.Date <= reloj.Ahora.Date)
-        {
-            throw new DominioException("La fecha de entrega debe ser futura");
-        }
-    }
-
     public IReadOnlyList<LecturaDeModelo> Buscar(ICriterioDeBusqueda criterio)
     {
-        return modelos.Todos()
+        return _modelos.Todos()
             .Select(modelo => modelo.TomarLectura())
             .Where(modelo => modelo.TieneUnidadDisponible)
             .Where(criterio.Cumple)
@@ -93,19 +87,27 @@ public class CatalogoDeModelos : ICatalogoDeModelos
 
     public Modelo Consultar(string nombreModelo)
     {
-        return modelos.ObtenerPorNombre(nombreModelo);
+        return _modelos.ObtenerPorNombre(nombreModelo);
     }
 
     public LecturaDeModelo ConsultarLectura(string nombreModelo)
     {
-        return modelos.ObtenerPorNombre(nombreModelo).TomarLectura();
+        return _modelos.ObtenerPorNombre(nombreModelo).TomarLectura();
+    }
+
+    private void ExigirFechaDeEntregaFutura(DateTime fechaEntregaPrometida)
+    {
+        if (fechaEntregaPrometida.Date <= _reloj.Ahora.Date)
+        {
+            throw new DominioException("La fecha de entrega debe ser futura");
+        }
     }
 
     private void BorrarImagen(string nombreArchivoImagen)
     {
         if (nombreArchivoImagen.Length > 0)
         {
-            imagenes.Eliminar(nombreArchivoImagen);
+            _imagenes.Eliminar(nombreArchivoImagen);
         }
     }
 }

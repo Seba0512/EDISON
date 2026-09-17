@@ -9,15 +9,15 @@ public class Credencial
     private const int LargoMinimoDeLaClave = 4;
     private const int LargoDelSalt = 16;
 
-    private readonly byte[] salt;
-    private readonly byte[] resumen;
+    private readonly byte[] _salt;
+    private readonly byte[] _resumen;
 
     public Credencial(string clave)
     {
         ExigirClaveValida(clave);
         // Cada credencial usa un salt distinto, así dos claves iguales no generan el mismo hash.
-        salt = RandomNumberGenerator.GetBytes(LargoDelSalt);
-        resumen = ResumenDe(clave, salt);
+        _salt = RandomNumberGenerator.GetBytes(LargoDelSalt);
+        _resumen = ResumenDe(clave, _salt);
     }
 
     public bool Verifica(string claveIngresada)
@@ -28,7 +28,7 @@ public class Credencial
         }
 
         // La comparación siempre tarda lo mismo para no dar pistas de cuántos bytes coinciden.
-        return CryptographicOperations.FixedTimeEquals(resumen, ResumenDe(claveIngresada, salt));
+        return CryptographicOperations.FixedTimeEquals(_resumen, ResumenDe(claveIngresada, _salt));
     }
 
     private static byte[] ResumenDe(string clave, byte[] saltDeLaCredencial)

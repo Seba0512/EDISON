@@ -5,17 +5,17 @@ namespace Dominio;
 // No tiene candado propio. Siempre se usa bajo el candado del Modelo que lo contiene.
 internal class StockDeUnidades
 {
-    private readonly List<Vehiculo> unidades = new();
-    private readonly string nombreModelo;
+    private readonly List<Vehiculo> _unidades = new();
+    private readonly string _nombreModelo;
 
     public StockDeUnidades(string nombreModelo)
     {
-        this.nombreModelo = nombreModelo;
+        _nombreModelo = nombreModelo;
     }
 
-    public int Total => unidades.Count;
+    public int Total => _unidades.Count;
 
-    public int Disponibles => unidades.Count(unidad => unidad.EstaDisponible);
+    public int Disponibles => _unidades.Count(unidad => unidad.EstaDisponible);
 
     public int Reservadas => Total - Disponibles;
 
@@ -30,7 +30,7 @@ internal class StockDeUnidades
 
         for (int agregadas = 0; agregadas < cantidad; agregadas++)
         {
-            unidades.Add(new Vehiculo(nombreModelo));
+            _unidades.Add(new Vehiculo(_nombreModelo));
         }
     }
 
@@ -53,8 +53,8 @@ internal class StockDeUnidades
 
     public Vehiculo TomarUna()
     {
-        Vehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)
-                                     ?? throw new SinUnidadesDisponiblesException(nombreModelo);
+        Vehiculo unidadLibre = _unidades.Find(unidad => unidad.EstaDisponible)
+                                     ?? throw new SinUnidadesDisponiblesException(_nombreModelo);
 
         unidadLibre.Reservar();
         return unidadLibre;
@@ -65,7 +65,7 @@ internal class StockDeUnidades
         if (!Contiene(unidad))
         {
             throw new DominioException(
-                $"La unidad {unidad.Id} no pertenece al modelo {nombreModelo}");
+                $"La unidad {unidad.Id} no pertenece al modelo {_nombreModelo}");
         }
 
         unidad.Liberar();
@@ -73,15 +73,15 @@ internal class StockDeUnidades
 
     public bool Contiene(Vehiculo unidad)
     {
-        return unidades.Contains(unidad);
+        return _unidades.Contains(unidad);
     }
 
     private void QuitarDisponibles(int cantidad)
     {
         for (int quitadas = 0; quitadas < cantidad; quitadas++)
         {
-            Vehiculo unidadLibre = unidades.Find(unidad => unidad.EstaDisponible)!;
-            unidades.Remove(unidadLibre);
+            Vehiculo unidadLibre = _unidades.Find(unidad => unidad.EstaDisponible)!;
+            _unidades.Remove(unidadLibre);
         }
     }
 }
