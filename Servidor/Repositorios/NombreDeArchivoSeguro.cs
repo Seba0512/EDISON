@@ -6,6 +6,8 @@ namespace Servidor.Repositorios;
 internal static class NombreDeArchivoSeguro
 {
     private static readonly string[] ExtensionesPermitidas = { ".png", ".jpg", ".jpeg" };
+    private static readonly StringComparison ComparacionDeRutas =
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     private static readonly HashSet<string> NombresReservados = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -16,9 +18,11 @@ internal static class NombreDeArchivoSeguro
 
     public static string Validar(string nombrePropuesto)
     {
-        string nombre = Path.GetFileName((nombrePropuesto ?? string.Empty).Trim());
+        string nombre = (nombrePropuesto ?? string.Empty).Trim();
         if (nombre.Length == 0)
             throw new ProtocoloException("El nombre de archivo no puede estar vacío");
+        if (ContieneRuta(nombre))
+            throw new ProtocoloException("Se esperaba un nombre de archivo sin directorios");
 
         string nombreSinExtension = Path.GetFileNameWithoutExtension(nombre);
         if (NombresReservados.Contains(nombreSinExtension))
@@ -35,8 +39,16 @@ internal static class NombreDeArchivoSeguro
     public static void ExigirDentroDe(string rutaCompleta, string directorioRaiz)
     {
         string rutaCanonica = Path.GetFullPath(rutaCompleta);
-        string raizCanonica = Path.GetFullPath(directorioRaiz) + Path.DirectorySeparatorChar;
-        if (!rutaCanonica.StartsWith(raizCanonica, StringComparison.Ordinal))
+        string raizCanonica = ConSeparadorFinal(Path.GetFullPath(directorioRaiz));
+        if (!rutaCanonica.StartsWith(raizCanonica, ComparacionDeRutas))
             throw new ProtocoloException("La ruta del archivo queda fuera del directorio permitido");
     }
+
+    private static bool ContieneRuta(string nombre)
+        => Path.IsPathRooted(nombre) || nombre.Contains('/') || nombre.Contains('\\');
+
+    private static string ConSeparadorFinal(string ruta)
+        => Path.EndsInDirectorySeparator(ruta)
+            ? ruta
+            : ruta + Path.DirectorySeparatorChar;
 }
