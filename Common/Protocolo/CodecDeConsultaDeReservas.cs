@@ -18,7 +18,7 @@ public static class CodecDeConsultaDeReservas
     {
         LectorDeCampos lector = new(datos);
         int cantidad = lector.LeerCantidad();
-        List<ReservaListada> reservas = new(cantidad);
+        List<ReservaListada> reservas = new();
         for (int i = 0; i < cantidad; i++)
             reservas.Add(LeerReserva(ref lector));
 

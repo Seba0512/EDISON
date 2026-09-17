@@ -54,7 +54,7 @@ public static class CodecDeBusquedaDeModelos
     {
         LectorDeCampos lector = new(datos);
         int cantidad = lector.LeerCantidad();
-        List<ModeloListado> modelos = new(cantidad);
+        List<ModeloListado> modelos = new();
         for (int i = 0; i < cantidad; i++)
         {
             string nombre = lector.LeerCampo();

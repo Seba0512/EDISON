@@ -22,7 +22,7 @@ public static class CodecDeHistorial
     {
         LectorDeCampos lector = new(datos);
         int cantidad = lector.LeerCantidad();
-        List<ActividadListada> actividades = new(cantidad);
+        List<ActividadListada> actividades = new();
         for (int i = 0; i < cantidad; i++)
         {
             string tipo = lector.LeerCampo();

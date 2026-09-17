@@ -45,7 +45,13 @@ public ref struct LectorDeCampos
         => FormatoDeCampos.AGuid(LeerCampo());
 
     public int LeerCantidad()
-        => LeerEntero();
+    {
+        int cantidad = LeerEntero();
+        if (cantidad < 0)
+            throw new ProtocoloException($"La cantidad {cantidad} no puede ser negativa");
+
+        return cantidad;
+    }
 
     public readonly void ExigirFinDePayload()
     {
