@@ -1,3 +1,4 @@
+using Cliente.Validaciones;
 using Cliente.Vistas;
 using Common.Protocolo;
 
@@ -17,7 +18,8 @@ internal sealed class OpcionRegistrarse : IOpcionDeMenu
 
     public void Ejecutar()
     {
-        Credenciales? credenciales = LectorDeConsola.LeerCredenciales();
+        Credenciales? credenciales = LectorDeConsola.LeerCredenciales(
+            ValidacionesDeUsuario.NombreUsuario, ValidacionesDeUsuario.Clave);
         if (credenciales is null)
             return;
 
