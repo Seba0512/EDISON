@@ -47,6 +47,17 @@ public ref struct LectorDeCampos
     public int LeerCantidad()
         => LeerEntero();
 
+    public int LeerCantidadDeElementos(int camposPorElemento)
+    {
+        if (camposPorElemento <= 0)
+            throw new ArgumentOutOfRangeException(nameof(camposPorElemento));
+
+        int cantidad = LeerCantidad();
+        ExigirCantidadNoNegativa(cantidad);
+        ExigirCantidadCompatibleConPayload(cantidad, camposPorElemento);
+        return cantidad;
+    }
+
     public readonly void ExigirFinDePayload()
     {
         if (_posicion != _datos.Length)
@@ -75,5 +86,20 @@ public ref struct LectorDeCampos
     {
         if (largo < 0)
             throw new ProtocoloException("Un campo no puede tener LARGO negativo");
+    }
+
+    private static void ExigirCantidadNoNegativa(int cantidad)
+    {
+        if (cantidad < 0)
+            throw new ProtocoloException("CANTIDAD no puede ser negativa");
+    }
+
+    private readonly void ExigirCantidadCompatibleConPayload(int cantidad, int camposPorElemento)
+    {
+        int elementosPosibles = (_datos.Length - _posicion)
+            / ConstantesDelProtocolo.LargoCampoLargo
+            / camposPorElemento;
+        if (cantidad > elementosPosibles)
+            throw new ProtocoloException("CANTIDAD no es compatible con los bytes restantes");
     }
 }

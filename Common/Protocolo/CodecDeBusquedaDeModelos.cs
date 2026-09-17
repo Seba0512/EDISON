@@ -4,6 +4,8 @@ namespace Common.Protocolo;
 
 public static class CodecDeBusquedaDeModelos
 {
+    private const int CamposPorModelo = 4;
+
     public static byte[] Codificar(FiltrosDeBusqueda filtros)
     {
         EscritorDeCampos escritor = new();
@@ -53,7 +55,7 @@ public static class CodecDeBusquedaDeModelos
     public static IReadOnlyList<ModeloListado> DecodificarResultado(ReadOnlySpan<byte> datos)
     {
         LectorDeCampos lector = new(datos);
-        int cantidad = lector.LeerCantidad();
+        int cantidad = lector.LeerCantidadDeElementos(CamposPorModelo);
         List<ModeloListado> modelos = new(cantidad);
         for (int i = 0; i < cantidad; i++)
         {

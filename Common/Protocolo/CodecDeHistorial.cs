@@ -4,6 +4,8 @@ namespace Common.Protocolo;
 
 public static class CodecDeHistorial
 {
+    private const int CamposPorActividad = 3;
+
     public static byte[] CodificarResultado(IReadOnlyList<ActividadListada> actividades)
     {
         EscritorDeCampos escritor = new();
@@ -21,7 +23,7 @@ public static class CodecDeHistorial
     public static IReadOnlyList<ActividadListada> DecodificarResultado(ReadOnlySpan<byte> datos)
     {
         LectorDeCampos lector = new(datos);
-        int cantidad = lector.LeerCantidad();
+        int cantidad = lector.LeerCantidadDeElementos(CamposPorActividad);
         List<ActividadListada> actividades = new(cantidad);
         for (int i = 0; i < cantidad; i++)
         {

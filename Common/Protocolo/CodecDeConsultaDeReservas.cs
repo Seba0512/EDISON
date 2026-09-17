@@ -4,6 +4,8 @@ namespace Common.Protocolo;
 
 public static class CodecDeConsultaDeReservas
 {
+    private const int CamposPorReserva = 5;
+
     public static byte[] CodificarResultado(IReadOnlyList<ReservaListada> reservas)
     {
         EscritorDeCampos escritor = new();
@@ -17,7 +19,7 @@ public static class CodecDeConsultaDeReservas
     public static IReadOnlyList<ReservaListada> DecodificarResultado(ReadOnlySpan<byte> datos)
     {
         LectorDeCampos lector = new(datos);
-        int cantidad = lector.LeerCantidad();
+        int cantidad = lector.LeerCantidadDeElementos(CamposPorReserva);
         List<ReservaListada> reservas = new(cantidad);
         for (int i = 0; i < cantidad; i++)
             reservas.Add(LeerReserva(ref lector));
