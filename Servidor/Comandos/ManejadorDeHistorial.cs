@@ -14,6 +14,9 @@ internal sealed class ManejadorDeHistorial : ManejadorAutenticado
         _historialDeUsuario = historialDeUsuario;
     }
 
+    protected override void ValidarSolicitud(SolicitudRecibida solicitud)
+        => solicitud.ExigirDatosVacios();
+
     protected override RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario)
     {
         IReadOnlyList<Actividad> historial = _historialDeUsuario.HistorialDe(usuario);

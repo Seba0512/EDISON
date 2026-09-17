@@ -7,10 +7,15 @@ internal abstract class ManejadorAutenticado : IManejadorDeComando
 {
     public RespuestaDelServidor Responder(SolicitudRecibida solicitud)
     {
+        ValidarSolicitud(solicitud);
         if (!solicitud.Sesion.TieneSesion)
             return RespuestaDelServidor.Rechazo("Debe iniciar sesión para realizar esta operación");
 
         return ResponderAutenticado(solicitud, solicitud.Sesion.UsuarioAutenticado);
+    }
+
+    protected virtual void ValidarSolicitud(SolicitudRecibida solicitud)
+    {
     }
 
     protected abstract RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario);

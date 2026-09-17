@@ -14,6 +14,9 @@ internal sealed class ManejadorDeConsultaDeReservas : ManejadorAutenticado
         _gestionDeReservas = gestionDeReservas;
     }
 
+    protected override void ValidarSolicitud(SolicitudRecibida solicitud)
+        => solicitud.ExigirDatosVacios();
+
     protected override RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario)
     {
         IReadOnlyList<Reserva> reservas = _gestionDeReservas.ReservasDe(usuario);

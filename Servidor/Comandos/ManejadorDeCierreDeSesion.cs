@@ -13,6 +13,9 @@ internal sealed class ManejadorDeCierreDeSesion : ManejadorAutenticado
         _autenticacion = autenticacion;
     }
 
+    protected override void ValidarSolicitud(SolicitudRecibida solicitud)
+        => solicitud.ExigirDatosVacios();
+
     protected override RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario)
     {
         _autenticacion.CerrarSesion(usuario);
