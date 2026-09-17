@@ -3,6 +3,7 @@ using Dominio;
 using Dominio.Excepciones;
 using Dominio.Fachada;
 using Servidor.Repositorios;
+using ComandosDelProtocolo = Common.Protocolo.Comandos;
 
 namespace Servidor.Comandos;
 
@@ -18,46 +19,49 @@ internal sealed class ManejadorDeSubidaDeImagen : IManejadorDeComando
         _repositorioDeImagenes = repositorioDeImagenes;
     }
 
+    // No hereda de ManejadorAutenticado porque el archivo tiene que drenarse del stream antes
+    // de mirar la sesión: si no, el stream queda desincronizado para la próxima trama.
     public RespuestaDelServidor Responder(SolicitudRecibida solicitud)
     {
-        // El archivo se drena del stream antes de decodificar DATOS: si DATOS viene mal formado,
-        // o falta una sesión autenticada, el stream queda sincronizado para la próxima trama.
-        using MemoryStream buffer = new();
-        solicitud.Archivos.RecibirEn(buffer);
+        using MemoryStream archivo = new();
+        solicitud.Archivos.RecibirEn(archivo);
 
         if (!solicitud.Sesion.TieneSesion)
-            return RespuestaDelServidor.Rechazo("Debe iniciar sesión para realizar esta operación");
+            return RespuestaDelServidor.Rechazo(ManejadorAutenticado.SesionRequerida);
 
-        Usuario usuario = solicitud.Sesion.UsuarioAutenticado;
         (string nombreModelo, string nombreArchivoCliente) =
             CodecDeSubidaDeImagen.DecodificarSolicitud(solicitud.Datos.Span);
 
-        buffer.Position = 0;
-        string nombreValidado = NombreDeArchivoSeguro.Validar(nombreArchivoCliente);
-        string extension = Path.GetExtension(nombreValidado);
-
-        string nombreArchivoNuevo = $"{Guid.NewGuid():N}{extension}";
-        string referenciaNueva = _repositorioDeImagenes.Guardar(
-            usuario.NombreUsuario, nombreArchivoNuevo, buffer);
-
-        string nombreArchivoAnterior = CambiarImagen(
-            nombreModelo, referenciaNueva, usuario);
-
-        if (nombreArchivoAnterior.Length > 0)
-            IntentarEliminar(
-                nombreArchivoAnterior,
-                "No se pudo limpiar la imagen reemplazada después del commit");
+        Usuario usuario = solicitud.Sesion.UsuarioAutenticado;
+        archivo.Position = 0;
+        string referenciaNueva = Guardar(usuario, nombreArchivoCliente, archivo);
+        ReemplazarImagen(nombreModelo, referenciaNueva, usuario);
 
         return RespuestaDelServidor.Ok($"Imagen subida para el modelo '{nombreModelo}'");
     }
 
-    private string CambiarImagen(
-        string nombreModelo, string referenciaNueva, Usuario usuario)
+    private string Guardar(Usuario usuario, string nombreArchivoCliente, Stream contenido)
+    {
+        string extension = Path.GetExtension(NombreDeArchivoSeguro.Validar(nombreArchivoCliente));
+        string nombreArchivoNuevo = $"{Guid.NewGuid():N}{extension}";
+
+        return _repositorioDeImagenes.Guardar(usuario.NombreUsuario, nombreArchivoNuevo, contenido);
+    }
+
+    private void ReemplazarImagen(string nombreModelo, string referenciaNueva, Usuario usuario)
+    {
+        string nombreArchivoAnterior = CambiarImagen(nombreModelo, referenciaNueva, usuario);
+        if (nombreArchivoAnterior.Length > 0)
+            IntentarEliminar(
+                nombreArchivoAnterior,
+                "No se pudo limpiar la imagen reemplazada después del commit");
+    }
+
+    private string CambiarImagen(string nombreModelo, string referenciaNueva, Usuario usuario)
     {
         try
         {
-            return _catalogoDeModelos.CambiarImagenDeModelo(
-                nombreModelo, referenciaNueva, usuario);
+            return _catalogoDeModelos.CambiarImagenDeModelo(nombreModelo, referenciaNueva, usuario);
         }
         catch (DominioException)
         {
@@ -76,19 +80,8 @@ internal sealed class ManejadorDeSubidaDeImagen : IManejadorDeComando
         }
         catch (ErrorDeAlmacenamientoDeImagenException exception)
         {
-            InformarFallaDeCleanup($"[CMD 15] {mensaje} '{nombreArchivo}': {exception}");
-        }
-    }
-
-    private static void InformarFallaDeCleanup(string mensaje)
-    {
-        try
-        {
-            Console.Error.WriteLine(mensaje);
-        }
-        catch (Exception exception) when (exception is IOException or ObjectDisposedException)
-        {
-            // Una salida de diagnóstico no disponible no puede cambiar un commit ya realizado.
+            DiagnosticoDeLimpieza.Informar(
+                $"[CMD {ComandosDelProtocolo.SubirImagen:D2}] {mensaje} '{nombreArchivo}': {exception}");
         }
     }
 }

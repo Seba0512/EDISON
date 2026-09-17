@@ -9,13 +9,6 @@ internal static class NombreDeArchivoSeguro
     private static readonly StringComparison ComparacionDeRutas =
         OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
-    private static readonly HashSet<string> NombresReservados = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "CON", "PRN", "AUX", "NUL",
-        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
-    };
-
     public static string Validar(string nombrePropuesto)
     {
         string nombre = (nombrePropuesto ?? string.Empty).Trim();
@@ -25,7 +18,7 @@ internal static class NombreDeArchivoSeguro
             throw new ProtocoloException("Se esperaba un nombre de archivo sin directorios");
 
         string nombreSinExtension = Path.GetFileNameWithoutExtension(nombre);
-        if (NombresReservados.Contains(nombreSinExtension))
+        if (NombresReservadosDelSistema.Contiene(nombreSinExtension))
             throw new ProtocoloException($"'{nombre}' es un nombre de archivo reservado");
 
         string extension = Path.GetExtension(nombre).ToLowerInvariant();

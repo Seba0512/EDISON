@@ -7,20 +7,13 @@ internal static class NombreDeDirectorioDeUsuario
 {
     private static readonly HashSet<char> CaracteresInvalidos =
         new("<>:\"/\\|?*".Concat(Enumerable.Range(0, 32).Select(valor => (char)valor)));
-    private static readonly HashSet<string> NombresReservados = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "CON", "PRN", "AUX", "NUL",
-        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
-    };
-
     public static string Crear(string nombreUsuario)
     {
         string nombreNormalizado = (nombreUsuario ?? string.Empty).Trim().ToLowerInvariant();
         if (nombreNormalizado.Length == 0)
             throw new ProtocoloException("No se puede crear una carpeta para un usuario vacío");
 
-        return Codificar(nombreNormalizado, EsNombreReservado(nombreNormalizado));
+        return Codificar(nombreNormalizado, NombresReservadosDelSistema.EsReservado(nombreNormalizado));
     }
 
     public static string Validar(string nombreDirectorio)
@@ -30,7 +23,7 @@ internal static class NombreDeDirectorioDeUsuario
             throw new ProtocoloException("La referencia interna contiene una carpeta inválida");
         if (nombre.Any(CaracteresInvalidos.Contains) || nombre.EndsWith('.') || nombre.EndsWith(' '))
             throw new ProtocoloException("La referencia interna contiene una carpeta inválida");
-        if (EsNombreReservado(nombre))
+        if (NombresReservadosDelSistema.EsReservado(nombre))
             throw new ProtocoloException("La referencia interna contiene una carpeta reservada");
 
         return nombre;
@@ -55,9 +48,4 @@ internal static class NombreDeDirectorioDeUsuario
         return resultado.ToString();
     }
 
-    private static bool EsNombreReservado(string nombre)
-    {
-        string nombreBase = nombre.Split('.')[0].TrimEnd(' ');
-        return NombresReservados.Contains(nombreBase);
-    }
 }
