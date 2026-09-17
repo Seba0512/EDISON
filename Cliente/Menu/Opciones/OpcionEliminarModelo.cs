@@ -1,4 +1,5 @@
 using Cliente.Operaciones;
+using Cliente.Vistas;
 
 namespace Cliente.Menu.Opciones;
 
@@ -20,6 +21,6 @@ internal sealed class OpcionEliminarModelo : IOpcionDeMenu
         if (nombreModelo is null)
             return;
 
-        Console.WriteLine(_bajaDeModeloRemota.Ejecutar(nombreModelo));
+        Consola.Exito(_bajaDeModeloRemota.Ejecutar(nombreModelo));
     }
 }

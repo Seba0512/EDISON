@@ -1,4 +1,5 @@
 using Cliente.Operaciones;
+using Cliente.Vistas;
 using Common.Protocolo.Vistas;
 
 namespace Cliente.Menu.Opciones;
@@ -48,7 +49,7 @@ internal sealed class OpcionModificarModelo : IOpcionDeMenu
 
         DatosDeAltaDeModelo datos = new(
             nombre, descripcion ?? string.Empty, precio.Value, fechaEntregaPrometida.Value, stock.Value);
-        Console.WriteLine(_modificacionDeModeloRemota.Ejecutar(datos));
+        Consola.Exito(_modificacionDeModeloRemota.Ejecutar(datos));
 
         if (rutaImagen is not null)
             _ofertaDeSubidaDeImagen.Subir(datos.Nombre, rutaImagen);

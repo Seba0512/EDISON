@@ -1,6 +1,7 @@
 using System.Configuration;
 using System.Net.Sockets;
 using Cliente.Excepciones;
+using Cliente.Vistas;
 using Common.Excepciones;
 
 namespace Cliente;
@@ -18,31 +19,31 @@ internal static class Program
         }
         catch (ConfigurationErrorsException exception)
         {
-            Console.Error.WriteLine($"Configuración inválida: {exception.Message}");
+            Consola.ErrorFatal($"Configuración inválida: {exception.Message}");
         }
         catch (ConexionCerradaException exception)
         {
-            Console.Error.WriteLine(exception.Message);
+            Consola.ErrorFatal(exception.Message);
         }
         catch (ErrorInternoDelServidorException exception)
         {
-            Console.Error.WriteLine($"Error interno del servidor: {exception.Message}");
+            Consola.ErrorFatal($"Error interno del servidor: {exception.Message}");
         }
         catch (ProtocoloException exception)
         {
-            Console.Error.WriteLine($"Error de protocolo: {exception.Message}");
+            Consola.ErrorFatal($"Error de protocolo: {exception.Message}");
         }
         catch (TransferenciaDeArchivoException exception)
         {
-            Console.Error.WriteLine($"Falló la transferencia del archivo: {exception.Message}");
+            Consola.ErrorFatal($"Falló la transferencia del archivo: {exception.Message}");
         }
         catch (SocketException exception)
         {
-            Console.Error.WriteLine($"Error de conexión: {exception.Message}");
+            Consola.ErrorFatal($"Error de conexión: {exception.Message}");
         }
         catch (IOException exception)
         {
-            Console.Error.WriteLine($"La comunicación terminó: {exception.Message}");
+            Consola.ErrorFatal($"La comunicación terminó: {exception.Message}");
         }
 
         return 1;
@@ -83,17 +84,18 @@ internal static class Program
                new(conexion.DownloadsDirectory))
         {
             conexion.ConexionPerdida += AlPerderConexion;
-            Console.WriteLine($"Conectado a {configuracion.Endpoint}");
+            Consola.Titulo("Sistema de Modelos y Reservas");
+            Consola.Exito($"Conectado a {configuracion.Endpoint}");
             AplicacionCliente.Ejecutar(conexion, descargas);
         }
     }
 
     private static bool ElegirSiReintentar()
     {
-        Console.WriteLine("No fue posible conectarse al servidor.");
+        Consola.Error("No fue posible conectarse al servidor.");
         Console.WriteLine();
-        Console.WriteLine("[Enter] Reintentar");
-        Console.WriteLine("[S] Salir");
+        Consola.Info("[Enter] Reintentar");
+        Consola.Info("[S] Salir");
 
         while (true)
         {
@@ -103,7 +105,7 @@ internal static class Program
             if (entrada.Length == 0)
                 return true;
 
-            Console.WriteLine("Opción inválida. Presione Enter para reintentar o escriba S para salir.");
+            Consola.Error("Opción inválida. Presione Enter para reintentar o escriba S para salir.");
         }
     }
 
@@ -112,7 +114,7 @@ internal static class Program
     private static void AlPerderConexion()
     {
         Console.Error.WriteLine();
-        Console.Error.WriteLine("Se perdió la conexión con el servidor.");
+        Consola.ErrorFatal("Se perdió la conexión con el servidor.");
         Environment.Exit(1);
     }
 }

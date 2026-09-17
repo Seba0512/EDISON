@@ -1,4 +1,5 @@
 using Cliente.Operaciones;
+using Cliente.Vistas;
 
 namespace Cliente.Menu.Opciones;
 
@@ -31,7 +32,7 @@ internal sealed class OfertaDeSubidaDeImagen
         rutaArchivo = SinComillas(rutaArchivo);
         if (!File.Exists(rutaArchivo))
         {
-            Console.WriteLine($"No se encontró el archivo '{rutaArchivo}'.");
+            Consola.Error($"No se encontró el archivo '{rutaArchivo}'.");
             return null;
         }
 
@@ -45,5 +46,5 @@ internal sealed class OfertaDeSubidaDeImagen
             : ruta;
 
     public void Subir(string nombreModelo, string rutaArchivo)
-        => Console.WriteLine(_subidaDeImagenRemota.Ejecutar(nombreModelo, rutaArchivo));
+        => Consola.Exito(_subidaDeImagenRemota.Ejecutar(nombreModelo, rutaArchivo));
 }

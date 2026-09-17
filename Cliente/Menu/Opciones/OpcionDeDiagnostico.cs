@@ -1,3 +1,5 @@
+using Cliente.Vistas;
+
 namespace Cliente.Menu.Opciones;
 
 internal sealed class OpcionDeDiagnostico : IOpcionDeMenu
@@ -18,6 +20,6 @@ internal sealed class OpcionDeDiagnostico : IOpcionDeMenu
         if (texto is null)
             return;
 
-        Console.WriteLine(_conexion.EnviarDiagnostico(texto));
+        Consola.Exito(_conexion.EnviarDiagnostico(texto));
     }
 }

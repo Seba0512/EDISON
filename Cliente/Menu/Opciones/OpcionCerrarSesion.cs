@@ -1,3 +1,5 @@
+using Cliente.Vistas;
+
 namespace Cliente.Menu.Opciones;
 
 internal sealed class OpcionCerrarSesion : IOpcionDeMenu
@@ -16,7 +18,7 @@ internal sealed class OpcionCerrarSesion : IOpcionDeMenu
 
     public void Ejecutar()
     {
-        Console.WriteLine(_conexion.CerrarSesion());
+        Consola.Exito(_conexion.CerrarSesion());
         _estado.IrAAnonimo();
     }
 }

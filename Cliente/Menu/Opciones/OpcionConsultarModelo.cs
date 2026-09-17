@@ -43,7 +43,7 @@ internal sealed class OpcionConsultarModelo : IOpcionDeMenu
         if (!LectorDeConsola.Confirmar("¿Desea descargar la imagen? (s/n):"))
             return;
 
-        Console.WriteLine(_descargaDeImagenRemota.Ejecutar(
+        Consola.Exito(_descargaDeImagenRemota.Ejecutar(
             nombreModelo, _estado.NombreUsuarioAutenticado));
     }
 }

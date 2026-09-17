@@ -1,5 +1,6 @@
 using Cliente.Excepciones;
 using Cliente.Menu;
+using Cliente.Vistas;
 
 namespace Cliente;
 
@@ -29,7 +30,7 @@ internal static class AplicacionCliente
             }
             catch (OperacionRechazadaException exception)
             {
-                Console.WriteLine(exception.Message);
+                Consola.Error(exception.Message);
             }
 
             if (estado.SeguirEjecutando && requierePausa)

@@ -1,3 +1,4 @@
+using Cliente.Vistas;
 using Common.Protocolo;
 
 namespace Cliente.Menu.Opciones;
@@ -20,6 +21,6 @@ internal sealed class OpcionRegistrarse : IOpcionDeMenu
         if (credenciales is null)
             return;
 
-        Console.WriteLine(_conexion.Registrar(credenciales.Value));
+        Consola.Exito(_conexion.Registrar(credenciales.Value));
     }
 }

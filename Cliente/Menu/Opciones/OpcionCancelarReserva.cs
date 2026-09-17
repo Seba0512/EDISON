@@ -29,6 +29,6 @@ internal sealed class OpcionCancelarReserva : IOpcionDeMenu
         if (idReserva is null)
             return;
 
-        Console.WriteLine(_cancelacionDeReservaRemota.Ejecutar(idReserva.Value));
+        Consola.Exito(_cancelacionDeReservaRemota.Ejecutar(idReserva.Value));
     }
 }

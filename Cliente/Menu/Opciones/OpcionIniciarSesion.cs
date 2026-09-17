@@ -1,3 +1,4 @@
+using Cliente.Vistas;
 using Common.Protocolo;
 
 namespace Cliente.Menu.Opciones;
@@ -25,7 +26,7 @@ internal sealed class OpcionIniciarSesion : IOpcionDeMenu
         if (credenciales is null)
             return;
 
-        Console.WriteLine(_conexion.IniciarSesion(credenciales.Value));
+        Consola.Exito(_conexion.IniciarSesion(credenciales.Value));
         _estado.IrAAutenticado(credenciales.Value.NombreUsuario);
     }
 }

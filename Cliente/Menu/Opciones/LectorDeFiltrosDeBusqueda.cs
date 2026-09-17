@@ -1,3 +1,4 @@
+using Cliente.Vistas;
 using Common.Excepciones;
 using Common.Protocolo;
 using Common.Protocolo.Vistas;
@@ -52,7 +53,7 @@ internal sealed class LectorDeFiltrosDeBusqueda
             }
             catch (ProtocoloException excepcion)
             {
-                Console.WriteLine(excepcion.Message);
+                Consola.Error(excepcion.Message);
             }
         }
     }
@@ -80,7 +81,7 @@ internal sealed class LectorDeFiltrosDeBusqueda
             }
             catch (ProtocoloException excepcion)
             {
-                Console.WriteLine(excepcion.Message);
+                Consola.Error(excepcion.Message);
             }
         }
     }
@@ -108,7 +109,7 @@ internal sealed class LectorDeFiltrosDeBusqueda
             }
             catch (ProtocoloException excepcion)
             {
-                Console.WriteLine(excepcion.Message);
+                Consola.Error(excepcion.Message);
             }
         }
     }
