@@ -42,31 +42,14 @@ public sealed class CodecDeTramas
 
     private string LeerHeader(Stream stream)
     {
-        byte[] bytes = LeerInicioDeTrama(stream);
+        Campo campo = new(ConstantesDelProtocolo.LargoHeader, "HEADER");
+        byte[] bytes = LeerExactamente(stream, campo, esInicioDeTrama: true);
         string header = Encoding.ASCII.GetString(bytes);
         if (header is not ConstantesDelProtocolo.Solicitud
             and not ConstantesDelProtocolo.Respuesta)
             throw new ProtocoloException($"HEADER inválido: '{header}'");
 
         return header;
-    }
-
-    private static byte[] LeerInicioDeTrama(Stream stream)
-    {
-        byte[] buffer = new byte[ConstantesDelProtocolo.LargoHeader];
-        int offset = 0;
-        while (offset < buffer.Length)
-        {
-            int recibidos = stream.Read(buffer, offset, buffer.Length - offset);
-            // Si llegan cero bytes antes de empezar, el otro lado cerró bien. A mitad de trama, quedó cortada.
-            if (recibidos == 0 && offset == 0)
-                throw new ConexionCerradaException();
-            if (recibidos == 0)
-                throw new TramaTruncadaException("HEADER");
-            offset += recibidos;
-        }
-
-        return buffer;
     }
 
     private static int LeerComando(Stream stream)
@@ -89,7 +72,7 @@ public sealed class CodecDeTramas
         return largo;
     }
 
-    private static byte[] LeerExactamente(Stream stream, Campo campo)
+    private static byte[] LeerExactamente(Stream stream, Campo campo, bool esInicioDeTrama = false)
     {
         byte[] buffer = new byte[campo.Largo];
         int offset = 0;
@@ -98,7 +81,14 @@ public sealed class CodecDeTramas
         {
             int recibidos = stream.Read(buffer, offset, campo.Largo - offset);
             if (recibidos == 0)
-                throw new TramaTruncadaException(campo.Nombre);
+            {
+                // Cero bytes antes de empezar la trama es un cierre ordenado del otro lado.
+                // Cero bytes a mitad de camino significa que la trama quedó cortada.
+                throw esInicioDeTrama && offset == 0
+                    ? new ConexionCerradaException()
+                    : new TramaTruncadaException(campo.Nombre);
+            }
+
             offset += recibidos;
         }
 
@@ -131,23 +121,20 @@ public sealed class CodecDeTramas
     }
 
     private void ExigirLargoAdmitido(int largo)
-    {
-        if (largo < 0)
-            throw new ProtocoloException("LARGO no puede ser negativo");
-        if (largo > _maxPayloadBytes)
-            throw new ProtocoloException(
-                $"LARGO {largo} supera el máximo admitido {_maxPayloadBytes}");
-    }
+        => ExigirLargoAdmitido(largo, mensaje => new ProtocoloException(mensaje));
 
     // Al escribir (por ejemplo, una respuesta de historial/búsqueda demasiado grande) nada se envió
-    // aún, así que quien llama puede recuperarse enviando un error en su lugar en vez de cortar la conexión.
+    // aún, así que quien llama puede recuperarse enviando un error en su lugar en vez de cortar la
+    // conexión. Por eso el exceso al escribir usa una excepción propia, distinguible de la de lectura.
     private void ExigirLargoAdmitidoEnEscritura(int largo)
+        => ExigirLargoAdmitido(largo, mensaje => new PayloadDemasiadoGrandeException(mensaje));
+
+    private void ExigirLargoAdmitido(int largo, Func<string, ProtocoloException> comoExcepcion)
     {
         if (largo < 0)
             throw new ProtocoloException("LARGO no puede ser negativo");
         if (largo > _maxPayloadBytes)
-            throw new PayloadDemasiadoGrandeException(
-                $"LARGO {largo} supera el máximo admitido {_maxPayloadBytes}");
+            throw comoExcepcion($"LARGO {largo} supera el máximo admitido {_maxPayloadBytes}");
     }
 
     private static bool EsDigito(byte valor)

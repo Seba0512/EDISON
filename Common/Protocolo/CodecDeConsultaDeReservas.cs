@@ -9,7 +9,7 @@ public static class CodecDeConsultaDeReservas
     public static byte[] CodificarResultado(IReadOnlyList<ReservaListada> reservas)
     {
         EscritorDeCampos escritor = new();
-        escritor.EscribirCantidad(reservas.Count);
+        escritor.EscribirEntero(reservas.Count);
         foreach (ReservaListada reserva in reservas)
             EscribirReserva(escritor, reserva);
 

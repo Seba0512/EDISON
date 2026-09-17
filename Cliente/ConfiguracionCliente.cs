@@ -1,4 +1,3 @@
-using System.Configuration;
 using System.Net;
 using Common;
 
@@ -18,49 +17,15 @@ internal sealed class ConfiguracionCliente
 
     public static ConfiguracionCliente Cargar()
     {
-        int maxPayload = ConfigManager.LeerEntero("maxPayloadBytes");
-        if (maxPayload <= 0)
-            throw new ConfigurationErrorsException(
-                "La clave 'maxPayloadBytes' debe ser mayor que cero");
-
         return new ConfiguracionCliente
         {
-            ClientIp = LeerDireccion("clientIp"),
-            ServerIp = LeerDireccion("serverIp"),
-            ServerPort = ExigirPuerto(ConfigManager.LeerEntero("serverPort")),
-            MaxPayloadBytes = maxPayload,
-            DownloadsDirectory = ConfigManager.Leer("downloadsDirectory"),
-            MaxFileBytes = ExigirPositivo("maxFileBytes"),
-            FileBlockBytes = ExigirPositivo("fileBlockBytes")
+            ClientIp = ConfiguracionDeLaAplicacion.LeerDireccion("clientIp"),
+            ServerIp = ConfiguracionDeLaAplicacion.LeerDireccion("serverIp"),
+            ServerPort = ConfiguracionDeLaAplicacion.LeerPuerto("serverPort"),
+            MaxPayloadBytes = ConfiguracionDeLaAplicacion.LeerPositivo("maxPayloadBytes"),
+            DownloadsDirectory = ConfiguracionDeLaAplicacion.Leer("downloadsDirectory"),
+            MaxFileBytes = ConfiguracionDeLaAplicacion.LeerPositivo("maxFileBytes"),
+            FileBlockBytes = ConfiguracionDeLaAplicacion.LeerPositivo("fileBlockBytes")
         };
-    }
-
-    private static IPAddress LeerDireccion(string clave)
-    {
-        string valor = ConfigManager.Leer(clave);
-        if (IPAddress.TryParse(valor, out IPAddress? direccion))
-            return direccion;
-
-        throw new ConfigurationErrorsException(
-            $"La clave '{clave}' debe contener una dirección IP válida");
-    }
-
-    private static int ExigirPuerto(int puerto)
-    {
-        if (puerto is > IPEndPoint.MinPort and <= IPEndPoint.MaxPort)
-            return puerto;
-
-        throw new ConfigurationErrorsException(
-            "La clave 'serverPort' debe estar entre 1 y 65535");
-    }
-
-    private static int ExigirPositivo(string clave)
-    {
-        int valor = ConfigManager.LeerEntero(clave);
-        if (valor > 0)
-            return valor;
-
-        throw new ConfigurationErrorsException(
-            $"La clave '{clave}' debe ser mayor que cero");
     }
 }

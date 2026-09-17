@@ -11,7 +11,7 @@ public static class CodecDeDatosDeModelo
         escritor.EscribirCampo(datos.Descripcion);
         escritor.EscribirDecimal(datos.Precio);
         escritor.EscribirFecha(datos.FechaEntregaPrometida);
-        escritor.EscribirCantidad(datos.Stock);
+        escritor.EscribirEntero(datos.Stock);
         return escritor.ObtenerBytes();
     }
 
@@ -22,7 +22,7 @@ public static class CodecDeDatosDeModelo
         string descripcion = lector.LeerCampo();
         decimal precio = lector.LeerDecimal();
         DateTime fechaEntregaPrometida = lector.LeerFecha();
-        int stock = lector.LeerCantidad();
+        int stock = lector.LeerEntero();
         lector.ExigirFinDePayload();
         return new DatosDeAltaDeModelo(nombre, descripcion, precio, fechaEntregaPrometida, stock);
     }

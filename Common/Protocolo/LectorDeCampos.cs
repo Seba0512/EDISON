@@ -44,15 +44,12 @@ public ref struct LectorDeCampos
     public Guid LeerGuid()
         => FormatoDeCampos.AGuid(LeerCampo());
 
-    public int LeerCantidad()
-        => LeerEntero();
-
     public int LeerCantidadDeElementos(int camposPorElemento)
     {
         if (camposPorElemento <= 0)
             throw new ArgumentOutOfRangeException(nameof(camposPorElemento));
 
-        int cantidad = LeerCantidad();
+        int cantidad = LeerEntero();
         ExigirCantidadNoNegativa(cantidad);
         ExigirCantidadCompatibleConPayload(cantidad, camposPorElemento);
         return cantidad;
