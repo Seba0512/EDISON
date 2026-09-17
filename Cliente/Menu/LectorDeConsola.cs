@@ -155,11 +155,26 @@ internal static class LectorDeConsola
         if (nombreUsuario is null)
             return null;
 
-        string? clave = LeerTexto("Clave:");
+        string? clave = LeerClave("Clave:");
         if (clave is null)
             return null;
 
         Console.WriteLine();
         return new Credenciales(nombreUsuario, clave);
+    }
+
+    private static string? LeerClave(string mensaje)
+    {
+        Console.WriteLine(mensaje);
+        while (true)
+        {
+            string? clave = LeerLinea();
+            if (clave is null)
+                return null;
+            if (!string.IsNullOrWhiteSpace(clave))
+                return clave;
+
+            Console.WriteLine("La clave no puede estar vacía.");
+        }
     }
 }
