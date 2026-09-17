@@ -11,6 +11,7 @@ public class CicloDeVidaModeloConcurrenteTests
     private const string Clave = "edison2026";
     private const string ImagenVigente = "edison-vieja.png";
     private const string ImagenNueva = "edison-nueva.png";
+    private const string ImagenAlternativa = "edison-alternativa.png";
     private const int EsperaDeOperacionEnMilisegundos = 1000;
     private const int EsperaDeHiloEnMilisegundos = 5000;
 
@@ -114,7 +115,7 @@ public class CicloDeVidaModeloConcurrenteTests
     }
 
     [TestMethod]
-    public void EliminarYModificarImagenEnParaleloUsanLaMismaVersion()
+    public void EliminarYModificarDatosEnParaleloConservanLaImagenVigente()
     {
         AlmacenDeImagenesFalso almacen = new AlmacenDeImagenesFalso();
         CatalogoDeModelos catalogoConImagen = PrepararModeloConImagen(almacen);
@@ -126,13 +127,12 @@ public class CicloDeVidaModeloConcurrenteTests
 
         Assert.IsTrue(resultado.Primera.Completo);
         Assert.IsFalse(modelos.Existe(NombreModelo));
-        string imagenEsperada = resultado.Segunda.Completo ? ImagenNueva : ImagenVigente;
-        CollectionAssert.AreEqual(new[] { imagenEsperada }, almacen.Borrados.ToArray());
-        Assert.ThrowsException<DominioException>(() => modelo.Modificar(cambios, creadora));
+        CollectionAssert.AreEqual(new[] { ImagenVigente }, almacen.Borrados.ToArray());
+        Assert.ThrowsException<DominioException>(() => modelo.ModificarDatos(cambios, creadora));
     }
 
     [TestMethod]
-    public void SiModificarImagenGanaLaBajaEliminaLaImagenNueva()
+    public void SiCambiarImagenGanaLaBajaEliminaLaImagenNueva()
     {
         AlmacenDeImagenesFalso almacen = new AlmacenDeImagenesFalso();
         CatalogoDeModelos catalogoConImagen = PrepararModeloConImagen(almacen);
@@ -147,8 +147,8 @@ public class CicloDeVidaModeloConcurrenteTests
             catalogoConImagen.EliminarModelo(NombreModelo, creadora);
         }));
         Thread hiloDeModificacion = new Thread(() => modificacion.Ejecutar(
-            () => catalogoConImagen.ModificarModelo(
-                Ficha("Modificado", 39990m, ImagenNueva), creadora)));
+            () => catalogoConImagen.CambiarImagenDeModelo(
+                NombreModelo, ImagenNueva, creadora)));
 
         hiloDeBaja.Start();
         Assert.IsTrue(bajaIniciada.Wait(EsperaDeHiloEnMilisegundos));
@@ -162,6 +162,78 @@ public class CicloDeVidaModeloConcurrenteTests
         Assert.IsTrue(modificacion.Completo);
         Assert.IsTrue(baja.Completo);
         CollectionAssert.AreEqual(new[] { ImagenNueva }, almacen.Borrados.ToArray());
+    }
+
+    [TestMethod]
+    public void Cmd11PreparadoAntesDeCmd15NoRestauraLaImagenAnterior()
+    {
+        modelo.CambiarImagen(creadora, ImagenVigente);
+        FichaDeModelo cambiosCapturados = Ficha("Modificado", 39990m, ImagenVigente);
+        using ManualResetEventSlim cmd11Preparado = new(false);
+        using ManualResetEventSlim imagenCambiada = new(false);
+        EjecucionDeHilo modificacion = new EjecucionDeHilo();
+        Thread hiloCmd11 = new Thread(() => modificacion.Ejecutar(() =>
+        {
+            cmd11Preparado.Set();
+            EsperarSenal(imagenCambiada);
+            modelo.ModificarDatos(cambiosCapturados, creadora);
+        }));
+
+        hiloCmd11.Start();
+        Assert.IsTrue(cmd11Preparado.Wait(EsperaDeHiloEnMilisegundos));
+        modelo.CambiarImagen(creadora, ImagenNueva);
+        imagenCambiada.Set();
+
+        Assert.IsTrue(hiloCmd11.Join(EsperaDeHiloEnMilisegundos));
+        Assert.IsTrue(modificacion.Completo);
+        Assert.AreEqual(ImagenNueva, modelo.NombreArchivoImagen);
+        Assert.AreEqual("Modificado", modelo.Descripcion);
+        Assert.AreEqual(39990m, modelo.Precio);
+    }
+
+    [TestMethod]
+    public void Cmd15PreparadoAntesDeCmd11NoRestauraLosDatosAnteriores()
+    {
+        modelo.CambiarImagen(creadora, ImagenVigente);
+        using ManualResetEventSlim cmd15Preparado = new(false);
+        using ManualResetEventSlim datosModificados = new(false);
+        EjecucionDeHilo subida = new EjecucionDeHilo();
+        Thread hiloCmd15 = new Thread(() => subida.Ejecutar(() =>
+        {
+            cmd15Preparado.Set();
+            EsperarSenal(datosModificados);
+            modelo.CambiarImagen(creadora, ImagenNueva);
+        }));
+
+        hiloCmd15.Start();
+        Assert.IsTrue(cmd15Preparado.Wait(EsperaDeHiloEnMilisegundos));
+        modelo.ModificarDatos(Ficha("Modificado", 39990m), creadora);
+        datosModificados.Set();
+
+        Assert.IsTrue(hiloCmd15.Join(EsperaDeHiloEnMilisegundos));
+        Assert.IsTrue(subida.Completo);
+        Assert.AreEqual(ImagenNueva, modelo.NombreArchivoImagen);
+        Assert.AreEqual("Modificado", modelo.Descripcion);
+        Assert.AreEqual(39990m, modelo.Precio);
+    }
+
+    [TestMethod]
+    public void DosCambiosDeImagenDevuelvenExactamenteLasImagenesSustituidas()
+    {
+        modelo.CambiarImagen(creadora, ImagenVigente);
+        string anteriorPrimera = string.Empty;
+        string anteriorSegunda = string.Empty;
+
+        var resultado = EjecutarEnParalelo(
+            () => anteriorPrimera = modelo.CambiarImagen(creadora, ImagenNueva),
+            () => anteriorSegunda = modelo.CambiarImagen(creadora, ImagenAlternativa));
+
+        Assert.AreEqual(2, CantidadDeExitos(resultado));
+        string vigente = modelo.NombreArchivoImagen;
+        string sustituida = vigente == ImagenNueva ? ImagenAlternativa : ImagenNueva;
+        CollectionAssert.AreEquivalent(
+            new[] { ImagenVigente, sustituida },
+            new[] { anteriorPrimera, anteriorSegunda });
     }
 
     [TestMethod]
@@ -211,7 +283,7 @@ public class CicloDeVidaModeloConcurrenteTests
         EjecucionDeHilo modificacion = new EjecucionDeHilo();
         Thread hiloDeModificacion = new Thread(
             () => modificacion.Ejecutar(
-                () => modelo.Modificar(Ficha("Modificado", 39990m, ImagenNueva), creadora)));
+                () => modelo.ModificarDatos(Ficha("Modificado", 39990m, ImagenNueva), creadora)));
         hiloDeModificacion.Start();
 
         bool modificacionTermino = hiloDeModificacion.Join(EsperaDeOperacionEnMilisegundos);

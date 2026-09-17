@@ -155,13 +155,14 @@ public class Modelo : IVehiculoBuscable
         }
     }
 
-    public void Modificar(FichaDeModelo ficha, Usuario solicitante)
+    public void ModificarDatos(FichaDeModelo ficha, Usuario solicitante)
     {
         lock (candado)
         {
             ValidarModificacion(ficha, solicitante);
             stock.AjustarA(ficha.Stock);
-            datos = ficha.Datos;
+            // La imagen no forma parte de esta operación y se conserva desde el estado protegido.
+            datos = DatosModificadosConImagenVigente(ficha.Datos);
         }
     }
 
@@ -193,6 +194,16 @@ public class Modelo : IVehiculoBuscable
         ExigirMismoNombre(ficha.Datos);
         ExigirDisponibleOStockEnAumento(ficha.Stock);
         ExigirStockSuperiorAReservasActivas(ficha.Stock);
+    }
+
+    private DatosDeModelo DatosModificadosConImagenVigente(DatosDeModelo datosNuevos)
+    {
+        return new DatosDeModelo(
+            datosNuevos.Nombre,
+            datosNuevos.Descripcion,
+            datosNuevos.Precio,
+            datosNuevos.FechaEntregaPrometida,
+            datos.NombreArchivoImagen);
     }
 
     public int ReservasActivas()

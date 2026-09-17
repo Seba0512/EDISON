@@ -17,14 +17,12 @@ internal sealed class ManejadorDeModificacionDeModelo : ManejadorAutenticado
     protected override RespuestaDelServidor ResponderAutenticado(SolicitudRecibida solicitud, Usuario usuario)
     {
         DatosDeAltaDeModelo datos = CodecDeDatosDeModelo.Decodificar(solicitud.Datos.Span);
-        // El pedido de modificación no trae imagen, así que se consulta el modelo actual para conservarla.
-        Modelo modeloVigente = _catalogoDeModelos.Consultar(datos.Nombre);
         DatosDeModelo datosDeModelo = new(
             datos.Nombre,
             datos.Descripcion,
             datos.Precio,
             datos.FechaEntregaPrometida,
-            modeloVigente.NombreArchivoImagen);
+            string.Empty);
         FichaDeModelo ficha = new(datosDeModelo, datos.Stock);
 
         _catalogoDeModelos.ModificarModelo(ficha, usuario);

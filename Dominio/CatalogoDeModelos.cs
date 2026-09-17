@@ -34,12 +34,12 @@ public class CatalogoDeModelos : ICatalogoDeModelos
     public void ModificarModelo(FichaDeModelo ficha, Usuario solicitante)
     {
         Modelo modelo = modelos.ObtenerPorNombre(ficha.Nombre);
-        // Solo se exige futura si la fecha efectivamente cambió: así no se rompe la subida de imagen
-        // (que reusa la fecha almacenada) ni la edición tardía de otros campos de un modelo ya vencido.
+        // Solo se exige futura si la fecha efectivamente cambió, para permitir la edición tardía
+        // de otros campos de un modelo cuya fecha ya venció.
         if (ficha.Datos.FechaEntregaPrometida.Date != modelo.FechaEntregaPrometida.Date)
             ExigirFechaDeEntregaFutura(ficha.Datos.FechaEntregaPrometida);
 
-        modelo.Modificar(ficha, solicitante);
+        modelo.ModificarDatos(ficha, solicitante);
 
         solicitante.Registrar(Actividad.ModeloModificado(ficha.Nombre, reloj));
     }

@@ -108,7 +108,7 @@ public class ModeloTests
     [TestMethod]
     public void ModificarAplicaDatosYStockComoUnaOperacionCompleta()
     {
-        modelo.Modificar(new FichaDeModelo(DatosModificados(), StockInicial + 2), creadora);
+        modelo.ModificarDatos(new FichaDeModelo(DatosModificados(), StockInicial + 2), creadora);
 
         Assert.AreEqual("Sedan electrico renovado", modelo.Descripcion);
         Assert.AreEqual(39990m, modelo.Precio);
@@ -122,7 +122,7 @@ public class ModeloTests
         ReservaRegistrada();
 
         Assert.ThrowsException<DominioException>(
-            () => modelo.Modificar(new FichaDeModelo(DatosModificados(), 1), creadora));
+            () => modelo.ModificarDatos(new FichaDeModelo(DatosModificados(), 1), creadora));
 
         Assert.AreEqual("Sedan electrico", modelo.Descripcion);
         Assert.AreEqual(45000m, modelo.Precio);
@@ -136,7 +136,7 @@ public class ModeloTests
         DatosDeModelo otroNombre = DatosCon("Edison X2", 39990m);
 
         Assert.ThrowsException<DominioException>(
-            () => modelo.Modificar(new FichaDeModelo(otroNombre, StockInicial + 2), creadora));
+            () => modelo.ModificarDatos(new FichaDeModelo(otroNombre, StockInicial + 2), creadora));
 
         Assert.AreEqual(NombreModelo, modelo.Nombre);
         Assert.AreEqual("Sedan electrico", modelo.Descripcion);
@@ -151,7 +151,7 @@ public class ModeloTests
         ReservaConfirmada();
 
         Assert.ThrowsException<DominioException>(
-            () => modelo.Modificar(new FichaDeModelo(DatosModificados(), 2), creadora));
+            () => modelo.ModificarDatos(new FichaDeModelo(DatosModificados(), 2), creadora));
 
         Assert.AreEqual(StockInicial, modelo.StockTotal);
         Assert.AreEqual(2, modelo.ReservasActivas());
@@ -166,7 +166,7 @@ public class ModeloTests
         }
 
         Assert.ThrowsException<DominioException>(
-            () => modelo.Modificar(new FichaDeModelo(DatosModificados(), StockInicial), creadora));
+            () => modelo.ModificarDatos(new FichaDeModelo(DatosModificados(), StockInicial), creadora));
 
         Assert.AreEqual("Sedan electrico", modelo.Descripcion);
         Assert.AreEqual(StockInicial, modelo.StockTotal);
@@ -181,7 +181,7 @@ public class ModeloTests
             ReservaConfirmada();
         }
 
-        modelo.Modificar(new FichaDeModelo(DatosModificados(), StockInicial + 1), creadora);
+        modelo.ModificarDatos(new FichaDeModelo(DatosModificados(), StockInicial + 1), creadora);
 
         Assert.AreEqual("Sedan electrico renovado", modelo.Descripcion);
         Assert.AreEqual(StockInicial + 1, modelo.StockTotal);
@@ -257,9 +257,7 @@ public class ModeloTests
     [TestMethod]
     public void CambiarImagenReemplazaLaImagenYDevuelveLaAnterior()
     {
-        modelo.Modificar(new FichaDeModelo(
-            new DatosDeModelo(NombreModelo, "Sedan electrico", 45000m, new DateTime(2027, 3, 1), "vieja.png"),
-            StockInicial), creadora);
+        modelo.CambiarImagen(creadora, "vieja.png");
 
         string anterior = modelo.CambiarImagen(creadora, "nueva.png");
 

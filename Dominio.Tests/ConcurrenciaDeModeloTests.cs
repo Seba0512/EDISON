@@ -195,7 +195,7 @@ public class ConcurrenciaDeModeloTests
             largada.SignalAndWait();
             DatosDeModelo nuevos = new DatosDeModelo(
                 "Edison A1", "Modificado", 39990m, Momento.AddDays(1), string.Empty);
-            modeloEnDisputa.Modificar(new FichaDeModelo(nuevos, 1), creadora);
+            modeloEnDisputa.ModificarDatos(new FichaDeModelo(nuevos, 1), creadora);
         }
         catch (Dominio.Excepciones.DominioException error)
         {
