@@ -28,16 +28,26 @@ internal sealed class ManejadorDeDescargaDeImagen : ManejadorAutenticado
 
         string nombreArchivo = modelo.NombreArchivoImagen;
         Stream origen = _repositorioDeImagenes.AbrirLectura(nombreArchivo);
-        long tamanio = _repositorioDeImagenes.TamanioDe(nombreArchivo);
-        string nombreSugerido = $"{modelo.Nombre}{Path.GetExtension(nombreArchivo)}";
-        byte[] cuerpo = CodecDeDescargaDeImagen.CodificarRespuesta(nombreSugerido);
-
-        return RespuestaDelServidor.OkConEnvioPosterior(cuerpo, _ =>
+        try
         {
-            using (origen)
+            // El tamaño sale del archivo ya abierto, para anunciar exactamente los bytes que se enviarán.
+            long tamanio = origen.Length;
+            solicitud.Archivos.ExigirEnviable(tamanio);
+            string nombreSugerido = $"{modelo.Nombre}{Path.GetExtension(nombreArchivo)}";
+            byte[] cuerpo = CodecDeDescargaDeImagen.CodificarRespuesta(nombreSugerido);
+
+            return RespuestaDelServidor.OkConEnvioPosterior(cuerpo, _ =>
             {
-                solicitud.Archivos.EnviarDesde(origen, tamanio);
-            }
-        });
+                using (origen)
+                {
+                    solicitud.Archivos.EnviarDesde(origen, tamanio);
+                }
+            });
+        }
+        catch
+        {
+            origen.Dispose();
+            throw;
+        }
     }
 }

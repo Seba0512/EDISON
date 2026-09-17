@@ -60,13 +60,12 @@ internal sealed class SesionDeCliente
 
     private bool AtenderSolicitud(NetworkStream stream, Trama solicitud, ArchivosDeSesion archivos)
     {
+        RespuestaDelServidor respuesta;
         try
         {
-            RespuestaDelServidor respuesta = _despachador.Despachar(solicitud, _sesion, archivos);
+            respuesta = _despachador.Despachar(solicitud, _sesion, archivos);
             Informar($"CMD {solicitud.Comando:D2} -> {respuesta.Estado}");
             EscribirRespuesta(stream, solicitud.Comando, respuesta);
-            respuesta.AccionPosterior?.Invoke(stream);
-            return true;
         }
         catch (PayloadDemasiadoGrandeException)
         {
@@ -88,6 +87,10 @@ internal sealed class SesionDeCliente
             IntentarResponderErrorInterno(stream, solicitud.Comando);
             return false;
         }
+
+        // La respuesta ya viajó: si el envío posterior falla, solo queda cerrar, nunca responder de nuevo.
+        respuesta.AccionPosterior?.Invoke(stream);
+        return true;
     }
 
     private void EscribirRespuesta(NetworkStream stream, int comando, RespuestaDelServidor respuesta)

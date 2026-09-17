@@ -1,4 +1,5 @@
 using Common.Protocolo;
+using Dominio.Excepciones;
 
 namespace Servidor.Comandos;
 
@@ -20,4 +21,12 @@ internal sealed class ArchivosDeSesion
 
     public void EnviarDesde(Stream origen, long tamanio)
         => _canal.Enviar(_stream, origen, tamanio);
+
+    // Se valida antes de responder OK: anunciar un archivo que el receptor va a rechazar desincroniza.
+    public void ExigirEnviable(long tamanio)
+    {
+        if (tamanio > _maxFileBytes)
+            throw new DominioException(
+                $"El archivo supera el tamaño máximo transferible ({_maxFileBytes} bytes)");
+    }
 }
