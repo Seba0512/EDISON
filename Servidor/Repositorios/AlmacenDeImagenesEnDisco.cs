@@ -42,9 +42,6 @@ internal sealed class AlmacenDeImagenesEnDisco : IRepositorioDeImagenes, Dominio
     public bool Existe(string nombreArchivo)
         => File.Exists(RutaDe(nombreArchivo));
 
-    public long TamanioDe(string nombreArchivo)
-        => EnvolverErroresDeDisco(() => new FileInfo(RutaDe(nombreArchivo)).Length);
-
     public void Eliminar(string nombreArchivo)
     {
         if (nombreArchivo.Length == 0)

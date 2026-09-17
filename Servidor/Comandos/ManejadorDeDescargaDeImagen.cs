@@ -27,17 +27,22 @@ internal sealed class ManejadorDeDescargaDeImagen : ManejadorAutenticado
             throw new DominioException($"El modelo {modelo.Nombre} no tiene imagen");
 
         string nombreArchivo = modelo.NombreArchivoImagen;
-        Stream origen = _repositorioDeImagenes.AbrirLectura(nombreArchivo);
-        long tamanio = _repositorioDeImagenes.TamanioDe(nombreArchivo);
         string nombreSugerido = $"{modelo.Nombre}{Path.GetExtension(nombreArchivo)}";
         byte[] cuerpo = CodecDeDescargaDeImagen.CodificarRespuesta(nombreSugerido);
+        Stream origen = _repositorioDeImagenes.AbrirLectura(nombreArchivo);
 
-        return RespuestaDelServidor.OkConEnvioPosterior(cuerpo, _ =>
+        try
         {
-            using (origen)
-            {
-                solicitud.Archivos.EnviarDesde(origen, tamanio);
-            }
-        });
+            long tamanio = solicitud.Archivos.ObtenerTamanioAdmitido(origen);
+            return RespuestaDelServidor.OkConEnvioPosterior(
+                cuerpo,
+                _ => solicitud.Archivos.EnviarDesde(origen, tamanio),
+                origen);
+        }
+        catch
+        {
+            origen.Dispose();
+            throw;
+        }
     }
 }

@@ -3,15 +3,18 @@ using Common.Excepciones;
 
 namespace Common.Protocolo;
 
-public sealed class RespuestaDelServidor
+public sealed class RespuestaDelServidor : IDisposable
 {
     private readonly byte[] _cuerpo;
+    private IDisposable? _recursoPoseido;
     private string? _contenido;
 
-    private RespuestaDelServidor(string estado, byte[] cuerpo)
+    private RespuestaDelServidor(
+        string estado, byte[] cuerpo, IDisposable? recursoPoseido = null)
     {
         Estado = estado;
         _cuerpo = cuerpo;
+        _recursoPoseido = recursoPoseido;
     }
 
     public string Estado { get; }
@@ -22,6 +25,7 @@ public sealed class RespuestaDelServidor
     public string Contenido => _contenido ??= TextoUtf8.Decodificar(_cuerpo);
 
     // Se ejecuta recién después de mandar la respuesta. El archivo de CMD 16 viaja fuera de la trama.
+    // La respuesta posee el recurso asociado para liberarlo aunque esta acción no llegue a ejecutarse.
     public Action<Stream>? AccionPosterior { get; private init; }
 
     public static RespuestaDelServidor Ok(string contenido)
@@ -30,8 +34,9 @@ public sealed class RespuestaDelServidor
     public static RespuestaDelServidor Ok(byte[] cuerpo)
         => new(CodigosDeEstado.Ok, cuerpo);
 
-    public static RespuestaDelServidor OkConEnvioPosterior(byte[] cuerpo, Action<Stream> accionPosterior)
-        => new(CodigosDeEstado.Ok, cuerpo) { AccionPosterior = accionPosterior };
+    public static RespuestaDelServidor OkConEnvioPosterior(
+        byte[] cuerpo, Action<Stream> accionPosterior, IDisposable recursoPoseido)
+        => new(CodigosDeEstado.Ok, cuerpo, recursoPoseido) { AccionPosterior = accionPosterior };
 
     public static RespuestaDelServidor Rechazo(string mensaje)
         => new(CodigosDeEstado.Error, TextoUtf8.Codificar(mensaje));
@@ -50,6 +55,9 @@ public sealed class RespuestaDelServidor
         _cuerpo.CopyTo(resultado, estado.Length);
         return resultado;
     }
+
+    public void Dispose()
+        => Interlocked.Exchange(ref _recursoPoseido, null)?.Dispose();
 
     public static RespuestaDelServidor Decodificar(ReadOnlySpan<byte> datos)
     {

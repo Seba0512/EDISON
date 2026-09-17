@@ -8,7 +8,5 @@ internal interface IRepositorioDeImagenes
 
     bool Existe(string nombreArchivo);
 
-    long TamanioDe(string nombreArchivo);
-
     void Eliminar(string nombreArchivo);
 }

@@ -62,7 +62,8 @@ internal sealed class SesionDeCliente
     {
         try
         {
-            RespuestaDelServidor respuesta = _despachador.Despachar(solicitud, _sesion, archivos);
+            using RespuestaDelServidor respuesta =
+                _despachador.Despachar(solicitud, _sesion, archivos);
             Informar($"CMD {solicitud.Comando:D2} -> {respuesta.Estado}");
             EscribirRespuesta(stream, solicitud.Comando, respuesta);
             respuesta.AccionPosterior?.Invoke(stream);
