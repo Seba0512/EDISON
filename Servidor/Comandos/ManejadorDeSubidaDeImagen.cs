@@ -39,23 +39,55 @@ internal sealed class ManejadorDeSubidaDeImagen : IManejadorDeComando
         string nombreArchivoNuevo = $"{Guid.NewGuid():N}{extension}";
         _repositorioDeImagenes.Guardar(nombreArchivoNuevo, buffer);
 
-        string nombreArchivoAnterior;
+        string nombreArchivoAnterior = CambiarImagen(
+            nombreModelo, nombreArchivoNuevo, usuario);
+
+        if (nombreArchivoAnterior.Length > 0)
+            IntentarEliminar(
+                nombreArchivoAnterior,
+                "No se pudo limpiar la imagen reemplazada después del commit");
+
+        return RespuestaDelServidor.Ok($"Imagen subida para el modelo '{nombreModelo}'");
+    }
+
+    private string CambiarImagen(
+        string nombreModelo, string nombreArchivoNuevo, Usuario usuario)
+    {
         try
         {
-            nombreArchivoAnterior =
-                _catalogoDeModelos.CambiarImagenDeModelo(nombreModelo, nombreArchivoNuevo, usuario);
+            return _catalogoDeModelos.CambiarImagenDeModelo(
+                nombreModelo, nombreArchivoNuevo, usuario);
         }
         catch (DominioException)
         {
-            _repositorioDeImagenes.Eliminar(nombreArchivoNuevo);
+            IntentarEliminar(
+                nombreArchivoNuevo,
+                "No se pudo compensar la imagen nueva tras rechazarse el cambio");
             throw;
         }
+    }
 
-        if (nombreArchivoAnterior.Length > 0)
+    private void IntentarEliminar(string nombreArchivo, string mensaje)
+    {
+        try
         {
-            _repositorioDeImagenes.Eliminar(nombreArchivoAnterior);
+            _repositorioDeImagenes.Eliminar(nombreArchivo);
         }
+        catch (ErrorDeAlmacenamientoDeImagenException exception)
+        {
+            InformarFallaDeCleanup($"[CMD 15] {mensaje} '{nombreArchivo}': {exception}");
+        }
+    }
 
-        return RespuestaDelServidor.Ok($"Imagen subida para el modelo '{nombreModelo}'");
+    private static void InformarFallaDeCleanup(string mensaje)
+    {
+        try
+        {
+            Console.Error.WriteLine(mensaje);
+        }
+        catch (Exception exception) when (exception is IOException or ObjectDisposedException)
+        {
+            // Una salida de diagnóstico no disponible no puede cambiar un commit ya realizado.
+        }
     }
 }

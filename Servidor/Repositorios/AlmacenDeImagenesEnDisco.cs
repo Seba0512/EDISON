@@ -29,7 +29,7 @@ internal sealed class AlmacenDeImagenesEnDisco : IRepositorioDeImagenes, Dominio
         }
         catch
         {
-            File.Delete(rutaTemporal);
+            IntentarEliminarTemporal(rutaTemporal);
             throw;
         }
     }
@@ -71,6 +71,34 @@ internal sealed class AlmacenDeImagenesEnDisco : IRepositorioDeImagenes, Dominio
             throw new ErrorDeAlmacenamientoDeImagenException(
                 $"Error de almacenamiento accediendo a la imagen: {exception.Message}",
                 exception);
+        }
+    }
+
+    private static void IntentarEliminarTemporal(string rutaTemporal)
+    {
+        if (!File.Exists(rutaTemporal))
+            return;
+
+        try
+        {
+            File.Delete(rutaTemporal);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            InformarFallaDeCleanup(
+                $"No se pudo limpiar el archivo temporal '{rutaTemporal}': {exception}");
+        }
+    }
+
+    private static void InformarFallaDeCleanup(string mensaje)
+    {
+        try
+        {
+            Console.Error.WriteLine(mensaje);
+        }
+        catch (Exception exception) when (exception is IOException or ObjectDisposedException)
+        {
+            // El diagnóstico es best-effort: nunca debe sustituir la excepción original de Guardar.
         }
     }
 
