@@ -1,4 +1,5 @@
 using Cliente.Operaciones;
+using Cliente.Validaciones;
 using Cliente.Vistas;
 using Common.Protocolo.Vistas;
 
@@ -27,21 +28,26 @@ internal sealed class OpcionModificarModelo : IOpcionDeMenu
             return;
 
         // Se consulta antes de pedir el resto de los datos: si el modelo no existe, lanza y no sigue.
-        _consulta.Ejecutar(nombre);
+        // Además, el detalle ya trae la fecha y el stock actuales, que se usan para validar
+        // los nuevos valores sin tener que esperar el rechazo del servidor.
+        DetalleDeModelo detalleActual = _consulta.Ejecutar(nombre);
 
-        if (!LectorDeConsola.LeerTextoOpcional("Nueva descripción (Enter para omitir):", out string? descripcion))
+        if (!LectorDeConsola.LeerTextoOpcional(
+                "Nueva descripción (Enter para omitir):", out string? descripcion, ValidacionesDeModelo.Descripcion))
             return;
 
-        decimal? precio = LectorDeConsola.LeerDecimal("Nuevo precio:");
+        decimal? precio = LectorDeConsola.LeerDecimal("Nuevo precio:", ValidacionesDeModelo.Precio);
         if (precio is null)
             return;
 
-        DateTime? fechaEntregaPrometida =
-            LectorDeConsola.LeerFecha("Nueva fecha de entrega prometida (dd-MM-yyyy):");
+        DateTime? fechaEntregaPrometida = LectorDeConsola.LeerFecha(
+            "Nueva fecha de entrega prometida (dd-MM-yyyy):",
+            fecha => ValidacionesDeModelo.FechaFuturaSiCambio(fecha, detalleActual.FechaEntregaPrometida));
         if (fechaEntregaPrometida is null)
             return;
 
-        int? stock = LectorDeConsola.LeerEntero("Nuevo stock:");
+        int? stock = LectorDeConsola.LeerEntero(
+            "Nuevo stock:", nuevoStock => ValidacionesDeModelo.StockDeModificacion(nuevoStock, detalleActual));
         if (stock is null)
             return;
 
