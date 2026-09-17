@@ -152,6 +152,32 @@ public class CatalogoDeModelosTests
     }
 
     [TestMethod]
+    public void SiFallaBorrarLaImagenLaBajaSeCompensaYPuedeReintentarse()
+    {
+        RepositorioDeModelosEnMemoria repositorio = new RepositorioDeModelosEnMemoria();
+        AlmacenDeImagenesConFalla almacenConFalla = new AlmacenDeImagenesConFalla();
+        CatalogoDeModelos catalogoConFalla =
+            new CatalogoDeModelos(repositorio, almacenConFalla, reloj);
+        catalogoConFalla.AltaDeModelo(Ficha(45000m, StockInicial, Imagen), creadora);
+
+        ErrorDeAlmacenamientoDeImagenException error =
+            Assert.ThrowsException<ErrorDeAlmacenamientoDeImagenException>(
+                () => catalogoConFalla.EliminarModelo(NombreModelo, creadora));
+
+        Assert.IsInstanceOfType<IOException>(error.InnerException);
+        Assert.IsTrue(repositorio.Existe(NombreModelo));
+        Assert.AreEqual(1, creadora.Actividades().Count);
+        Assert.AreEqual(TipoActividad.ModeloCreado, creadora.Actividades()[0].Tipo);
+
+        almacenConFalla.PermitirBorrado();
+        catalogoConFalla.EliminarModelo(NombreModelo, creadora);
+
+        Assert.IsFalse(repositorio.Existe(NombreModelo));
+        Assert.AreEqual(2, creadora.Actividades().Count);
+        Assert.AreEqual(TipoActividad.ModeloEliminado, creadora.Actividades()[1].Tipo);
+    }
+
+    [TestMethod]
     [ExpectedException(typeof(DominioException))]
     public void EliminarUnModeloAjenoFalla()
     {
@@ -265,5 +291,25 @@ public class CatalogoDeModelosTests
         IReadOnlyList<LecturaDeModelo> encontrados = catalogo.Buscar(criterio);
 
         Assert.IsFalse(encontrados.Any(modelo => modelo.SeLlama(NombreModeloAgotado)));
+    }
+
+    private sealed class AlmacenDeImagenesConFalla : IAlmacenDeImagenes
+    {
+        private bool falla = true;
+
+        public void Eliminar(string nombreArchivo)
+        {
+            if (falla)
+            {
+                throw new ErrorDeAlmacenamientoDeImagenException(
+                    "No se pudo borrar la imagen",
+                    new IOException("Falla de disco simulada"));
+            }
+        }
+
+        public void PermitirBorrado()
+        {
+            falla = false;
+        }
     }
 }

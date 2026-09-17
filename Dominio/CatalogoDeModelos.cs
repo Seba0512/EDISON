@@ -48,9 +48,19 @@ public class CatalogoDeModelos : ICatalogoDeModelos
     {
         Modelo modelo = modelos.ObtenerPorNombre(nombreModelo);
         string nombreArchivoImagen = modelo.MarcarComoEliminado(solicitante);
-        modelos.Eliminar(modelo);
-        BorrarImagen(nombreArchivoImagen);
+        // Se conserva en el repositorio hasta borrar la imagen: así se reserva el nombre
+        // y una falla de almacenamiento se compensa reactivando la misma entidad.
+        try
+        {
+            BorrarImagen(nombreArchivoImagen);
+        }
+        catch (ErrorDeAlmacenamientoDeImagenException)
+        {
+            modelo.RestaurarTrasBajaFallida();
+            throw;
+        }
 
+        modelos.Eliminar(modelo);
         solicitante.Registrar(Actividad.ModeloEliminado(modelo.Nombre, reloj));
     }
 

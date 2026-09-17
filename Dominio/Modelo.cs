@@ -261,6 +261,14 @@ public class Modelo : IVehiculoBuscable
         }
     }
 
+    internal void RestaurarTrasBajaFallida()
+    {
+        lock (candado)
+        {
+            eliminado = false;
+        }
+    }
+
     public Reserva RegistrarReserva(Usuario solicitante, IReloj reloj)
     {
         lock (candado)

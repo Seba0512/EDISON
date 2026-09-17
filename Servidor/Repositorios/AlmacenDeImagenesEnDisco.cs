@@ -51,11 +51,7 @@ internal sealed class AlmacenDeImagenesEnDisco : IRepositorioDeImagenes, Dominio
             return;
 
         string ruta = RutaDe(nombreArchivo);
-        EnvolverErroresDeDisco(() =>
-        {
-            if (File.Exists(ruta))
-                File.Delete(ruta);
-        });
+        EnvolverErroresDeDisco(() => File.Delete(ruta));
     }
 
     private static void EnvolverErroresDeDisco(Action accion)
@@ -75,7 +71,9 @@ internal sealed class AlmacenDeImagenesEnDisco : IRepositorioDeImagenes, Dominio
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            throw new DominioException($"Error de almacenamiento accediendo a la imagen: {exception.Message}");
+            throw new ErrorDeAlmacenamientoDeImagenException(
+                $"Error de almacenamiento accediendo a la imagen: {exception.Message}",
+                exception);
         }
     }
 
