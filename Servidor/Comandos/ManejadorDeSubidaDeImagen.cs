@@ -37,7 +37,7 @@ internal sealed class ManejadorDeSubidaDeImagen : IManejadorDeComando
         string referenciaNueva = Guardar(usuario, nombreArchivoCliente, archivo);
         ReemplazarImagen(nombreModelo, referenciaNueva, usuario);
 
-        return RespuestaDelServidor.Ok($"Imagen subida para el modelo '{nombreModelo}'");
+        return RespuestaDelServidor.Ok("Imagen actualizada correctamente.");
     }
 
     private string Guardar(Usuario usuario, string nombreArchivoCliente, Stream contenido)

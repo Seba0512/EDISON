@@ -20,6 +20,6 @@ internal sealed class ManejadorDeAltaDeModelo : ManejadorAutenticado
 
         _catalogoDeModelos.AltaDeModelo(FichaRecibida.Desde(datos), usuario);
 
-        return RespuestaDelServidor.Ok($"Modelo '{datos.Nombre}' creado");
+        return RespuestaDelServidor.Ok("Modelo creado correctamente.");
     }
 }

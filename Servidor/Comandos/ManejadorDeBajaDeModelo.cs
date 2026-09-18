@@ -17,6 +17,6 @@ internal sealed class ManejadorDeBajaDeModelo : ManejadorAutenticado
     {
         string nombreModelo = CodecDeBajaDeModelo.Decodificar(solicitud.Datos.Span);
         _catalogoDeModelos.EliminarModelo(nombreModelo, usuario);
-        return RespuestaDelServidor.Ok($"Modelo '{nombreModelo}' eliminado");
+        return RespuestaDelServidor.Ok("Modelo eliminado correctamente.");
     }
 }

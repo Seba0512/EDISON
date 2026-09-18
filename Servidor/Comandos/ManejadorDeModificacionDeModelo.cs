@@ -20,6 +20,6 @@ internal sealed class ManejadorDeModificacionDeModelo : ManejadorAutenticado
 
         _catalogoDeModelos.ModificarModelo(FichaRecibida.Desde(datos), usuario);
 
-        return RespuestaDelServidor.Ok($"Modelo '{datos.Nombre}' modificado");
+        return RespuestaDelServidor.Ok("Modelo modificado correctamente.");
     }
 }
