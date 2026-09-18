@@ -1,9 +1,7 @@
 using System.Text;
-using Cliente.Vistas;
-using Common.Excepciones;
-using Common.Protocolo;
+using Common;
 
-namespace Cliente.Menu;
+namespace Cliente;
 
 // Todas las lecturas comparten el mismo esqueleto: pedir, convertir, validar y reintentar.
 // Devolver null significa siempre lo mismo: se acabó la entrada.
@@ -99,7 +97,7 @@ internal static class LectorDeConsola
     }
 
     public static Credenciales? LeerCredenciales(
-        Func<string, string?>? validarNombreUsuario = null, Func<string, string?>? validarClave = null)
+        Func<string, string?> validarNombreUsuario, Func<string, string?> validarClave)
     {
         string? nombreUsuario = LeerTexto("Nombre de usuario:", validarNombreUsuario);
         if (nombreUsuario is null)
@@ -113,12 +111,80 @@ internal static class LectorDeConsola
         return new Credenciales(nombreUsuario, clave);
     }
 
+    // Enter vacío significa sin filtro. Solo el fin de la entrada cancela toda la búsqueda.
+    public static FiltrosDeBusqueda? LeerFiltros()
+    {
+        (bool sinEntrada, string? texto) = LeerTextoOpcional(
+            "Texto a buscar en el nombre (Enter para omitir):", Validaciones.SinSeparador);
+        if (sinEntrada)
+            return null;
+
+        (bool canceloPrecioMinimo, decimal? precioMinimo) =
+            LeerDecimalOpcional("Precio mínimo (Enter para omitir):");
+        if (canceloPrecioMinimo)
+            return null;
+
+        (bool canceloPrecioMaximo, decimal? precioMaximo) =
+            LeerDecimalOpcional("Precio máximo (Enter para omitir):");
+        if (canceloPrecioMaximo)
+            return null;
+
+        (bool canceloFecha, DateTime? fechaEntregaMaxima) = LeerFechaOpcional(
+            "Fecha de entrega máxima, formato dd-MM-yyyy (Enter para omitir):");
+        if (canceloFecha)
+            return null;
+
+        (bool canceloMinimo, int? minimoDisponibles) =
+            LeerEnteroOpcional("Mínimo de unidades disponibles (Enter para omitir):");
+        if (canceloMinimo)
+            return null;
+
+        return new FiltrosDeBusqueda(
+            texto, precioMinimo, precioMaximo, fechaEntregaMaxima, minimoDisponibles);
+    }
+
+    // Se pregunta por la imagen antes de confirmar la creación del modelo.
+    public static string? PreguntarRutaDeImagen()
+    {
+        if (!Confirmar("¿Desea subir una imagen para el modelo? (s/n):"))
+            return null;
+
+        string? rutaArchivo = LeerTexto("Ruta local del archivo de imagen:");
+        if (rutaArchivo is null)
+            return null;
+
+        rutaArchivo = SinComillas(rutaArchivo);
+        if (!File.Exists(rutaArchivo))
+        {
+            Consola.Error($"No se encontró el archivo '{rutaArchivo}'.");
+            return null;
+        }
+
+        return rutaArchivo;
+    }
+
+    // La ruta viene de PreguntarRutaDeImagen: null significa que no se ofreció o se rechazó la imagen.
+    public static void SubirImagenSiHayRuta(
+        ConexionConServidor conexion, string nombreModelo, string? rutaArchivo)
+    {
+        if (rutaArchivo is null)
+            return;
+
+        Consola.Exito(conexion.SubirImagen(nombreModelo, rutaArchivo));
+    }
+
     public static void EsperarEnter()
     {
         Console.WriteLine();
         Consola.Sutil("Presione Enter para continuar...");
         Console.ReadLine();
     }
+
+    // Windows "Copiar como ruta de acceso" envuelve la ruta entre comillas dobles.
+    private static string SinComillas(string ruta)
+        => ruta.Length >= 2 && ruta[0] == '"' && ruta[^1] == '"'
+            ? ruta[1..^1]
+            : ruta;
 
     private static T? LeerConvertido<T>(
         string mensaje, Func<string, T> convertir, Func<T, string?>? validar) where T : struct
@@ -237,4 +303,101 @@ internal static class LectorDeConsola
     // ReadLine devuelve null cuando se acaba la entrada. Eso se toma como salida normal, no como error.
     private static string? LeerLinea()
         => Console.ReadLine()?.TrimStart(Bom);
+}
+
+// Replica en el Cliente las reglas de negocio que valida el Dominio del lado del Servidor.
+// El objetivo es dar feedback inmediato campo a campo, sin esperar al rechazo del servidor al
+// final del formulario. El Cliente no referencia el ensamblado Dominio (son procesos separados
+// que se comunican por protocolo), así que estas constantes se duplican a propósito: el
+// Servidor sigue siendo la autoridad final si las reglas cambian allá.
+internal static class Validaciones
+{
+    private const int LargoMinimoNombreUsuario = 3;
+    private const int LargoMaximoNombreUsuario = 20;
+    private const int LargoMinimoClave = 4;
+    private const int LargoMinimoNombreDeModelo = 2;
+    private const int LargoMaximoNombreDeModelo = 60;
+    private const int LargoMaximoDescripcion = 500;
+
+    // El '#' es el separador de campos del protocolo: dentro de un campo rompería el mensaje.
+    public static string? SinSeparador(string texto)
+        => texto.Contains(Mensajes.Separador)
+            ? $"El texto no puede contener el carácter '{Mensajes.Separador}'"
+            : null;
+
+    public static string? NombreUsuario(string texto)
+    {
+        if (SinSeparador(texto) is string error)
+            return error;
+
+        return texto.Length is < LargoMinimoNombreUsuario or > LargoMaximoNombreUsuario
+            ? $"El nombre de usuario debe tener entre {LargoMinimoNombreUsuario} y {LargoMaximoNombreUsuario} caracteres"
+            : null;
+    }
+
+    public static string? Clave(string texto)
+    {
+        if (SinSeparador(texto) is string error)
+            return error;
+
+        return texto.Length < LargoMinimoClave
+            ? $"La clave debe tener al menos {LargoMinimoClave} caracteres"
+            : null;
+    }
+
+    public static string? NombreDeModelo(string texto)
+    {
+        if (SinSeparador(texto) is string error)
+            return error;
+
+        return texto.Length is < LargoMinimoNombreDeModelo or > LargoMaximoNombreDeModelo
+            ? $"El nombre del modelo debe tener entre {LargoMinimoNombreDeModelo} y {LargoMaximoNombreDeModelo} caracteres"
+            : null;
+    }
+
+    public static string? Descripcion(string texto)
+    {
+        if (SinSeparador(texto) is string error)
+            return error;
+
+        return texto.Length > LargoMaximoDescripcion
+            ? $"La descripción no puede superar los {LargoMaximoDescripcion} caracteres"
+            : null;
+    }
+
+    // El servidor redondea el precio a entero antes de exigir que sea mayor a cero.
+    public static string? Precio(decimal valor)
+        => Math.Round(valor, 0, MidpointRounding.AwayFromZero) <= 0
+            ? "El precio debe ser mayor a cero"
+            : null;
+
+    public static string? FechaFutura(DateTime valor)
+        => valor.Date <= DateTime.Today
+            ? "La fecha de entrega debe ser futura"
+            : null;
+
+    public static string? FechaFuturaSiCambio(DateTime nueva, DateTime actual)
+        => nueva.Date != actual.Date ? FechaFutura(nueva) : null;
+
+    public static string? Stock(int valor)
+        => valor <= 0 ? "El stock debe ser mayor a cero" : null;
+
+    // La modificación reconstruye la misma ficha que el alta, así que el stock nuevo también
+    // debe ser mayor a cero, además de respetar reservas y disponibilidad actuales.
+    public static string? StockDeModificacion(int nuevoStock, DetalleDeModelo detalleActual)
+    {
+        string? errorBase = Stock(nuevoStock);
+        if (errorBase is not null)
+            return errorBase;
+
+        int stockTotalActual = detalleActual.UnidadesDisponibles + detalleActual.UnidadesReservadas;
+
+        if (detalleActual.UnidadesDisponibles == 0 && nuevoStock <= stockTotalActual)
+            return $"No se puede modificar el modelo {detalleActual.Nombre} porque no quedan unidades disponibles";
+
+        if (nuevoStock != stockTotalActual && nuevoStock < detalleActual.UnidadesReservadas)
+            return $"El stock no puede quedar por debajo de las {detalleActual.UnidadesReservadas} unidades reservadas";
+
+        return null;
+    }
 }

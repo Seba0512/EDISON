@@ -1,8 +1,6 @@
 using System.Configuration;
 using System.Net.Sockets;
-using Cliente.Excepciones;
-using Cliente.Vistas;
-using Common.Excepciones;
+using Common;
 
 namespace Cliente;
 
@@ -19,33 +17,33 @@ internal static class Program
             Ejecutar();
             return 0;
         }
-        catch (ConfigurationErrorsException exception)
+        catch (ConfigurationErrorsException excepcion)
         {
-            Consola.ErrorFatal($"Configuración inválida: {exception.Message}");
+            Consola.ErrorFatal($"Configuración inválida: {excepcion.Message}");
         }
-        catch (ConexionCerradaException exception)
+        catch (ConexionCerradaException excepcion)
         {
-            Consola.ErrorFatal(exception.Message);
+            Consola.ErrorFatal(excepcion.Message);
         }
-        catch (ErrorInternoDelServidorException exception)
+        catch (ErrorInternoDelServidorException excepcion)
         {
-            Consola.ErrorFatal($"Error interno del servidor: {exception.Message}");
+            Consola.ErrorFatal($"Error interno del servidor: {excepcion.Message}");
         }
-        catch (ProtocoloException exception)
+        catch (ProtocoloException excepcion)
         {
-            Consola.ErrorFatal($"Error de protocolo: {exception.Message}");
+            Consola.ErrorFatal($"Error de protocolo: {excepcion.Message}");
         }
-        catch (TransferenciaDeArchivoException exception)
+        catch (TransferenciaDeArchivoException excepcion)
         {
-            Consola.ErrorFatal($"Falló la transferencia del archivo: {exception.Message}");
+            Consola.ErrorFatal($"Falló la transferencia del archivo: {excepcion.Message}");
         }
-        catch (SocketException exception)
+        catch (SocketException excepcion)
         {
-            Consola.ErrorFatal($"Error de conexión: {exception.Message}");
+            Consola.ErrorFatal($"Error de conexión: {excepcion.Message}");
         }
-        catch (IOException exception)
+        catch (IOException excepcion)
         {
-            Consola.ErrorFatal($"La comunicación terminó: {exception.Message}");
+            Consola.ErrorFatal($"La comunicación terminó: {excepcion.Message}");
         }
 
         return 1;
@@ -68,28 +66,20 @@ internal static class Program
         {
             conexion = ConexionConServidor.Conectar(configuracion);
         }
-        catch (SocketException exception) when (
-            exception.SocketErrorCode == SocketError.ConnectionRefused)
+        catch (SocketException excepcion) when (
+            excepcion.SocketErrorCode == SocketError.ConnectionRefused)
         {
             return ElegirSiReintentar();
         }
 
-        ContinuarCon(conexion, configuracion);
-        return false;
-    }
-
-    private static void ContinuarCon(
-        ConexionConServidor conexion, ConfiguracionCliente configuracion)
-    {
         using (conexion)
-        using (DirectorioDeDescargasDeInstancia descargas =
-               new(conexion.DownloadsDirectory))
         {
-            conexion.ConexionPerdida += AlPerderConexion;
             Consola.Titulo("Sistema de Modelos y Reservas");
             Consola.Exito($"Conectado a {configuracion.Endpoint}");
-            AplicacionCliente.Ejecutar(conexion, descargas);
+            new Menu(conexion).Ejecutar();
         }
+
+        return false;
     }
 
     private static bool ElegirSiReintentar()
@@ -102,21 +92,16 @@ internal static class Program
         while (true)
         {
             string? entrada = Console.ReadLine();
-            if (entrada is null || entrada.Trim().Equals(OpcionDeSalida, StringComparison.OrdinalIgnoreCase))
+            if (entrada is null
+                || entrada.Trim().Equals(OpcionDeSalida, StringComparison.OrdinalIgnoreCase))
+            {
                 return false;
+            }
+
             if (entrada.Length == 0)
                 return true;
 
             Consola.Error("Opción inválida. Presione Enter para reintentar o escriba S para salir.");
         }
-    }
-
-    // Puede dispararse mientras el hilo principal está bloqueado esperando entrada por consola,
-    // por eso avisa y termina el proceso directamente en vez de intentar volver al menú.
-    private static void AlPerderConexion()
-    {
-        Console.Error.WriteLine();
-        Consola.ErrorFatal("Se perdió la conexión con el servidor.");
-        Environment.Exit(1);
     }
 }

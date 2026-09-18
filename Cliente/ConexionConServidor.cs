@@ -1,25 +1,22 @@
 using System.Net.Sockets;
-using Cliente.Excepciones;
-using Common.Excepciones;
-using Common.Protocolo;
+using System.Security.Cryptography;
+using System.Text;
+using Common;
 
 namespace Cliente;
 
 internal sealed class ConexionConServidor : IDisposable
 {
+    private const string SufijoTemporal = ".tmp";
+
     private readonly Socket _socket;
     private readonly NetworkStream _stream;
     private readonly CodecDeTramas _codec;
     private readonly CanalDeArchivos _canalDeArchivos;
     private readonly long _maxFileBytes;
+    private readonly string _downloadsDirectory;
     private readonly object _candadoDeSocket = new();
-    private readonly MonitorDeConexion _monitor;
     private int _cerrada;
-
-    public string DownloadsDirectory { get; }
-
-    // Se dispara desde el hilo del monitor: puede llegar mientras el hilo principal está bloqueado en el menú.
-    public event Action? ConexionPerdida;
 
     private ConexionConServidor(Socket socket, ConfiguracionCliente configuracion)
     {
@@ -29,8 +26,7 @@ internal sealed class ConexionConServidor : IDisposable
         _codec = new CodecDeTramas(configuracion.MaxPayloadBytes);
         _canalDeArchivos = new CanalDeArchivos(configuracion.FileBlockBytes);
         _maxFileBytes = configuracion.MaxFileBytes;
-        DownloadsDirectory = configuracion.DownloadsDirectory;
-        _monitor = new MonitorDeConexion(socket, _candadoDeSocket, () => ConexionPerdida?.Invoke());
+        _downloadsDirectory = Path.GetFullPath(configuracion.DownloadsDirectory);
     }
 
     public static ConexionConServidor Conectar(ConfiguracionCliente configuracion)
@@ -52,97 +48,74 @@ internal sealed class ConexionConServidor : IDisposable
         }
     }
 
-    public string EnviarDiagnostico(string texto)
-        => EnviarSolicitud(Comandos.Diagnostico, TextoUtf8.Codificar(texto));
-
     public string Registrar(Credenciales credenciales)
-        => EnviarSolicitud(Comandos.Registrar, CodecDeCredenciales.Codificar(credenciales));
+        => Enviar(Comandos.Registrar, Mensajes.DeCredenciales(credenciales));
 
     public string IniciarSesion(Credenciales credenciales)
-        => EnviarSolicitud(Comandos.IniciarSesion, CodecDeCredenciales.Codificar(credenciales));
+        => Enviar(Comandos.IniciarSesion, Mensajes.DeCredenciales(credenciales));
 
     public string CerrarSesion()
-        => EnviarSolicitud(Comandos.CerrarSesion, []);
+        => Enviar(Comandos.CerrarSesion, string.Empty);
 
-    public string EnviarSolicitud(int comando, byte[] datos)
-    {
-        Trama respuesta = EnviarYLeer(comando, datos);
-        RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta.Datos.Span);
-        return ReaccionesAEstado.Aplicar(contenido);
-    }
+    public string AltaDeModelo(DatosDeAltaDeModelo datos)
+        => Enviar(Comandos.AltaDeModelo, Mensajes.DeDatosDeModelo(datos));
 
-    public byte[] EnviarSolicitudYLeerCuerpo(int comando, byte[] datos)
-    {
-        Trama respuesta = EnviarYLeer(comando, datos);
-        RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta.Datos.Span);
-        return ReaccionesAEstado.AplicarSobreCuerpo(contenido).ToArray();
-    }
+    public string ModificarModelo(DatosDeAltaDeModelo datos)
+        => Enviar(Comandos.ModificarModelo, Mensajes.DeDatosDeModelo(datos));
 
-    public string EnviarSolicitudConArchivo(int comando, byte[] datos, string rutaOrigen)
+    public string EliminarModelo(string nombreModelo)
+        => Enviar(Comandos.BajaDeModelo, nombreModelo);
+
+    public IReadOnlyList<ModeloListado> Buscar(FiltrosDeBusqueda filtros)
+        => Mensajes.AModelosListados(Enviar(Comandos.BuscarModelos, Mensajes.DeFiltros(filtros)));
+
+    public DetalleDeModelo Consultar(string nombreModelo)
+        => Mensajes.ADetalleDeModelo(Enviar(Comandos.ConsultarModelo, nombreModelo));
+
+    public string SolicitarReserva(string nombreModelo)
+        => Enviar(Comandos.SolicitarReserva, nombreModelo);
+
+    public string CancelarReserva(Guid idReserva)
+        => Enviar(Comandos.CancelarReserva, FormatoDeCampos.De(idReserva));
+
+    public IReadOnlyList<ReservaListada> MisReservas()
+        => Mensajes.AReservasListadas(Enviar(Comandos.ConsultarMisReservas, string.Empty));
+
+    public IReadOnlyList<ActividadListada> Historial()
+        => Mensajes.AActividades(Enviar(Comandos.ConsultarHistorial, string.Empty));
+
+    public string SubirImagen(string nombreModelo, string rutaArchivo)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
-        // El archivo se revisa antes de anunciarlo. Anunciarlo y después no poder mandarlo rompe el protocolo.
-        FileInfo archivo = ExigirArchivoEnviable(rutaOrigen);
-        if (archivo.Length > _maxFileBytes)
+        // El tamaño se anuncia desde el stream ya abierto. Medirlo antes de abrir permitiría
+        // anunciar un tamaño viejo si el archivo cambia entre medio y romper el protocolo.
+        using FileStream origen = new(rutaArchivo, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (origen.Length > _maxFileBytes)
+        {
             throw new OperacionRechazadaException(
                 $"El archivo supera el tamaño máximo permitido ({_maxFileBytes} bytes)");
+        }
 
-        Trama solicitud = Trama.CrearSolicitud(comando, datos);
+        string mensaje = Mensajes.DeSubidaDeImagen(nombreModelo, Path.GetFileName(rutaArchivo));
+        Trama solicitud = new(Comandos.SubirImagen, TextoUtf8.Codificar(mensaje));
         lock (_candadoDeSocket)
         {
-            try
-            {
-                return EnviarArchivoYLeerRespuesta(solicitud, archivo);
-            }
-            catch (TransferenciaDeArchivoException)
-            {
-                _monitor.Detener();
-                throw;
-            }
+            _codec.Escribir(_stream, solicitud);
+            _canalDeArchivos.Enviar(_stream, origen, origen.Length);
+            return Interpretar(LeerRespuesta(Comandos.SubirImagen));
         }
     }
 
-    private string EnviarArchivoYLeerRespuesta(Trama solicitud, FileInfo archivo)
-    {
-        _codec.Escribir(_stream, solicitud);
-        using (FileStream origen = archivo.OpenRead())
-            _canalDeArchivos.Enviar(_stream, origen, archivo.Length);
-
-        Trama respuesta = LeerRespuesta(solicitud.Comando);
-        RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta.Datos.Span);
-        return ReaccionesAEstado.Aplicar(contenido);
-    }
-
-    public long RecibirArchivoEn(string rutaDestino)
+    public string DescargarImagen(string nombreModelo)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
-        string rutaTemporal = rutaDestino + ".tmp";
         lock (_candadoDeSocket)
         {
-            try
-            {
-                return RecibirYPublicar(rutaTemporal, rutaDestino);
-            }
-            catch
-            {
-                // Desde la respuesta de CMD16 puede haber bytes binarios pendientes. Ante cualquier
-                // falla local o remota se invalida la conexión para no interpretar esos bytes como tramas.
-                _monitor.Detener();
-                IntentarShutdown();
-                IntentarEliminarTemporal(rutaTemporal);
-                throw;
-            }
+            Trama solicitud = new(Comandos.DescargarImagen, TextoUtf8.Codificar(nombreModelo));
+            _codec.Escribir(_stream, solicitud);
+            string nombreSugerido = Interpretar(LeerRespuesta(Comandos.DescargarImagen));
+            return RecibirImagen(nombreSugerido);
         }
-    }
-
-    private long RecibirYPublicar(string rutaTemporal, string rutaDestino)
-    {
-        long tamanio;
-        using (FileStream destino = File.Create(rutaTemporal))
-            tamanio = _canalDeArchivos.RecibirEn(_stream, destino, _maxFileBytes);
-
-        File.Move(rutaTemporal, rutaDestino, overwrite: true);
-        return tamanio;
     }
 
     public void Dispose()
@@ -150,46 +123,70 @@ internal sealed class ConexionConServidor : IDisposable
         if (Interlocked.Exchange(ref _cerrada, 1) != 0)
             return;
 
-        // Se detiene antes de cerrar el socket para que un cierre intencional no dispare ConexionPerdida.
-        _monitor.Dispose();
         IntentarShutdown();
         _stream.Dispose();
         _socket.Dispose();
     }
 
-    private Trama EnviarYLeer(int comando, byte[] datos)
+    // Desde el OK de CMD 16 hay bytes binarios pendientes en el stream. Ante cualquier falla se
+    // invalida la conexión para no interpretar esos bytes como tramas y se borra el temporal.
+    private string RecibirImagen(string nombreSugerido)
+    {
+        string? rutaTemporal = null;
+        try
+        {
+            string nombreArchivo = NombreDeDescargaSeguro.Crear(nombreSugerido);
+            Directory.CreateDirectory(_downloadsDirectory);
+            string rutaDestino = Path.Combine(_downloadsDirectory, nombreArchivo);
+            rutaTemporal = rutaDestino + SufijoTemporal;
+
+            long tamanio;
+            using (FileStream destino = File.Create(rutaTemporal))
+                tamanio = _canalDeArchivos.RecibirEn(_stream, destino, _maxFileBytes);
+
+            File.Move(rutaTemporal, rutaDestino, overwrite: true);
+            return $"Imagen guardada en '{rutaDestino}' ({tamanio} bytes)";
+        }
+        catch
+        {
+            IntentarShutdown();
+            IntentarEliminarTemporal(rutaTemporal);
+            throw;
+        }
+    }
+
+    private string Enviar(int comando, string mensaje)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
         lock (_candadoDeSocket)
         {
-            _codec.Escribir(_stream, Trama.CrearSolicitud(comando, datos));
-            return LeerRespuesta(comando);
+            _codec.Escribir(_stream, new Trama(comando, TextoUtf8.Codificar(mensaje)));
+            return Interpretar(LeerRespuesta(comando));
         }
     }
 
     private Trama LeerRespuesta(int comando)
     {
         Trama respuesta = _codec.Leer(_stream);
-        ExigirRespuestaA(comando, respuesta);
+        // Sin header REQ/RES la única verificación es que la respuesta traiga el comando enviado.
+        if (respuesta.Comando != comando)
+        {
+            throw new ProtocoloException(
+                $"El cliente recibió el CMD inesperado {respuesta.Comando:D2}");
+        }
+
         return respuesta;
     }
 
-    private static FileInfo ExigirArchivoEnviable(string rutaOrigen)
+    private static string Interpretar(Trama respuesta)
     {
-        FileInfo archivo = new(rutaOrigen);
-        if (!archivo.Exists)
-            throw new FileNotFoundException("No se encontró el archivo a enviar", rutaOrigen);
+        RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta);
+        if (contenido.Estado == Estados.Error)
+            throw new OperacionRechazadaException(contenido.Contenido);
+        if (contenido.Estado == Estados.Interno)
+            throw new ErrorInternoDelServidorException(contenido.Contenido);
 
-        return archivo;
-    }
-
-    private static void ExigirRespuestaA(int comando, Trama respuesta)
-    {
-        if (!respuesta.EsRespuesta)
-            throw new ProtocoloException("El cliente esperaba HEADER RES");
-        if (respuesta.Comando != comando)
-            throw new ProtocoloException(
-                $"El cliente recibió el CMD inesperado {respuesta.Comando:D2}");
+        return contenido.Contenido;
     }
 
     private void IntentarShutdown()
@@ -206,19 +203,100 @@ internal sealed class ConexionConServidor : IDisposable
         }
     }
 
-    private static void IntentarEliminarTemporal(string rutaTemporal)
+    private static void IntentarEliminarTemporal(string? rutaTemporal)
     {
-        if (!File.Exists(rutaTemporal))
+        if (rutaTemporal is null || !File.Exists(rutaTemporal))
             return;
 
         try
         {
             File.Delete(rutaTemporal);
         }
-        catch (Exception exception)
+        catch (Exception excepcion)
         {
             Console.Error.WriteLine(
-                $"No se pudo limpiar el archivo temporal '{rutaTemporal}': {exception.Message}");
+                $"No se pudo limpiar el archivo temporal '{rutaTemporal}': {excepcion.Message}");
         }
     }
+}
+
+// El nombre de la imagen lo anuncia el servidor: acá se convierte en un nombre de archivo que
+// no pueda escaparse del directorio de descargas ni chocar con las reglas de Windows.
+internal static class NombreDeDescargaSeguro
+{
+    private const int LargoMaximoComponenteWindows = 255;
+    private const string SufijoTemporal = ".tmp";
+    private const string PrefijoNombreConHash = "modelo-";
+
+    private static readonly HashSet<char> CaracteresInvalidos =
+        new("<>:\"/\\|?*".Concat(Enumerable.Range(0, 32).Select(valor => (char)valor)));
+
+    private static readonly HashSet<string> NombresReservados = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        "COM¹", "COM²", "COM³", "LPT¹", "LPT²", "LPT³"
+    };
+
+    private static readonly HashSet<string> ExtensionesPermitidas =
+        new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg" };
+
+    public static string Crear(string nombreSugerido)
+    {
+        (string nombreLogico, string extension) = Separar(nombreSugerido);
+        int largoMaximoNombre = LargoMaximoComponenteWindows - extension.Length - SufijoTemporal.Length;
+        string nombreFisico = CodificarConEscape(nombreLogico);
+        if (nombreFisico.Length > largoMaximoNombre)
+            nombreFisico = CrearNombreConHash(nombreLogico);
+
+        if (nombreFisico.Length > largoMaximoNombre)
+            throw new ProtocoloException("El nombre de imagen anunciado es demasiado largo");
+
+        return nombreFisico + extension;
+    }
+
+    private static (string NombreLogico, string Extension) Separar(string nombreSugerido)
+    {
+        int inicioExtension = nombreSugerido.LastIndexOf('.');
+        if (inicioExtension <= 0)
+            throw new ProtocoloException("La imagen anunciada no tiene una extensión válida");
+
+        string nombreLogico = nombreSugerido[..inicioExtension];
+        string extension = nombreSugerido[inicioExtension..];
+        if (!ExtensionesPermitidas.Contains(extension))
+        {
+            throw new ProtocoloException(
+                $"La extensión de imagen anunciada '{extension}' no está permitida");
+        }
+
+        return (nombreLogico, extension);
+    }
+
+    private static string CodificarConEscape(string nombreLogico)
+    {
+        bool reservado = EsReservado(nombreLogico);
+        StringBuilder resultado = new(nombreLogico.Length);
+        for (int indice = 0; indice < nombreLogico.Length; indice++)
+        {
+            char caracter = nombreLogico[indice];
+            bool esUltimo = indice == nombreLogico.Length - 1;
+            bool debeEscaparse = caracter == '%' || CaracteresInvalidos.Contains(caracter)
+                                 || esUltimo && caracter is '.' or ' '
+                                 || indice == 0 && reservado;
+
+            resultado.Append(debeEscaparse ? $"%{(int)caracter:X4}" : caracter);
+        }
+
+        return resultado.ToString();
+    }
+
+    private static string CrearNombreConHash(string nombreLogico)
+    {
+        byte[] hash = SHA256.HashData(TextoUtf8.Codificar(nombreLogico));
+        return PrefijoNombreConHash + Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static bool EsReservado(string nombre)
+        => NombresReservados.Contains(nombre.Split('.')[0].TrimEnd(' '));
 }
