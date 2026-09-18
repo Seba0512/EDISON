@@ -13,6 +13,7 @@ internal sealed class ServidorTcp : IDisposable
     private const int Detenido = 0;
 
     private readonly ConfiguracionServidor _configuracion;
+    private readonly object _candadoCicloDeVida = new();
     private readonly RegistroDeConexiones _registro = new();
     private readonly CodecDeTramas _codec;
     private readonly CanalDeArchivos _canalDeArchivos;
@@ -36,47 +37,60 @@ internal sealed class ServidorTcp : IDisposable
 
     public void Iniciar()
     {
-        if (Interlocked.CompareExchange(ref _ejecutando, Ejecutando, Detenido) != Detenido)
-            throw new InvalidOperationException("El servidor ya fue iniciado");
-
+        bool inicioAdquirido = false;
         try
         {
-            _listener = CrearListener();
-            _mesaDeAprobaciones.Iniciar();
-            _threadAceptador = new Thread(AceptarConexiones)
+            lock (_candadoCicloDeVida)
             {
-                Name = "Aceptador TCP"
-            };
-            _threadAceptador.Start();
-            Console.WriteLine($"Servidor escuchando en {_configuracion.Endpoint}");
+                ExigirServidorDetenido();
+                inicioAdquirido = true;
+                IniciarRecursos();
+            }
         }
-        catch
+        catch when (inicioAdquirido)
         {
             Interlocked.Exchange(ref _ejecutando, Detenido);
-            CerrarListener();
+            if (!CerrarRecursos())
+                Console.Error.WriteLine("El rollback del arranque dejó recursos pendientes");
             throw;
         }
     }
 
-    public void Detener()
+    public bool Detener()
     {
-        if (Interlocked.Exchange(ref _ejecutando, Detenido) == Detenido)
-            return;
+        lock (_candadoCicloDeVida)
+        {
+            if (!HayRecursosParaCerrar())
+                return true;
+        }
 
         Console.WriteLine("Cerrando servidor...");
-        CerrarListener();
-        UnirAceptador();
-        _mesaDeAprobaciones.Detener();
-        ConexionActiva[] conexiones = _registro.TomarSnapshot();
-        foreach (ConexionActiva conexion in conexiones)
-            conexion.Cerrar();
-        foreach (ConexionActiva conexion in conexiones)
-            UnirCliente(conexion);
-        Console.WriteLine("Servidor cerrado ordenadamente.");
+        bool cierreCompleto = CerrarRecursos();
+        if (cierreCompleto)
+            Console.WriteLine("Servidor cerrado ordenadamente.");
+        return cierreCompleto;
     }
 
     public void Dispose()
         => Detener();
+
+    private void ExigirServidorDetenido()
+    {
+        if (Volatile.Read(ref _ejecutando) == Ejecutando || HayRecursosPoseidos())
+            throw new InvalidOperationException("El servidor ya fue iniciado o tiene recursos pendientes");
+
+        Interlocked.Exchange(ref _ejecutando, Ejecutando);
+    }
+
+    private void IniciarRecursos()
+    {
+        _listener = CrearListener();
+        _mesaDeAprobaciones.Iniciar();
+        _threadAceptador = new Thread(AceptarConexiones) { Name = "Aceptador TCP" };
+        _registro.AbrirAdmision();
+        _threadAceptador.Start();
+        Console.WriteLine($"Servidor escuchando en {_configuracion.Endpoint}");
+    }
 
     private Socket CrearListener()
     {
@@ -128,12 +142,6 @@ internal sealed class ServidorTcp : IDisposable
 
     private void IncorporarCliente(Socket socket)
     {
-        if (EstaDetenido())
-        {
-            socket.Dispose();
-            return;
-        }
-
         int numero = Interlocked.Increment(ref _siguienteCliente);
         ConexionActiva conexion = new(numero, socket);
         Thread thread = new(() => Atender(conexion))
@@ -141,19 +149,18 @@ internal sealed class ServidorTcp : IDisposable
             Name = $"Cliente {numero}"
         };
         conexion.AsignarThread(thread);
-        _registro.Agregar(conexion);
-        IniciarCliente(conexion);
+        IncorporarODescartar(conexion);
     }
 
-    private void IniciarCliente(ConexionActiva conexion)
+    private void IncorporarODescartar(ConexionActiva conexion)
     {
         try
         {
-            conexion.Iniciar();
+            if (!_registro.IntentarAgregarEIniciar(conexion))
+                conexion.Cerrar();
         }
         catch
         {
-            _registro.Quitar(conexion);
             conexion.Cerrar();
             throw;
         }
@@ -184,25 +191,167 @@ internal sealed class ServidorTcp : IDisposable
     private bool EstaDetenido()
         => Volatile.Read(ref _ejecutando) == Detenido;
 
-    private void CerrarListener()
-        => Interlocked.Exchange(ref _listener, null)?.Dispose();
-
     private Socket ObtenerListener()
         => _listener ?? throw new ObjectDisposedException(nameof(ServidorTcp));
 
-    private void UnirAceptador()
+    private bool CerrarRecursos()
     {
-        Thread? thread = _threadAceptador;
-        if (thread is not null && !thread.Join(_configuracion.JoinTimeoutMilliseconds))
-            Console.Error.WriteLine("El Thread aceptador no terminó dentro del timeout");
+        List<string> problemas = [];
+        ConexionActiva[] conexiones = PrepararCierre();
+        IntentarCerrarListener(problemas);
+        IntentarUnirAceptador(problemas);
+        IntentarDetenerMesa(problemas);
+        IntentarCerrarConexiones(conexiones, problemas);
+        IntentarUnirConexiones(conexiones, problemas);
+        _registro.DescartarTerminadas();
+        VerificarRecursosVivos(problemas);
+        return InformarResultado(problemas);
     }
 
-    private void UnirCliente(ConexionActiva conexion)
+    private ConexionActiva[] PrepararCierre()
     {
-        TimeSpan timeout = TimeSpan.FromMilliseconds(
-            _configuracion.JoinTimeoutMilliseconds);
-        if (!conexion.Unir(timeout))
-            Console.Error.WriteLine(
-                $"El Thread del cliente {conexion.Numero} no terminó dentro del timeout");
+        lock (_candadoCicloDeVida)
+        {
+            Interlocked.Exchange(ref _ejecutando, Detenido);
+            return _registro.CerrarAdmisionYTomarSnapshot();
+        }
     }
+
+    private void IntentarCerrarListener(List<string> problemas)
+    {
+        Socket? listener = Interlocked.Exchange(ref _listener, null);
+        if (listener is null)
+            return;
+
+        try
+        {
+            listener.Dispose();
+        }
+        catch (Exception exception)
+        {
+            Interlocked.CompareExchange(ref _listener, listener, null);
+            problemas.Add(DescribirProblema("No se pudo cerrar el listener", exception));
+        }
+    }
+
+    private void IntentarUnirAceptador(List<string> problemas)
+    {
+        Thread? thread = Volatile.Read(ref _threadAceptador);
+        if (thread is null)
+            return;
+
+        try
+        {
+            if (EsThreadSinIniciar(thread) || thread.Join(_configuracion.JoinTimeoutMilliseconds))
+                Interlocked.CompareExchange(ref _threadAceptador, null, thread);
+            else
+                problemas.Add("El Thread aceptador no terminó dentro del timeout");
+        }
+        catch (Exception exception)
+        {
+            problemas.Add(DescribirProblema("No se pudo esperar al Thread aceptador", exception));
+        }
+    }
+
+    private void IntentarDetenerMesa(List<string> problemas)
+    {
+        try
+        {
+            TimeSpan timeout = TimeSpan.FromMilliseconds(_configuracion.JoinTimeoutMilliseconds);
+            if (!_mesaDeAprobaciones.Detener(timeout))
+                problemas.Add("La mesa de aprobaciones no terminó dentro del timeout");
+        }
+        catch (Exception exception)
+        {
+            problemas.Add(DescribirProblema("No se pudo detener la mesa de aprobaciones", exception));
+        }
+    }
+
+    private static void IntentarCerrarConexiones(
+        IEnumerable<ConexionActiva> conexiones,
+        List<string> problemas)
+    {
+        foreach (ConexionActiva conexion in conexiones)
+        {
+            try
+            {
+                conexion.Cerrar();
+            }
+            catch (Exception exception)
+            {
+                problemas.Add(DescribirProblema(
+                    $"No se pudo cerrar el cliente {conexion.Numero}",
+                    exception));
+            }
+        }
+    }
+
+    private void IntentarUnirConexiones(
+        IEnumerable<ConexionActiva> conexiones,
+        List<string> problemas)
+    {
+        foreach (ConexionActiva conexion in conexiones)
+            IntentarUnirConexion(conexion, problemas);
+    }
+
+    private void IntentarUnirConexion(ConexionActiva conexion, List<string> problemas)
+    {
+        try
+        {
+            TimeSpan timeout = TimeSpan.FromMilliseconds(_configuracion.JoinTimeoutMilliseconds);
+            if (!conexion.Unir(timeout))
+                problemas.Add($"El Thread del cliente {conexion.Numero} no terminó dentro del timeout");
+        }
+        catch (Exception exception)
+        {
+            problemas.Add(DescribirProblema(
+                $"No se pudo esperar al cliente {conexion.Numero}",
+                exception));
+        }
+    }
+
+    private void VerificarRecursosVivos(List<string> problemas)
+    {
+        if (Volatile.Read(ref _listener) is not null)
+            problemas.Add("El listener continúa asignado");
+        if (Volatile.Read(ref _threadAceptador)?.IsAlive == true)
+            problemas.Add("El Thread aceptador continúa vivo");
+        if (_mesaDeAprobaciones.TieneThreadVivo)
+            problemas.Add("El Thread de la mesa de aprobaciones continúa vivo");
+
+        foreach (ConexionActiva conexion in _registro.TomarSnapshot())
+            if (conexion.TieneThreadVivo)
+                problemas.Add($"El Thread del cliente {conexion.Numero} continúa vivo");
+    }
+
+    private bool HayRecursosParaCerrar()
+        => Volatile.Read(ref _ejecutando) == Ejecutando
+           || HayRecursosPoseidos();
+
+    private bool HayRecursosPoseidos()
+        => Volatile.Read(ref _listener) is not null
+           || Volatile.Read(ref _threadAceptador) is not null
+           || _mesaDeAprobaciones.TieneThreadAsignado
+           || _registro.TieneConexiones;
+
+    private static bool InformarResultado(List<string> problemas)
+    {
+        string[] unicos = problemas.Distinct().ToArray();
+        foreach (string problema in unicos)
+            Console.Error.WriteLine($"Cierre pendiente: {problema}");
+
+        if (unicos.Length > 0)
+        {
+            Console.Error.WriteLine("El servidor no terminó de cerrar todos sus recursos.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private static string DescribirProblema(string descripcion, Exception exception)
+        => $"{descripcion}: {exception.GetType().Name}: {exception.Message}";
+
+    private static bool EsThreadSinIniciar(Thread thread)
+        => (thread.ThreadState & ThreadState.Unstarted) != 0;
 }

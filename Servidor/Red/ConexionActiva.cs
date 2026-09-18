@@ -20,6 +20,7 @@ internal sealed class ConexionActiva
     public int Numero { get; }
     public Socket Socket => _socket;
     public bool EstaAbierta => Volatile.Read(ref _cerrada) == Abierta;
+    public bool TieneThreadVivo => Volatile.Read(ref _thread)?.IsAlive == true;
 
     public void AsignarThread(Thread thread)
     {
