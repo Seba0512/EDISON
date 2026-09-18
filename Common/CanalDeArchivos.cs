@@ -1,20 +1,18 @@
 using System.Buffers.Binary;
-using Common.Excepciones;
 
-namespace Common.Protocolo;
+namespace Common;
 
 // El archivo viaja fuera de la trama. Primero el tamaño en 8 bytes y después sus bytes exactos.
 public sealed class CanalDeArchivos
 {
-    private const string ConexionCortada =
-        "La conexión se cerró antes de completar la transferencia del archivo";
-
     private readonly int _tamanioDeBloque;
 
     public CanalDeArchivos(int tamanioDeBloque)
     {
         if (tamanioDeBloque <= 0)
+        {
             throw new ArgumentOutOfRangeException(nameof(tamanioDeBloque));
+        }
 
         _tamanioDeBloque = tamanioDeBloque;
     }
@@ -28,7 +26,12 @@ public sealed class CanalDeArchivos
     public long RecibirEn(Stream origen, Stream destino, long maxBytes)
     {
         long tamanio = LeerTamanio(origen);
-        ExigirTamanioAdmitido(tamanio, maxBytes);
+        if (tamanio < 0 || tamanio > maxBytes)
+        {
+            throw new TransferenciaDeArchivoException(
+                $"El tamaño de archivo anunciado ({tamanio}) no es válido (máximo {maxBytes})");
+        }
+
         Copiar(origen, destino, tamanio);
         return tamanio;
     }
@@ -46,13 +49,6 @@ public sealed class CanalDeArchivos
         return BinaryPrimitives.ReadInt64BigEndian(bytes);
     }
 
-    private static void ExigirTamanioAdmitido(long tamanio, long maxBytes)
-    {
-        if (tamanio < 0 || tamanio > maxBytes)
-            throw new TransferenciaDeArchivoException(
-                $"El tamaño de archivo anunciado ({tamanio}) no es válido (máximo {maxBytes})");
-    }
-
     private void Copiar(Stream origen, Stream destino, long tamanio)
     {
         byte[] buffer = new byte[_tamanioDeBloque];
@@ -61,7 +57,13 @@ public sealed class CanalDeArchivos
         while (restante > 0)
         {
             int aLeer = (int)Math.Min(buffer.Length, restante);
-            int leidos = LeerAlgo(origen, buffer, 0, aLeer);
+            int leidos = origen.Read(buffer, 0, aLeer);
+            if (leidos == 0)
+            {
+                throw new TransferenciaDeArchivoException(
+                    "La conexión se cerró antes de completar la transferencia del archivo");
+            }
+
             destino.Write(buffer, 0, leidos);
             restante -= leidos;
         }
@@ -73,18 +75,16 @@ public sealed class CanalDeArchivos
         int offset = 0;
         while (offset < cantidad)
         {
-            offset += LeerAlgo(origen, buffer, offset, cantidad - offset);
+            int leidos = origen.Read(buffer, offset, cantidad - offset);
+            if (leidos == 0)
+            {
+                throw new TransferenciaDeArchivoException(
+                    "La conexión se cerró antes de completar la transferencia del archivo");
+            }
+
+            offset += leidos;
         }
 
         return buffer;
-    }
-
-    private static int LeerAlgo(Stream origen, byte[] buffer, int offset, int cantidad)
-    {
-        int leidos = origen.Read(buffer, offset, cantidad);
-        if (leidos == 0)
-            throw new TransferenciaDeArchivoException(ConexionCortada);
-
-        return leidos;
     }
 }
