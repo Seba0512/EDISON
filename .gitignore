@@ -29,3 +29,7 @@ appsettings.local.json
 Servidor/imagenes/
 /descargas/
 Cliente/descargas/
+
+# Datos locales de ejecucion
+imagenes/
+descargas/
