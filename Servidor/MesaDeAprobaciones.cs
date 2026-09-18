@@ -1,19 +1,42 @@
-using Dominio.Fachada;
+using Dominio;
 
-namespace Servidor.Reservas;
+namespace Servidor;
 
+// Cada tanto revisa las reservas pendientes cuyo plazo venció y las confirma o rechaza.
 internal sealed class MesaDeAprobaciones
 {
-    private readonly IResolucionDeReservas _resolucionDeReservas;
+    private readonly Edison _edison;
     private readonly TimeSpan _intervalo;
     private readonly object _candado = new();
     private Thread? _thread;
     private bool _detenida;
 
-    public MesaDeAprobaciones(IResolucionDeReservas resolucionDeReservas, TimeSpan intervalo)
+    public MesaDeAprobaciones(Edison edison, TimeSpan intervalo)
     {
-        _resolucionDeReservas = resolucionDeReservas;
+        _edison = edison;
         _intervalo = intervalo;
+    }
+
+    public bool TieneThreadAsignado
+    {
+        get
+        {
+            lock (_candado)
+            {
+                return _thread is not null;
+            }
+        }
+    }
+
+    public bool TieneThreadVivo
+    {
+        get
+        {
+            lock (_candado)
+            {
+                return _thread?.IsAlive == true;
+            }
+        }
     }
 
     public void Iniciar()
@@ -21,7 +44,9 @@ internal sealed class MesaDeAprobaciones
         lock (_candado)
         {
             if (_thread is not null || _detenida)
+            {
                 throw new InvalidOperationException("La mesa de aprobaciones ya fue iniciada");
+            }
 
             _thread = new Thread(Ciclo) { Name = "Mesa de aprobaciones" };
             IniciarThread();
@@ -46,32 +71,19 @@ internal sealed class MesaDeAprobaciones
 
         bool termino = thread.Join(timeout);
         if (termino)
+        {
             LiberarThread(thread);
+        }
+
         return termino;
-    }
-
-    public bool TieneThreadAsignado
-    {
-        get
-        {
-            lock (_candado)
-                return _thread is not null;
-        }
-    }
-
-    public bool TieneThreadVivo
-    {
-        get
-        {
-            lock (_candado)
-                return _thread?.IsAlive == true;
-        }
     }
 
     private void Ciclo()
     {
         while (EsperarIntervalo())
+        {
             ResolverSinPropagar();
+        }
     }
 
     private bool EsperarIntervalo()
@@ -79,8 +91,10 @@ internal sealed class MesaDeAprobaciones
         lock (_candado)
         {
             if (!_detenida)
+            {
                 // Monitor.Wait en vez de Sleep para que Detener() pueda despertar el ciclo de inmediato.
                 Monitor.Wait(_candado, _intervalo);
+            }
 
             return !_detenida;
         }
@@ -90,11 +104,11 @@ internal sealed class MesaDeAprobaciones
     {
         try
         {
-            _resolucionDeReservas.ResolverVencidas();
+            _edison.ResolverVencidas();
         }
-        // Sin este catch una excepción mataría el Thread en silencio y no se resolverían más reservas.
         catch (Exception exception)
         {
+            // Sin este catch una excepción mataría el Thread en silencio y no se resolverían más reservas.
             Console.Error.WriteLine($"La mesa de aprobaciones falló al resolver reservas: {exception}");
         }
     }
@@ -117,10 +131,14 @@ internal sealed class MesaDeAprobaciones
         lock (_candado)
         {
             if (ReferenceEquals(_thread, thread))
+            {
                 _thread = null;
+            }
         }
     }
 
     private static bool EsThreadSinIniciar(Thread thread)
-        => (thread.ThreadState & ThreadState.Unstarted) != 0;
+    {
+        return (thread.ThreadState & ThreadState.Unstarted) != 0;
+    }
 }

@@ -1,5 +1,6 @@
 using System.Configuration;
 using System.Net.Sockets;
+using Dominio;
 
 namespace Servidor;
 
@@ -30,7 +31,12 @@ internal static class Program
     private static void Ejecutar()
     {
         ConfiguracionServidor configuracion = ConfiguracionServidor.Cargar();
-        using ServidorTcp servidor = new(configuracion);
+        Edison edison = new(new RelojDelSistema(), configuracion.ReservationDelaySeconds);
+        ImagenesEnDisco imagenes = new(configuracion.ImagesDirectory);
+        EjecutorDeComandos ejecutor = new(edison, imagenes, configuracion.MaxFileBytes);
+        MesaDeAprobaciones mesa = new(
+            edison, TimeSpan.FromMilliseconds(configuracion.ApprovalIntervalMilliseconds));
+        using ServidorTcp servidor = new(configuracion, ejecutor, mesa);
         servidor.Iniciar();
         EsperarOrdenDeSalida();
         servidor.Detener();
