@@ -1,4 +1,4 @@
-namespace Dominio.Excepciones;
+namespace Dominio;
 
 public class DominioException : Exception
 {

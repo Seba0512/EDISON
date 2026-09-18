@@ -1,4 +1,9 @@
-namespace Dominio.Tiempo;
+namespace Dominio;
+
+public interface IReloj
+{
+    DateTime Ahora { get; }
+}
 
 public class RelojDelSistema : IReloj
 {
