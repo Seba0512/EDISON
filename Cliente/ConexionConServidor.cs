@@ -117,30 +117,32 @@ internal sealed class ConexionConServidor : IDisposable
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
         string rutaTemporal = rutaDestino + ".tmp";
-        bool transferenciaCompleta = false;
         lock (_candadoDeSocket)
         {
             try
             {
-                long tamanio;
-                using (FileStream destino = File.Create(rutaTemporal))
-                    tamanio = _canalDeArchivos.RecibirEn(_stream, destino, _maxFileBytes);
-
-                File.Move(rutaTemporal, rutaDestino, overwrite: true);
-                transferenciaCompleta = true;
-                return tamanio;
+                return RecibirYPublicar(rutaTemporal, rutaDestino);
             }
-            catch (TransferenciaDeArchivoException)
+            catch
             {
+                // Desde la respuesta de CMD16 puede haber bytes binarios pendientes. Ante cualquier
+                // falla local o remota se invalida la conexión para no interpretar esos bytes como tramas.
                 _monitor.Detener();
+                IntentarShutdown();
+                IntentarEliminarTemporal(rutaTemporal);
                 throw;
             }
-            finally
-            {
-                if (!transferenciaCompleta)
-                    File.Delete(rutaTemporal);
-            }
         }
+    }
+
+    private long RecibirYPublicar(string rutaTemporal, string rutaDestino)
+    {
+        long tamanio;
+        using (FileStream destino = File.Create(rutaTemporal))
+            tamanio = _canalDeArchivos.RecibirEn(_stream, destino, _maxFileBytes);
+
+        File.Move(rutaTemporal, rutaDestino, overwrite: true);
+        return tamanio;
     }
 
     public void Dispose()
@@ -201,6 +203,22 @@ internal sealed class ConexionConServidor : IDisposable
         }
         catch (ObjectDisposedException)
         {
+        }
+    }
+
+    private static void IntentarEliminarTemporal(string rutaTemporal)
+    {
+        if (!File.Exists(rutaTemporal))
+            return;
+
+        try
+        {
+            File.Delete(rutaTemporal);
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(
+                $"No se pudo limpiar el archivo temporal '{rutaTemporal}': {exception.Message}");
         }
     }
 }

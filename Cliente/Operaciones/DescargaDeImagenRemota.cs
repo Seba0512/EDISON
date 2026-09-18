@@ -21,7 +21,7 @@ internal sealed class DescargaDeImagenRemota
         byte[] cuerpo = _conexion.EnviarSolicitudYLeerCuerpo(Comandos.DescargarImagen, solicitud);
         string nombreSugerido = CodecDeDescargaDeImagen.DecodificarRespuesta(cuerpo);
 
-        string nombreArchivo = Path.GetFileName(nombreSugerido);
+        string nombreArchivo = NombreDeDescargaSeguro.Crear(nombreSugerido);
         string rutaDestino = Path.Combine(directorioDelUsuario, nombreArchivo);
 
         long tamanio = _conexion.RecibirArchivoEn(rutaDestino);
