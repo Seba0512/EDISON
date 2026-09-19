@@ -1,13 +1,173 @@
-using Dominio.Excepciones;
-using Dominio.Tiempo;
-
 namespace Dominio;
+
+public enum EstadoDeVehiculo
+{
+    Disponible,
+    Reservada
+}
+
+public class Vehiculo
+{
+    public Guid Id { get; }
+
+    public string NombreModelo { get; }
+
+    public EstadoDeVehiculo Estado { get; private set; }
+
+    internal Vehiculo(string nombreModelo)
+    {
+        Id = Guid.NewGuid();
+        NombreModelo = nombreModelo;
+        Estado = EstadoDeVehiculo.Disponible;
+    }
+
+    public bool EstaDisponible => Estado == EstadoDeVehiculo.Disponible;
+
+    internal void Reservar()
+    {
+        if (!EstaDisponible)
+        {
+            throw new DominioException($"La unidad {Id} ya esta reservada");
+        }
+
+        Estado = EstadoDeVehiculo.Reservada;
+    }
+
+    internal void Liberar()
+    {
+        if (EstaDisponible)
+        {
+            throw new DominioException($"La unidad {Id} ya estaba disponible");
+        }
+
+        Estado = EstadoDeVehiculo.Disponible;
+    }
+}
+
+public class DatosDeModelo
+{
+    private const int LargoMinimoNombre = 2;
+    private const int LargoMaximoNombre = 60;
+    private const int LargoMaximoDescripcion = 500;
+
+    public string Nombre { get; }
+
+    public string Descripcion { get; }
+
+    public decimal Precio { get; }
+
+    public DateTime FechaEntregaPrometida { get; }
+
+    public string NombreArchivoImagen { get; }
+
+    public DatosDeModelo(
+        string nombre,
+        string descripcion,
+        decimal precio,
+        DateTime fechaEntregaPrometida,
+        string nombreArchivoImagen)
+    {
+        Nombre = NombreValidado(nombre);
+        Descripcion = DescripcionValidada(descripcion);
+        Precio = PrecioValidado(precio);
+        FechaEntregaPrometida = fechaEntregaPrometida;
+        NombreArchivoImagen = nombreArchivoImagen?.Trim() ?? string.Empty;
+    }
+
+    public bool TieneImagen => NombreArchivoImagen.Length > 0;
+
+    public bool DescribeAlMismoModeloQue(DatosDeModelo otrosDatos)
+    {
+        return Nombre.Equals(otrosDatos.Nombre, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NombreValidado(string nombre)
+    {
+        if (string.IsNullOrWhiteSpace(nombre))
+        {
+            throw new DominioException("El nombre del modelo no puede estar vacio");
+        }
+
+        string nombreSinEspacios = nombre.Trim();
+        if (nombreSinEspacios.Length is < LargoMinimoNombre or > LargoMaximoNombre)
+        {
+            throw new DominioException(
+                $"El nombre del modelo debe tener entre {LargoMinimoNombre} y {LargoMaximoNombre} caracteres");
+        }
+
+        return nombreSinEspacios;
+    }
+
+    // La descripcion es opcional: una cadena vacia significa que el modelo no tiene descripcion.
+    private static string DescripcionValidada(string descripcion)
+    {
+        string descripcionSinEspacios = descripcion?.Trim() ?? string.Empty;
+        if (descripcionSinEspacios.Length > LargoMaximoDescripcion)
+        {
+            throw new DominioException(
+                $"La descripcion no puede superar los {LargoMaximoDescripcion} caracteres");
+        }
+
+        return descripcionSinEspacios;
+    }
+
+    private static decimal PrecioValidado(decimal precio)
+    {
+        decimal precioRedondeado = Math.Round(precio, 0, MidpointRounding.AwayFromZero);
+        if (precioRedondeado <= 0)
+        {
+            throw new DominioException("El precio debe ser mayor a cero");
+        }
+
+        return precioRedondeado;
+    }
+}
+
+public class FichaDeModelo
+{
+    public DatosDeModelo Datos { get; }
+
+    public int Stock { get; }
+
+    public FichaDeModelo(DatosDeModelo datos, int stock)
+    {
+        if (stock <= 0)
+        {
+            throw new DominioException("El stock debe ser mayor a cero");
+        }
+
+        Datos = datos;
+        Stock = stock;
+    }
+
+    public string Nombre => Datos.Nombre;
+}
+
+public sealed record LecturaDeModelo(
+    string Nombre,
+    string Descripcion,
+    decimal Precio,
+    DateTime FechaEntregaPrometida,
+    int StockTotal,
+    int UnidadesDisponibles,
+    int UnidadesReservadas,
+    string NombreArchivoImagen)
+{
+    public bool TieneImagen => NombreArchivoImagen.Length > 0;
+
+    public bool TieneUnidadDisponible => UnidadesDisponibles > 0;
+
+    public bool SeLlama(string nombreModelo)
+    {
+        return Nombre.Equals(nombreModelo?.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+}
 
 public class Modelo
 {
-    // Este candado cuida los datos, el stock y las reservas. Nunca se toma junto al de un repositorio.
+    // Este candado cuida los datos, las unidades y las reservas. Nunca se toma junto al de Edison.
     private readonly object _candado = new();
-    private readonly StockDeUnidades _stock;
+    private readonly List<Vehiculo> _unidades = new();
     private readonly List<Reserva> _reservas = new();
     private readonly Usuario _creador;
     private DatosDeModelo _datos;
@@ -17,7 +177,6 @@ public class Modelo
     {
         _datos = datos;
         _creador = creador;
-        _stock = new StockDeUnidades(datos.Nombre);
     }
 
     public string Nombre => _datos.Nombre;
@@ -26,16 +185,15 @@ public class Modelo
     {
         lock (_candado)
         {
-            int unidadesDisponibles = _stock.Disponibles;
-            int stockTotal = _stock.Total;
+            int disponibles = ContarDisponibles();
             return new LecturaDeModelo(
                 _datos.Nombre,
                 _datos.Descripcion,
                 _datos.Precio,
                 _datos.FechaEntregaPrometida,
-                stockTotal,
-                unidadesDisponibles,
-                stockTotal - unidadesDisponibles,
+                _unidades.Count,
+                disponibles,
+                _unidades.Count - disponibles,
                 _datos.NombreArchivoImagen);
         }
     }
@@ -45,7 +203,15 @@ public class Modelo
         lock (_candado)
         {
             ExigirActivo();
-            _stock.Agregar(cantidad);
+            if (cantidad <= 0)
+            {
+                throw new DominioException("La cantidad de unidades a agregar debe ser mayor a cero");
+            }
+
+            for (int agregadas = 0; agregadas < cantidad; agregadas++)
+            {
+                _unidades.Add(new Vehiculo(Nombre));
+            }
         }
     }
 
@@ -54,9 +220,14 @@ public class Modelo
         lock (_candado)
         {
             ValidarModificacion(ficha, solicitante);
-            _stock.AjustarA(ficha.Stock);
+            AjustarStockA(ficha.Stock);
             // La imagen no forma parte de esta operación y se conserva desde el estado protegido.
-            _datos = DatosModificadosConImagenVigente(ficha.Datos);
+            _datos = new DatosDeModelo(
+                ficha.Datos.Nombre,
+                ficha.Datos.Descripcion,
+                ficha.Datos.Precio,
+                ficha.Datos.FechaEntregaPrometida,
+                _datos.NombreArchivoImagen);
         }
     }
 
@@ -68,7 +239,11 @@ public class Modelo
         {
             ExigirActivo();
             ExigirPropietario(solicitante);
-            ExigirUnidadDisponibleParaCambiarImagen();
+            if (ContarDisponibles() == 0)
+            {
+                throw new DominioException(
+                    $"No se puede cambiar la imagen del modelo {Nombre} porque no quedan unidades disponibles");
+            }
 
             string nombreArchivoAnterior = _datos.NombreArchivoImagen;
             _datos = new DatosDeModelo(
@@ -82,26 +257,6 @@ public class Modelo
         }
     }
 
-    private void ValidarModificacion(FichaDeModelo ficha, Usuario solicitante)
-    {
-        ExigirActivo();
-        ExigirPropietario(solicitante);
-        ExigirMismoNombre(ficha.Datos);
-        ExigirDisponibleOStockEnAumento(ficha.Stock);
-        ExigirStockSuperiorAReservasActivasSiCambia(ficha.Stock);
-    }
-
-    private DatosDeModelo DatosModificadosConImagenVigente(DatosDeModelo datosNuevos)
-    {
-        return new DatosDeModelo(
-            datosNuevos.Nombre,
-            datosNuevos.Descripcion,
-            datosNuevos.Precio,
-            datosNuevos.FechaEntregaPrometida,
-            _datos.NombreArchivoImagen);
-    }
-
-    // Solo la usan las pruebas para observar el invariante: ninguna unidad reservada de mas.
     internal int ReservasActivas()
     {
         lock (_candado)
@@ -130,14 +285,6 @@ public class Modelo
         }
     }
 
-    internal void RestaurarTrasBajaFallida()
-    {
-        lock (_candado)
-        {
-            _eliminado = false;
-        }
-    }
-
     public Reserva RegistrarReserva(Usuario solicitante, IReloj reloj)
     {
         lock (_candado)
@@ -161,14 +308,15 @@ public class Modelo
             }
 
             ExigirActivo();
-            if (!_stock.HayAlgunaDisponible)
+            Vehiculo? unidadLibre = _unidades.Find(unidad => unidad.EstaDisponible);
+            if (unidadLibre is null)
             {
                 reserva.Rechazar();
                 return ResultadoResolucion.Rechazada;
             }
 
-            Vehiculo unidad = _stock.TomarUna();
-            reserva.Confirmar(unidad);
+            unidadLibre.Reservar();
+            reserva.Confirmar(unidadLibre);
             return ResultadoResolucion.Confirmada;
         }
     }
@@ -179,13 +327,13 @@ public class Modelo
         {
             ExigirActivo();
             ExigirQueLaReservaSeaPropia(reserva);
-            var estadoCancelado = reserva.PrepararCancelacion();
+            reserva.ExigirCancelable();
             if (reserva.VehiculoAsignado is Vehiculo unidad)
             {
-                _stock.Liberar(unidad);
+                LiberarUnidad(unidad);
             }
 
-            reserva.CompletarCancelacion(estadoCancelado);
+            reserva.MarcarCancelada();
         }
     }
 
@@ -194,7 +342,7 @@ public class Modelo
     {
         lock (_candado)
         {
-            return _stock.Contiene(unidad);
+            return _unidades.Contains(unidad);
         }
     }
 
@@ -207,10 +355,80 @@ public class Modelo
         }
     }
 
-    // Siempre se llama con el candado ya tomado, por eso no lo vuelve a tomar.
+    // Los privados de acá abajo se llaman siempre con el candado ya tomado.
+    private int ContarDisponibles()
+    {
+        return _unidades.Count(unidad => unidad.EstaDisponible);
+    }
+
     private int ContarReservasActivas()
     {
         return _reservas.Count(reserva => reserva.EstaActiva);
+    }
+
+    private void AjustarStockA(int totalNuevo)
+    {
+        int reservadas = _unidades.Count - ContarDisponibles();
+        if (totalNuevo < reservadas)
+        {
+            throw new DominioException(
+                $"El stock no puede quedar por debajo de las {reservadas} unidades reservadas");
+        }
+
+        if (totalNuevo > _unidades.Count)
+        {
+            int faltantes = totalNuevo - _unidades.Count;
+            for (int agregadas = 0; agregadas < faltantes; agregadas++)
+            {
+                _unidades.Add(new Vehiculo(Nombre));
+            }
+
+            return;
+        }
+
+        int sobrantes = _unidades.Count - totalNuevo;
+        for (int quitadas = 0; quitadas < sobrantes; quitadas++)
+        {
+            Vehiculo unidadLibre = _unidades.Find(unidad => unidad.EstaDisponible)!;
+            _unidades.Remove(unidadLibre);
+        }
+    }
+
+    private void LiberarUnidad(Vehiculo unidad)
+    {
+        if (!_unidades.Contains(unidad))
+        {
+            throw new DominioException($"La unidad {unidad.Id} no pertenece al modelo {Nombre}");
+        }
+
+        unidad.Liberar();
+    }
+
+    private void ValidarModificacion(FichaDeModelo ficha, Usuario solicitante)
+    {
+        ExigirActivo();
+        ExigirPropietario(solicitante);
+        if (!_datos.DescribeAlMismoModeloQue(ficha.Datos))
+        {
+            throw new DominioException("El nombre del modelo no se puede modificar");
+        }
+
+        // Se permite reponer stock para que un modelo agotado no quede congelado para siempre.
+        if (ContarDisponibles() == 0 && ficha.Stock <= _unidades.Count)
+        {
+            throw new DominioException(
+                $"No se puede modificar el modelo {Nombre} porque no quedan unidades disponibles");
+        }
+
+        if (ficha.Stock != _unidades.Count)
+        {
+            int activas = ContarReservasActivas();
+            if (ficha.Stock <= activas)
+            {
+                throw new DominioException(
+                    $"El stock debe ser mayor a las {activas} reservas activas del modelo {Nombre}");
+            }
+        }
     }
 
     private void ExigirPropietario(Usuario usuario)
@@ -227,51 +445,6 @@ public class Modelo
         if (_eliminado)
         {
             throw new DominioException($"El modelo {Nombre} fue eliminado");
-        }
-    }
-
-    private void ExigirMismoNombre(DatosDeModelo datosNuevos)
-    {
-        if (!_datos.DescribeAlMismoModeloQue(datosNuevos))
-        {
-            throw new DominioException("El nombre del modelo no se puede modificar");
-        }
-    }
-
-    private void ExigirStockSuperiorAReservasActivas(int stockNuevo)
-    {
-        int activas = ContarReservasActivas();
-        if (stockNuevo <= activas)
-        {
-            throw new DominioException(
-                $"El stock debe ser mayor a las {activas} reservas activas del modelo {Nombre}");
-        }
-    }
-
-    private void ExigirStockSuperiorAReservasActivasSiCambia(int stockNuevo)
-    {
-        if (stockNuevo != _stock.Total)
-        {
-            ExigirStockSuperiorAReservasActivas(stockNuevo);
-        }
-    }
-
-    // Se permite reponer stock para que un modelo agotado no quede congelado para siempre.
-    private void ExigirDisponibleOStockEnAumento(int stockNuevo)
-    {
-        if (!_stock.HayAlgunaDisponible && stockNuevo <= _stock.Total)
-        {
-            throw new DominioException(
-                $"No se puede modificar el modelo {Nombre} porque no quedan unidades disponibles");
-        }
-    }
-
-    private void ExigirUnidadDisponibleParaCambiarImagen()
-    {
-        if (!_stock.HayAlgunaDisponible)
-        {
-            throw new DominioException(
-                $"No se puede cambiar la imagen del modelo {Nombre} porque no quedan unidades disponibles");
         }
     }
 
