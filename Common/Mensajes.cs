@@ -101,6 +101,11 @@ public static class Mensajes
     {
         foreach (string campo in campos)
         {
+            if (campo is null)
+            {
+                throw new ProtocoloException("Un campo del mensaje no puede ser null");
+            }
+
             if (campo.Contains(Separador))
             {
                 throw new ProtocoloException($"Un campo no puede contener el carácter '{Separador}'");
