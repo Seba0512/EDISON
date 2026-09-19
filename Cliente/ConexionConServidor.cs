@@ -89,7 +89,7 @@ internal sealed class ConexionConServidor : IDisposable
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
         // El tamaño se anuncia desde el stream ya abierto. Medirlo antes de abrir permitiría
         // anunciar un tamaño viejo si el archivo cambia entre medio y romper el protocolo.
-        using FileStream origen = new(rutaArchivo, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using FileStream origen = AbrirArchivoLocal(rutaArchivo);
         if (origen.Length > _maxFileBytes)
         {
             throw new OperacionRechazadaException(
@@ -103,6 +103,19 @@ internal sealed class ConexionConServidor : IDisposable
             _codec.Escribir(_stream, solicitud);
             _canalDeArchivos.Enviar(_stream, origen, origen.Length);
             return Interpretar(LeerRespuesta(Comandos.SubirImagen));
+        }
+    }
+
+    // Un problema local con el archivo todavía no tocó la red, así que la sesión puede continuar.
+    private static FileStream AbrirArchivoLocal(string rutaArchivo)
+    {
+        try
+        {
+            return new FileStream(rutaArchivo, FileMode.Open, FileAccess.Read, FileShare.Read);
+        }
+        catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
+        {
+            throw new OperacionRechazadaException($"No se pudo leer el archivo: {excepcion.Message}");
         }
     }
 

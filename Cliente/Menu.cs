@@ -105,7 +105,16 @@ internal sealed class Menu
 
     private void CerrarSesion()
     {
-        Consola.Exito(_conexion.CerrarSesion());
+        try
+        {
+            Consola.Exito(_conexion.CerrarSesion());
+        }
+        catch (OperacionRechazadaException excepcion)
+        {
+            // Si el servidor dice que no hay sesión, quedarse en el menú autenticado sería mentir.
+            Consola.Error(excepcion.Message);
+        }
+
         _nombreUsuario = string.Empty;
         _opcionesActuales = _opcionesAnonimas;
     }

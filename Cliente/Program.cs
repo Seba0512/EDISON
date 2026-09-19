@@ -45,6 +45,10 @@ internal static class Program
         {
             Consola.ErrorFatal($"La comunicación terminó: {excepcion.Message}");
         }
+        catch (UnauthorizedAccessException excepcion)
+        {
+            Consola.ErrorFatal($"Sin permisos sobre un archivo o carpeta local: {excepcion.Message}");
+        }
 
         return 1;
     }
