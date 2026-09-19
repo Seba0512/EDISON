@@ -3,11 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dominio", "Dominio\Dominio.csproj", "{80A70973-E4AC-4BE9-B5F5-A688BD3FCA1C}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cliente", "Cliente\Cliente.csproj", "{5D1D131D-3D91-4891-9A58-CB6061ACD28D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Servidor", "Servidor\Servidor.csproj", "{0AC31223-7302-4CCE-9DD3-F69F31E0F65D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Server", "Server\Server.csproj", "{0AC31223-7302-4CCE-9DD3-F69F31E0F65D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Common", "Common\Common.csproj", "{299F4042-D979-4D74-A0D5-0DFF51967AD3}"
 EndProject
@@ -20,10 +18,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{80A70973-E4AC-4BE9-B5F5-A688BD3FCA1C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{80A70973-E4AC-4BE9-B5F5-A688BD3FCA1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{80A70973-E4AC-4BE9-B5F5-A688BD3FCA1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{80A70973-E4AC-4BE9-B5F5-A688BD3FCA1C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{5D1D131D-3D91-4891-9A58-CB6061ACD28D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{5D1D131D-3D91-4891-9A58-CB6061ACD28D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5D1D131D-3D91-4891-9A58-CB6061ACD28D}.Release|Any CPU.ActiveCfg = Release|Any CPU
