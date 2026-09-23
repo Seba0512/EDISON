@@ -1,7 +1,7 @@
 using Common;
 using Servidor.Dominio.Entidades;
 using Servidor.Dominio.Excepciones;
-using Servidor.Dominio.Fachada;
+using Servidor.Dominio.Servicios;
 
 namespace Servidor;
 
@@ -9,22 +9,31 @@ internal sealed class EjecutorDeComandos
 {
     public const string SesionRequerida = "Debe iniciar sesión para realizar esta operación";
 
-    private readonly Edison _edison;
+    private readonly ServicioDeUsuarios _usuarios;
+    private readonly ServicioDeModelos _modelos;
+    private readonly ServicioDeReservas _reservas;
     private readonly ImagenesEnDisco _imagenes;
     private readonly long _maxFileBytes;
 
-    public EjecutorDeComandos(Edison edison, ImagenesEnDisco imagenes, long maxFileBytes)
+    public EjecutorDeComandos(
+        ServicioDeUsuarios usuarios,
+        ServicioDeModelos modelos,
+        ServicioDeReservas reservas,
+        ImagenesEnDisco imagenes,
+        long maxFileBytes)
     {
-        _edison = edison;
+        _usuarios = usuarios;
+        _modelos = modelos;
+        _reservas = reservas;
         _imagenes = imagenes;
         _maxFileBytes = maxFileBytes;
     }
 
-    public RespuestaDelServidor Ejecutar(Trama solicitud, EstadoDeSesion sesion, ArchivosDeSesion archivos)
+    public RespuestaDelServidor Ejecutar(Trama solicitud, SesionDeCliente sesion)
     {
         try
         {
-            return Responder(solicitud, sesion, archivos);
+            return Responder(solicitud, sesion);
         }
         catch (DominioException excepcion)
         {
@@ -42,15 +51,9 @@ internal sealed class EjecutorDeComandos
         }
     }
 
-    private RespuestaDelServidor Responder(Trama solicitud, EstadoDeSesion sesion, ArchivosDeSesion archivos)
+    private RespuestaDelServidor Responder(Trama solicitud, SesionDeCliente sesion)
     {
-        // La subida drena primero el archivo del stream, por eso valida la sesión por su cuenta.
-        if (solicitud.Comando == Comandos.SubirImagen)
-        {
-            return SubirImagen(solicitud, sesion, archivos);
-        }
-
-        if (ExigeSesion(solicitud.Comando) && !sesion.TieneSesion)
+        if (ExigeSesion(solicitud.Comando) && sesion.UsuarioAutenticado is null)
         {
             return RespuestaDelServidor.Rechazo(SesionRequerida);
         }
@@ -64,25 +67,27 @@ internal sealed class EjecutorDeComandos
             case Comandos.CerrarSesion:
                 return CerrarSesion(solicitud, sesion);
             case Comandos.AltaDeModelo:
-                return AltaDeModelo(solicitud, sesion.UsuarioAutenticado);
+                return AltaDeModelo(solicitud, sesion.UsuarioAutenticado!);
             case Comandos.ModificarModelo:
-                return ModificarModelo(solicitud, sesion.UsuarioAutenticado);
+                return ModificarModelo(solicitud, sesion.UsuarioAutenticado!);
             case Comandos.BajaDeModelo:
-                return BajaDeModelo(solicitud, sesion.UsuarioAutenticado);
+                return BajaDeModelo(solicitud, sesion.UsuarioAutenticado!);
             case Comandos.BuscarModelos:
                 return BuscarModelos(solicitud);
             case Comandos.ConsultarModelo:
                 return ConsultarModelo(solicitud);
+            case Comandos.SubirImagen:
+                return SubirImagen(solicitud, sesion.UsuarioAutenticado!);
             case Comandos.DescargarImagen:
-                return DescargarImagen(solicitud, archivos);
+                return DescargarImagen(solicitud);
             case Comandos.SolicitarReserva:
-                return SolicitarReserva(solicitud, sesion.UsuarioAutenticado);
+                return SolicitarReserva(solicitud, sesion.UsuarioAutenticado!);
             case Comandos.CancelarReserva:
-                return CancelarReserva(solicitud, sesion.UsuarioAutenticado);
+                return CancelarReserva(solicitud, sesion.UsuarioAutenticado!);
             case Comandos.ConsultarMisReservas:
-                return ConsultarMisReservas(solicitud, sesion.UsuarioAutenticado);
+                return ConsultarMisReservas(solicitud, sesion.UsuarioAutenticado!);
             case Comandos.ConsultarHistorial:
-                return ConsultarHistorial(solicitud, sesion.UsuarioAutenticado);
+                return ConsultarHistorial(solicitud, sesion.UsuarioAutenticado!);
             default:
                 return RespuestaDelServidor.Rechazo("CMD no soportado");
         }
@@ -92,7 +97,8 @@ internal sealed class EjecutorDeComandos
     {
         return comando is Comandos.CerrarSesion
             or Comandos.AltaDeModelo or Comandos.ModificarModelo or Comandos.BajaDeModelo
-            or Comandos.BuscarModelos or Comandos.ConsultarModelo or Comandos.DescargarImagen
+            or Comandos.BuscarModelos or Comandos.ConsultarModelo
+            or Comandos.SubirImagen or Comandos.DescargarImagen
             or Comandos.SolicitarReserva or Comandos.CancelarReserva or Comandos.ConsultarMisReservas
             or Comandos.ConsultarHistorial;
     }
@@ -100,46 +106,46 @@ internal sealed class EjecutorDeComandos
     private RespuestaDelServidor Registrar(Trama solicitud)
     {
         Credenciales credenciales = Mensajes.ACredenciales(solicitud.DatosComoTexto());
-        Usuario usuario = _edison.Registrar(credenciales.NombreUsuario, credenciales.Clave);
+        Usuario usuario = _usuarios.Registrar(credenciales.NombreUsuario, credenciales.Clave);
         return RespuestaDelServidor.Ok($"Usuario '{usuario.NombreUsuario}' registrado");
     }
 
-    private RespuestaDelServidor IniciarSesion(Trama solicitud, EstadoDeSesion sesion)
+    private RespuestaDelServidor IniciarSesion(Trama solicitud, SesionDeCliente sesion)
     {
-        if (sesion.TieneSesion)
+        if (sesion.UsuarioAutenticado is not null)
         {
             return RespuestaDelServidor.Rechazo("La conexión ya tiene una sesión iniciada");
         }
 
         Credenciales credenciales = Mensajes.ACredenciales(solicitud.DatosComoTexto());
-        Usuario usuario = _edison.IniciarSesion(credenciales.NombreUsuario, credenciales.Clave);
-        sesion.Autenticar(usuario);
+        Usuario usuario = _usuarios.IniciarSesion(credenciales.NombreUsuario, credenciales.Clave);
+        sesion.UsuarioAutenticado = usuario;
         return RespuestaDelServidor.Ok($"Bienvenido, {usuario.NombreUsuario}");
     }
 
-    private RespuestaDelServidor CerrarSesion(Trama solicitud, EstadoDeSesion sesion)
+    private RespuestaDelServidor CerrarSesion(Trama solicitud, SesionDeCliente sesion)
     {
         ExigirDatosVacios(solicitud);
-        _edison.CerrarSesion(sesion.UsuarioAutenticado);
-        sesion.Cerrar();
+        _usuarios.CerrarSesion(sesion.UsuarioAutenticado!);
+        sesion.UsuarioAutenticado = null;
         return RespuestaDelServidor.Ok("Sesión cerrada");
     }
 
     private RespuestaDelServidor AltaDeModelo(Trama solicitud, Usuario usuario)
     {
-        _edison.AltaDeModelo(FichaRecibida(solicitud), usuario);
+        _modelos.AltaDeModelo(FichaRecibida(solicitud), usuario);
         return RespuestaDelServidor.Ok("Modelo creado correctamente.");
     }
 
     private RespuestaDelServidor ModificarModelo(Trama solicitud, Usuario usuario)
     {
-        _edison.ModificarModelo(FichaRecibida(solicitud), usuario);
+        _modelos.ModificarModelo(FichaRecibida(solicitud), usuario);
         return RespuestaDelServidor.Ok("Modelo modificado correctamente.");
     }
 
     private RespuestaDelServidor BajaDeModelo(Trama solicitud, Usuario usuario)
     {
-        string nombreArchivoImagen = _edison.EliminarModelo(solicitud.DatosComoTexto(), usuario);
+        string nombreArchivoImagen = _modelos.EliminarModelo(solicitud.DatosComoTexto(), usuario);
         IntentarEliminarImagen(nombreArchivoImagen, "No se pudo limpiar la imagen del modelo eliminado");
         return RespuestaDelServidor.Ok("Modelo eliminado correctamente.");
     }
@@ -155,7 +161,7 @@ internal sealed class EjecutorDeComandos
             filtros.MinimoDisponibles);
 
         List<ModeloListado> listado = new();
-        foreach (LecturaDeModelo modelo in _edison.Buscar(filtro))
+        foreach (LecturaDeModelo modelo in _modelos.Buscar(filtro))
         {
             listado.Add(new ModeloListado(
                 modelo.Nombre, modelo.Precio, modelo.FechaEntregaPrometida, modelo.UnidadesDisponibles));
@@ -166,7 +172,7 @@ internal sealed class EjecutorDeComandos
 
     private RespuestaDelServidor ConsultarModelo(Trama solicitud)
     {
-        LecturaDeModelo modelo = _edison.ConsultarLectura(solicitud.DatosComoTexto());
+        LecturaDeModelo modelo = _modelos.ConsultarLectura(solicitud.DatosComoTexto());
         DetalleDeModelo detalle = new(
             modelo.Nombre,
             modelo.Descripcion,
@@ -179,65 +185,60 @@ internal sealed class EjecutorDeComandos
         return RespuestaDelServidor.Ok(Mensajes.DeDetalleDeModelo(detalle));
     }
 
-    private RespuestaDelServidor SubirImagen(Trama solicitud, EstadoDeSesion sesion, ArchivosDeSesion archivos)
+    // La imagen viaja dentro de DATOS: primero el texto "modelo#archivo" y después sus bytes.
+    private RespuestaDelServidor SubirImagen(Trama solicitud, Usuario usuario)
     {
-        using MemoryStream archivo = new();
-        archivos.RecibirEn(archivo);
-
-        if (!sesion.TieneSesion)
+        (string mensaje, byte[] imagen) = Mensajes.ATextoYBinario(solicitud.Datos.Span);
+        if (imagen.LongLength > _maxFileBytes)
         {
-            return RespuestaDelServidor.Rechazo(SesionRequerida);
+            return RespuestaDelServidor.Rechazo(
+                $"El archivo supera el tamaño máximo permitido ({_maxFileBytes} bytes)");
         }
 
-        (string nombreModelo, string nombreArchivoCliente) =
-            Mensajes.ASubidaDeImagen(solicitud.DatosComoTexto());
+        (string nombreModelo, string nombreArchivoCliente) = Mensajes.ASubidaDeImagen(mensaje);
         string extension = Path.GetExtension(ImagenesEnDisco.ValidarNombre(nombreArchivoCliente));
         string nombreArchivoNuevo = $"{Guid.NewGuid():N}{extension}";
-        archivo.Position = 0;
+        using MemoryStream archivo = new(imagen);
         _imagenes.Guardar(nombreArchivoNuevo, archivo);
 
-        string nombreArchivoAnterior =
-            CambiarImagen(nombreModelo, nombreArchivoNuevo, sesion.UsuarioAutenticado);
+        string nombreArchivoAnterior = CambiarImagen(nombreModelo, nombreArchivoNuevo, usuario);
         IntentarEliminarImagen(nombreArchivoAnterior, "No se pudo limpiar la imagen reemplazada");
         return RespuestaDelServidor.Ok("Imagen actualizada correctamente.");
     }
 
-    private RespuestaDelServidor DescargarImagen(Trama solicitud, ArchivosDeSesion archivos)
+    private RespuestaDelServidor DescargarImagen(Trama solicitud)
     {
-        LecturaDeModelo modelo = _edison.ConsultarLectura(solicitud.DatosComoTexto());
+        LecturaDeModelo modelo = _modelos.ConsultarLectura(solicitud.DatosComoTexto());
         if (!modelo.TieneImagen)
         {
             return RespuestaDelServidor.Rechazo($"El modelo {modelo.Nombre} no tiene imagen");
         }
 
         string nombreSugerido = $"{modelo.Nombre}{Path.GetExtension(modelo.NombreArchivoImagen)}";
-        Stream origen = _imagenes.AbrirLectura(modelo.NombreArchivoImagen);
+        using Stream origen = _imagenes.AbrirLectura(modelo.NombreArchivoImagen);
+        if (origen.Length > _maxFileBytes)
+        {
+            return RespuestaDelServidor.Rechazo(
+                $"La imagen supera el tamaño máximo de transferencia ({_maxFileBytes} bytes)");
+        }
+
         try
         {
-            long tamanio = origen.Length;
-            if (tamanio > _maxFileBytes)
-            {
-                origen.Dispose();
-                return RespuestaDelServidor.Rechazo(
-                    $"La imagen supera el tamaño máximo de transferencia ({_maxFileBytes} bytes)");
-            }
-
-            // La respuesta posee el stream: lo libera aunque el envío posterior nunca llegue a correr.
-            return RespuestaDelServidor.OkConEnvioPosterior(
-                nombreSugerido,
-                _ => archivos.EnviarDesde(origen, tamanio),
-                origen);
+            using MemoryStream memoria = new();
+            origen.CopyTo(memoria);
+            return RespuestaDelServidor.OkConArchivo(nombreSugerido, memoria.ToArray());
         }
-        catch
+        catch (IOException excepcion)
         {
-            origen.Dispose();
-            throw;
+            // Todavía no se escribió nada en la red: se puede rechazar y la conexión sigue.
+            return RespuestaDelServidor.Rechazo(
+                $"Error de almacenamiento leyendo la imagen: {excepcion.Message}");
         }
     }
 
     private RespuestaDelServidor SolicitarReserva(Trama solicitud, Usuario usuario)
     {
-        Guid idReserva = _edison.SolicitarReserva(solicitud.DatosComoTexto(), usuario);
+        Guid idReserva = _reservas.SolicitarReserva(solicitud.DatosComoTexto(), usuario);
         return RespuestaDelServidor.Ok(
             $"Reserva {FormatoDeCampos.De(idReserva)} creada, pendiente de aprobación");
     }
@@ -245,7 +246,7 @@ internal sealed class EjecutorDeComandos
     private RespuestaDelServidor CancelarReserva(Trama solicitud, Usuario usuario)
     {
         Guid idReserva = FormatoDeCampos.AGuid(solicitud.DatosComoTexto());
-        _edison.CancelarReserva(idReserva, usuario);
+        _reservas.CancelarReserva(idReserva, usuario);
         return RespuestaDelServidor.Ok($"Reserva '{idReserva}' cancelada");
     }
 
@@ -253,7 +254,7 @@ internal sealed class EjecutorDeComandos
     {
         ExigirDatosVacios(solicitud);
         List<ReservaListada> listado = new();
-        foreach (LecturaDeReserva reserva in _edison.ConsultarReservasDe(usuario))
+        foreach (LecturaDeReserva reserva in _reservas.ConsultarReservasDe(usuario))
         {
             listado.Add(new ReservaListada(
                 reserva.Id,
@@ -270,7 +271,7 @@ internal sealed class EjecutorDeComandos
     {
         ExigirDatosVacios(solicitud);
         List<ActividadListada> listado = new();
-        foreach (Actividad actividad in _edison.HistorialDe(usuario))
+        foreach (Actividad actividad in _usuarios.HistorialDe(usuario))
         {
             listado.Add(new ActividadListada(
                 actividad.Tipo.ToString(), actividad.Detalle, actividad.FechaHora));
@@ -294,7 +295,7 @@ internal sealed class EjecutorDeComandos
     {
         try
         {
-            return _edison.CambiarImagenDeModelo(nombreModelo, nombreArchivoNuevo, usuario);
+            return _modelos.CambiarImagenDeModelo(nombreModelo, nombreArchivoNuevo, usuario);
         }
         catch (DominioException)
         {

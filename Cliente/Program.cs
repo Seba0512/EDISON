@@ -33,10 +33,6 @@ internal static class Program
         {
             Consola.ErrorFatal($"Error de protocolo: {excepcion.Message}");
         }
-        catch (TransferenciaDeArchivoException excepcion)
-        {
-            Consola.ErrorFatal($"Falló la transferencia del archivo: {excepcion.Message}");
-        }
         catch (SocketException excepcion)
         {
             Consola.ErrorFatal($"Error de conexión: {excepcion.Message}");

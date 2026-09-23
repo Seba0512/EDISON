@@ -199,74 +199,69 @@ public sealed class CodecDeTramas
     }
 }
 
-// El DATOS de toda respuesta empieza con dos caracteres de estado y sigue con texto UTF-8.
-public sealed class RespuestaDelServidor : IDisposable
+// El DATOS de toda respuesta empieza con dos caracteres de estado y sigue con el contenido.
+// El contenido es texto UTF-8, salvo en la descarga de imagen que lleva texto más binario.
+public sealed class RespuestaDelServidor
 {
-    private IDisposable? _recursoPoseido;
+    private readonly byte[] _contenido;
 
-    private RespuestaDelServidor(string estado, string contenido, IDisposable? recursoPoseido = null)
+    private RespuestaDelServidor(string estado, byte[] contenido)
     {
         Estado = estado;
-        Contenido = contenido;
-        _recursoPoseido = recursoPoseido;
+        _contenido = contenido;
     }
 
     public string Estado { get; }
 
-    public string Contenido { get; }
-
-    // Se ejecuta recién después de mandar la respuesta. El archivo de CMD 16 viaja fuera de la trama.
-    // La respuesta posee el recurso asociado para liberarlo aunque esta acción no llegue a ejecutarse.
-    public Action<Stream>? AccionPosterior { get; private init; }
+    public ReadOnlyMemory<byte> ContenidoCrudo => _contenido;
 
     public static RespuestaDelServidor Ok(string contenido)
     {
-        return new RespuestaDelServidor(Estados.Ok, contenido);
+        return new RespuestaDelServidor(Estados.Ok, TextoUtf8.Codificar(contenido));
     }
 
-    public static RespuestaDelServidor OkConEnvioPosterior(
-        string contenido, Action<Stream> accionPosterior, IDisposable recursoPoseido)
+    public static RespuestaDelServidor OkConArchivo(string texto, byte[] archivo)
     {
-        return new RespuestaDelServidor(Estados.Ok, contenido, recursoPoseido)
-        {
-            AccionPosterior = accionPosterior
-        };
+        return new RespuestaDelServidor(Estados.Ok, Mensajes.DeTextoYBinario(texto, archivo));
     }
 
     public static RespuestaDelServidor Rechazo(string mensaje)
     {
-        return new RespuestaDelServidor(Estados.Error, mensaje);
+        return new RespuestaDelServidor(Estados.Error, TextoUtf8.Codificar(mensaje));
     }
 
     public static RespuestaDelServidor Interno(string mensaje)
     {
-        return new RespuestaDelServidor(Estados.Interno, mensaje);
+        return new RespuestaDelServidor(Estados.Interno, TextoUtf8.Codificar(mensaje));
     }
 
     public static RespuestaDelServidor Decodificar(Trama respuesta)
     {
-        string texto = respuesta.DatosComoTexto();
-        if (texto.Length < Estados.Largo)
+        if (respuesta.Datos.Length < Estados.Largo)
         {
             throw new ProtocoloException("La respuesta no contiene un ESTADO completo");
         }
 
-        string estado = texto[..Estados.Largo];
+        string estado = TextoUtf8.Decodificar(respuesta.Datos.Span[..Estados.Largo]);
         if (estado is not (Estados.Ok or Estados.Error or Estados.Interno))
         {
             throw new ProtocoloException($"ESTADO desconocido: '{estado}'");
         }
 
-        return new RespuestaDelServidor(estado, texto[Estados.Largo..]);
+        return new RespuestaDelServidor(estado, respuesta.Datos.Span[Estados.Largo..].ToArray());
     }
 
     public byte[] Codificar()
     {
-        return TextoUtf8.Codificar(Estado + Contenido);
+        byte[] estado = TextoUtf8.Codificar(Estado);
+        byte[] datos = new byte[estado.Length + _contenido.Length];
+        estado.CopyTo(datos, 0);
+        _contenido.CopyTo(datos, estado.Length);
+        return datos;
     }
 
-    public void Dispose()
+    public string ContenidoComoTexto()
     {
-        Interlocked.Exchange(ref _recursoPoseido, null)?.Dispose();
+        return TextoUtf8.Decodificar(_contenido);
     }
 }

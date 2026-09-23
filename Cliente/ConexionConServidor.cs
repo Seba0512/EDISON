@@ -12,11 +12,9 @@ internal sealed class ConexionConServidor : IDisposable
     private readonly Socket _socket;
     private readonly NetworkStream _stream;
     private readonly CodecDeTramas _codec;
-    private readonly CanalDeArchivos _canalDeArchivos;
     private readonly long _maxFileBytes;
     private readonly string _downloadsDirectory;
-    private readonly object _candadoDeSocket = new();
-    private int _cerrada;
+    private bool _cerrada;
 
     private ConexionConServidor(Socket socket, ConfiguracionCliente configuracion)
     {
@@ -24,20 +22,20 @@ internal sealed class ConexionConServidor : IDisposable
         // ownsSocket en false porque Dispose ya se encarga de cerrar el stream y el socket en orden.
         _stream = new NetworkStream(socket, ownsSocket: false);
         _codec = new CodecDeTramas(configuracion.MaxPayloadBytes);
-        _canalDeArchivos = new CanalDeArchivos(configuracion.FileBlockBytes);
         _maxFileBytes = configuracion.MaxFileBytes;
         _downloadsDirectory = Path.GetFullPath(configuracion.DownloadsDirectory);
     }
 
     public static ConexionConServidor Conectar(ConfiguracionCliente configuracion)
     {
+        // Sin Bind local: el sistema operativo asigna el puerto efímero, así pueden abrirse varias
+        // instancias del cliente y conectarse a un servidor en otra máquina sin tocar código.
         Socket socket = new(
             configuracion.ServerIp.AddressFamily,
             SocketType.Stream,
             ProtocolType.Tcp);
         try
         {
-            socket.Bind(configuracion.LocalEndpoint);
             socket.Connect(configuracion.Endpoint);
             return new ConexionConServidor(socket, configuracion);
         }
@@ -84,34 +82,47 @@ internal sealed class ConexionConServidor : IDisposable
     public IReadOnlyList<ActividadListada> Historial()
         => Mensajes.AActividades(Enviar(Comandos.ConsultarHistorial, string.Empty));
 
+    // La imagen viaja dentro de DATOS: primero el texto "modelo#archivo" y después sus bytes.
     public string SubirImagen(string nombreModelo, string rutaArchivo)
     {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
-        // El tamaño se anuncia desde el stream ya abierto. Medirlo antes de abrir permitiría
-        // anunciar un tamaño viejo si el archivo cambia entre medio y romper el protocolo.
-        using FileStream origen = AbrirArchivoLocal(rutaArchivo);
-        if (origen.Length > _maxFileBytes)
-        {
-            throw new OperacionRechazadaException(
-                $"El archivo supera el tamaño máximo permitido ({_maxFileBytes} bytes)");
-        }
-
+        byte[] imagen = LeerArchivoLocal(rutaArchivo);
         string mensaje = Mensajes.DeSubidaDeImagen(nombreModelo, Path.GetFileName(rutaArchivo));
-        Trama solicitud = new(Comandos.SubirImagen, TextoUtf8.Codificar(mensaje));
-        lock (_candadoDeSocket)
-        {
-            _codec.Escribir(_stream, solicitud);
-            _canalDeArchivos.Enviar(_stream, origen, origen.Length);
-            return Interpretar(LeerRespuesta(Comandos.SubirImagen));
-        }
+        return Solicitar(Comandos.SubirImagen, Mensajes.DeTextoYBinario(mensaje, imagen))
+            .ContenidoComoTexto();
+    }
+
+    public string DescargarImagen(string nombreModelo)
+    {
+        RespuestaDelServidor respuesta =
+            Solicitar(Comandos.DescargarImagen, TextoUtf8.Codificar(nombreModelo));
+        (string nombreSugerido, byte[] imagen) = Mensajes.ATextoYBinario(respuesta.ContenidoCrudo.Span);
+        return GuardarImagen(nombreSugerido, imagen);
+    }
+
+    public void Dispose()
+    {
+        if (_cerrada)
+            return;
+
+        _cerrada = true;
+        IntentarShutdown();
+        _stream.Dispose();
+        _socket.Dispose();
     }
 
     // Un problema local con el archivo todavía no tocó la red, así que la sesión puede continuar.
-    private static FileStream AbrirArchivoLocal(string rutaArchivo)
+    private byte[] LeerArchivoLocal(string rutaArchivo)
     {
         try
         {
-            return new FileStream(rutaArchivo, FileMode.Open, FileAccess.Read, FileShare.Read);
+            byte[] imagen = File.ReadAllBytes(rutaArchivo);
+            if (imagen.LongLength > _maxFileBytes)
+            {
+                throw new OperacionRechazadaException(
+                    $"El archivo supera el tamaño máximo permitido ({_maxFileBytes} bytes)");
+            }
+
+            return imagen;
         }
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
@@ -119,31 +130,8 @@ internal sealed class ConexionConServidor : IDisposable
         }
     }
 
-    public string DescargarImagen(string nombreModelo)
-    {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
-        lock (_candadoDeSocket)
-        {
-            Trama solicitud = new(Comandos.DescargarImagen, TextoUtf8.Codificar(nombreModelo));
-            _codec.Escribir(_stream, solicitud);
-            string nombreSugerido = Interpretar(LeerRespuesta(Comandos.DescargarImagen));
-            return RecibirImagen(nombreSugerido);
-        }
-    }
-
-    public void Dispose()
-    {
-        if (Interlocked.Exchange(ref _cerrada, 1) != 0)
-            return;
-
-        IntentarShutdown();
-        _stream.Dispose();
-        _socket.Dispose();
-    }
-
-    // Desde el OK de CMD 16 hay bytes binarios pendientes en el stream. Ante cualquier falla se
-    // invalida la conexión para no interpretar esos bytes como tramas y se borra el temporal.
-    private string RecibirImagen(string nombreSugerido)
+    // La imagen ya llegó entera en la trama: si falla el guardado local, la conexión queda sana.
+    private string GuardarImagen(string nombreSugerido, byte[] imagen)
     {
         string? rutaTemporal = null;
         try
@@ -152,34 +140,25 @@ internal sealed class ConexionConServidor : IDisposable
             Directory.CreateDirectory(_downloadsDirectory);
             string rutaDestino = Path.Combine(_downloadsDirectory, nombreArchivo);
             rutaTemporal = rutaDestino + SufijoTemporal;
-
-            long tamanio;
-            using (FileStream destino = File.Create(rutaTemporal))
-                tamanio = _canalDeArchivos.RecibirEn(_stream, destino, _maxFileBytes);
-
+            // Se escribe a un .tmp y luego se mueve, para no dejar una imagen a medias si falla la copia.
+            File.WriteAllBytes(rutaTemporal, imagen);
             File.Move(rutaTemporal, rutaDestino, overwrite: true);
-            return $"Imagen guardada en '{rutaDestino}' ({tamanio} bytes)";
+            return $"Imagen guardada en '{rutaDestino}' ({imagen.Length} bytes)";
         }
-        catch
+        catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
-            IntentarShutdown();
             IntentarEliminarTemporal(rutaTemporal);
-            throw;
+            throw new OperacionRechazadaException($"No se pudo guardar la imagen: {excepcion.Message}");
         }
     }
 
     private string Enviar(int comando, string mensaje)
-    {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref _cerrada) != 0, this);
-        lock (_candadoDeSocket)
-        {
-            _codec.Escribir(_stream, new Trama(comando, TextoUtf8.Codificar(mensaje)));
-            return Interpretar(LeerRespuesta(comando));
-        }
-    }
+        => Solicitar(comando, TextoUtf8.Codificar(mensaje)).ContenidoComoTexto();
 
-    private Trama LeerRespuesta(int comando)
+    private RespuestaDelServidor Solicitar(int comando, byte[] datos)
     {
+        ObjectDisposedException.ThrowIf(_cerrada, this);
+        _codec.Escribir(_stream, new Trama(comando, datos));
         Trama respuesta = _codec.Leer(_stream);
         // Sin header REQ/RES la única verificación es que la respuesta traiga el comando enviado.
         if (respuesta.Comando != comando)
@@ -188,18 +167,18 @@ internal sealed class ConexionConServidor : IDisposable
                 $"El cliente recibió el CMD inesperado {respuesta.Comando:D2}");
         }
 
-        return respuesta;
+        return Interpretar(respuesta);
     }
 
-    private static string Interpretar(Trama respuesta)
+    private static RespuestaDelServidor Interpretar(Trama respuesta)
     {
         RespuestaDelServidor contenido = RespuestaDelServidor.Decodificar(respuesta);
         if (contenido.Estado == Estados.Error)
-            throw new OperacionRechazadaException(contenido.Contenido);
+            throw new OperacionRechazadaException(contenido.ContenidoComoTexto());
         if (contenido.Estado == Estados.Interno)
-            throw new ErrorInternoDelServidorException(contenido.Contenido);
+            throw new ErrorInternoDelServidorException(contenido.ContenidoComoTexto());
 
-        return contenido.Contenido;
+        return contenido;
     }
 
     private void IntentarShutdown()
