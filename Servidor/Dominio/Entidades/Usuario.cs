@@ -1,7 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+using Servidor.Dominio.Excepciones;
 
-namespace Dominio;
+namespace Servidor.Dominio.Entidades;
 
 public class Usuario
 {

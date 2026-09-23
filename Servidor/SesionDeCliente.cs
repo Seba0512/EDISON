@@ -1,6 +1,7 @@
 using System.Net.Sockets;
 using Common;
-using Dominio;
+using Servidor.Dominio.Entidades;
+using Servidor.Dominio.Excepciones;
 
 namespace Servidor;
 

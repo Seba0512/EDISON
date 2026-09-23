@@ -1,6 +1,7 @@
 using System.Configuration;
 using System.Net.Sockets;
-using Dominio;
+using Servidor.Dominio.Entidades;
+using Servidor.Dominio.Fachada;
 
 namespace Servidor;
 

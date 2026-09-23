@@ -1,4 +1,4 @@
-namespace Dominio;
+namespace Servidor.Dominio.Entidades;
 
 public interface IReloj
 {

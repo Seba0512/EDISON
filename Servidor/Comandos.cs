@@ -1,5 +1,7 @@
 using Common;
-using Dominio;
+using Servidor.Dominio.Entidades;
+using Servidor.Dominio.Excepciones;
+using Servidor.Dominio.Fachada;
 
 namespace Servidor;
 

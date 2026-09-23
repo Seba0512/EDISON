@@ -1,4 +1,6 @@
-namespace Dominio;
+using Servidor.Dominio.Excepciones;
+
+namespace Servidor.Dominio.Entidades;
 
 public enum EstadoDeVehiculo
 {

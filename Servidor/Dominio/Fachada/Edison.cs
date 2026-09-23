@@ -1,4 +1,7 @@
-namespace Dominio;
+using Servidor.Dominio.Entidades;
+using Servidor.Dominio.Excepciones;
+
+namespace Servidor.Dominio.Fachada;
 
 public sealed record FiltroDeModelos(
     string? Texto,
