@@ -1,7 +1,6 @@
 using System.Configuration;
 using System.Net.Sockets;
-using Servidor.Dominio.Entidades;
-using Servidor.Dominio.Fachada;
+using Servidor.Dominio.Servicios;
 
 namespace Servidor;
 
@@ -32,12 +31,14 @@ internal static class Program
     private static void Ejecutar()
     {
         ConfiguracionServidor configuracion = ConfiguracionServidor.Cargar();
-        Edison edison = new(new RelojDelSistema(), configuracion.ReservationDelaySeconds);
+        EstadoEnMemoria estado = new();
+        ServicioDeUsuarios usuarios = new(estado);
+        ServicioDeModelos modelos = new(estado);
+        ServicioDeReservas reservas = new(estado, configuracion.ReservationDelaySeconds);
         ImagenesEnDisco imagenes = new(configuracion.ImagesDirectory);
-        EjecutorDeComandos ejecutor = new(edison, imagenes, configuracion.MaxFileBytes);
-        MesaDeAprobaciones mesa = new(
-            edison, TimeSpan.FromMilliseconds(configuracion.ApprovalIntervalMilliseconds));
-        using ServidorTcp servidor = new(configuracion, ejecutor, mesa);
+        EjecutorDeComandos ejecutor = new(
+            usuarios, modelos, reservas, imagenes, configuracion.MaxFileBytes);
+        using ServidorTcp servidor = new(configuracion, ejecutor);
         servidor.Iniciar();
         EsperarOrdenDeSalida();
         servidor.Detener();

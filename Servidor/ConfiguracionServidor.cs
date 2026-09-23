@@ -11,10 +11,8 @@ internal sealed class ConfiguracionServidor
     public int MaxPayloadBytes { get; private init; }
     public int JoinTimeoutMilliseconds { get; private init; }
     public int ReservationDelaySeconds { get; private init; }
-    public int ApprovalIntervalMilliseconds { get; private init; }
     public string ImagesDirectory { get; private init; } = string.Empty;
     public int MaxFileBytes { get; private init; }
-    public int FileBlockBytes { get; private init; }
     public IPEndPoint Endpoint => new(ListenIp, ListenPort);
 
     public static ConfiguracionServidor Cargar()
@@ -27,10 +25,8 @@ internal sealed class ConfiguracionServidor
             MaxPayloadBytes = ConfiguracionDeLaAplicacion.LeerPositivo("maxPayloadBytes"),
             JoinTimeoutMilliseconds = ConfiguracionDeLaAplicacion.LeerPositivo("joinTimeoutMilliseconds"),
             ReservationDelaySeconds = ConfiguracionDeLaAplicacion.LeerPositivo("reservationDelaySeconds"),
-            ApprovalIntervalMilliseconds = ConfiguracionDeLaAplicacion.LeerPositivo("approvalIntervalMilliseconds"),
             ImagesDirectory = ConfiguracionDeLaAplicacion.Leer("imagesDirectory"),
-            MaxFileBytes = ConfiguracionDeLaAplicacion.LeerPositivo("maxFileBytes"),
-            FileBlockBytes = ConfiguracionDeLaAplicacion.LeerPositivo("fileBlockBytes")
+            MaxFileBytes = ConfiguracionDeLaAplicacion.LeerPositivo("maxFileBytes")
         };
     }
 }

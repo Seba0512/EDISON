@@ -36,11 +36,3 @@ public sealed class PayloadDemasiadoGrandeException : ProtocoloException
     {
     }
 }
-
-// Falla durante la transferencia de un archivo: el stream queda desincronizado y hay que cerrar.
-public class TransferenciaDeArchivoException : Exception
-{
-    public TransferenciaDeArchivoException(string mensaje) : base(mensaje)
-    {
-    }
-}

@@ -10,30 +10,19 @@ public enum EstadoDeReserva
     Cancelada
 }
 
-public enum ResultadoResolucion
-{
-    SinCambios,
-    Confirmada,
-    Rechazada
-}
-
 public sealed record LecturaDeReserva(
     Guid Id,
     string NombreModelo,
     EstadoDeReserva Estado,
     DateTime FechaCreacion,
-    DateTime UltimaActualizacion)
-{
-    public bool EstaActiva => Estado is EstadoDeReserva.Pendiente or EstadoDeReserva.Confirmada;
-}
+    DateTime UltimaActualizacion);
 
+// Las transiciones las coordina Edison bajo su candado global. Pendiente puede confirmarse,
+// rechazarse o cancelarse. Confirmada solo puede cancelarse. Rechazada y Cancelada son finales.
 public class Reserva
 {
     private readonly Usuario _solicitante;
-    private readonly Modelo _modelo;
-    private readonly IReloj _reloj;
-    // Solo una reserva confirmada tiene unidad asignada. En cualquier otro estado no hay unidad.
-    private Vehiculo? _vehiculoAsignado;
+    private readonly VehiculoModelo _modelo;
 
     public Guid Id { get; }
 
@@ -43,16 +32,13 @@ public class Reserva
 
     public DateTime UltimaActualizacion { get; private set; }
 
-    public Vehiculo? VehiculoAsignado => _vehiculoAsignado;
-
-    internal Reserva(Usuario solicitante, Modelo modelo, IReloj reloj)
+    internal Reserva(Usuario solicitante, VehiculoModelo modelo)
     {
         _solicitante = solicitante;
         _modelo = modelo;
-        _reloj = reloj;
         Id = Guid.NewGuid();
         Estado = EstadoDeReserva.Pendiente;
-        FechaCreacion = reloj.Ahora;
+        FechaCreacion = DateTime.UtcNow;
         UltimaActualizacion = FechaCreacion;
     }
 
@@ -60,10 +46,9 @@ public class Reserva
 
     public bool EstaActiva => Estado is EstadoDeReserva.Pendiente or EstadoDeReserva.Confirmada;
 
-    public string NombreDelUsuario()
-    {
-        return _solicitante.NombreUsuario;
-    }
+    internal VehiculoModelo Modelo => _modelo;
+
+    internal Usuario Solicitante => _solicitante;
 
     public string NombreDelModelo()
     {
@@ -75,33 +60,19 @@ public class Reserva
         return _solicitante.SeLlama(nombreUsuario);
     }
 
+    public bool EsDelModelo(VehiculoModelo modelo)
+    {
+        return ReferenceEquals(_modelo, modelo);
+    }
+
     public LecturaDeReserva TomarLectura()
     {
-        return _modelo.TomarLecturaDe(this);
+        return new LecturaDeReserva(Id, _modelo.Nombre, Estado, FechaCreacion, UltimaActualizacion);
     }
 
-    public bool VencioElPlazo(int segundosDeEspera)
-    {
-        return EstaPendiente && _reloj.Ahora >= FechaCreacion.AddSeconds(segundosDeEspera);
-    }
-
-    public ResultadoResolucion Resolver()
-    {
-        return _modelo.ResolverReserva(this);
-    }
-
-    public void Cancelar()
-    {
-        _modelo.CancelarReserva(this);
-    }
-
-    // Las transiciones las coordina el Modelo bajo su candado. Pendiente puede confirmarse,
-    // rechazarse o cancelarse. Confirmada solo puede cancelarse. Rechazada y Cancelada son finales.
-    internal void Confirmar(Vehiculo unidad)
+    internal void Confirmar()
     {
         ExigirQueEstePendiente("confirmar");
-        ExigirUnidadAsignable(unidad);
-        _vehiculoAsignado = unidad;
         PasarA(EstadoDeReserva.Confirmada);
     }
 
@@ -111,23 +82,14 @@ public class Reserva
         PasarA(EstadoDeReserva.Rechazada);
     }
 
-    internal void ExigirCancelable()
+    internal void Cancelar()
     {
         if (Estado is EstadoDeReserva.Rechazada or EstadoDeReserva.Cancelada)
         {
             throw new DominioException($"No se puede cancelar una reserva {Estado}");
         }
-    }
 
-    internal void MarcarCancelada()
-    {
-        _vehiculoAsignado = null;
         PasarA(EstadoDeReserva.Cancelada);
-    }
-
-    internal LecturaDeReserva CrearLectura(string nombreModelo)
-    {
-        return new LecturaDeReserva(Id, nombreModelo, Estado, FechaCreacion, UltimaActualizacion);
     }
 
     private void ExigirQueEstePendiente(string operacion)
@@ -138,27 +100,9 @@ public class Reserva
         }
     }
 
-    private void ExigirUnidadAsignable(Vehiculo unidad)
-    {
-        if (_vehiculoAsignado is not null)
-        {
-            throw new DominioException("La reserva ya tiene una unidad asignada");
-        }
-
-        if (!_modelo.ContieneUnidad(unidad))
-        {
-            throw new DominioException("La unidad no pertenece al modelo de la reserva");
-        }
-
-        if (unidad.EstaDisponible)
-        {
-            throw new DominioException("La unidad debe estar reservada antes de asignarla");
-        }
-    }
-
     private void PasarA(EstadoDeReserva estadoNuevo)
     {
         Estado = estadoNuevo;
-        UltimaActualizacion = _reloj.Ahora;
+        UltimaActualizacion = DateTime.UtcNow;
     }
 }

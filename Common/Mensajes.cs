@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Globalization;
 
 namespace Common;
@@ -295,6 +296,35 @@ public static class Mensajes
         }
 
         return actividades;
+    }
+
+    // Payload mixto para las imágenes: [4 bytes big-endian: largo del texto][texto UTF-8][binario].
+    public static byte[] DeTextoYBinario(string texto, byte[] binario)
+    {
+        byte[] textoEnBytes = TextoUtf8.Codificar(texto);
+        byte[] datos = new byte[sizeof(int) + textoEnBytes.Length + binario.Length];
+        BinaryPrimitives.WriteInt32BigEndian(datos, textoEnBytes.Length);
+        textoEnBytes.CopyTo(datos, sizeof(int));
+        binario.CopyTo(datos, sizeof(int) + textoEnBytes.Length);
+        return datos;
+    }
+
+    public static (string Texto, byte[] Binario) ATextoYBinario(ReadOnlySpan<byte> datos)
+    {
+        if (datos.Length < sizeof(int))
+        {
+            throw new ProtocoloException("El payload no contiene el largo del texto");
+        }
+
+        int largoTexto = BinaryPrimitives.ReadInt32BigEndian(datos);
+        if (largoTexto < 0 || largoTexto > datos.Length - sizeof(int))
+        {
+            throw new ProtocoloException($"El largo del texto es inválido: {largoTexto}");
+        }
+
+        string texto = TextoUtf8.Decodificar(datos.Slice(sizeof(int), largoTexto));
+        byte[] binario = datos[(sizeof(int) + largoTexto)..].ToArray();
+        return (texto, binario);
     }
 
     public static string DeSubidaDeImagen(string nombreModelo, string nombreArchivo)
