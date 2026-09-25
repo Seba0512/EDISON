@@ -226,7 +226,7 @@ internal static class Presentadores
             ]);
         }
 
-        TablaDeConsola.Mostrar(["Fecha (UTC)", "Tipo", "Detalle"], filas);
+        TablaDeConsola.Mostrar(["Fecha", "Tipo", "Detalle"], filas);
     }
 
     public static void MostrarDetalle(DetalleDeModelo detalle)
@@ -249,8 +249,9 @@ internal static class Presentadores
     private static string Fecha(DateTime fecha)
         => fecha.ToString(FormatoFecha, CultureInfo.InvariantCulture);
 
+    // Los momentos viajan en UTC por el protocolo; cada cliente los muestra en su hora local.
     private static string FechaHora(DateTime fechaHora)
-        => fechaHora.ToString(FormatoFechaHora, CultureInfo.InvariantCulture);
+        => fechaHora.ToLocalTime().ToString(FormatoFechaHora, CultureInfo.InvariantCulture);
 
     // El tipo llega como el nombre del enum en PascalCase (ej. "InicioSesion") y se separa
     // en palabras para mostrarlo.
