@@ -7,6 +7,8 @@ namespace Cliente;
 internal static class Program
 {
     private const string OpcionDeSalida = "S";
+    private const string ConexionPerdida =
+        "Se perdió la conexión con el servidor. Es posible que se haya apagado.";
 
     private static int Main()
     {
@@ -21,9 +23,9 @@ internal static class Program
         {
             Consola.ErrorFatal($"Configuración inválida: {excepcion.Message}");
         }
-        catch (ConexionCerradaException excepcion)
+        catch (ConexionCerradaException)
         {
-            Consola.ErrorFatal(excepcion.Message);
+            Consola.ErrorFatal(ConexionPerdida);
         }
         catch (ErrorInternoDelServidorException excepcion)
         {
@@ -33,17 +35,20 @@ internal static class Program
         {
             Consola.ErrorFatal($"Error de protocolo: {excepcion.Message}");
         }
-        catch (SocketException excepcion)
+        // El Message de estas excepciones es el texto técnico de .NET, en inglés: no se le muestra
+        // al usuario. Si el servidor se apaga, el corte llega como IOException o ConexionCerrada
+        // según el momento, y en los dos casos el usuario tiene que ver el mismo aviso.
+        catch (SocketException)
         {
-            Consola.ErrorFatal($"Error de conexión: {excepcion.Message}");
+            Consola.ErrorFatal("No fue posible conectarse al servidor.");
         }
-        catch (IOException excepcion)
+        catch (IOException)
         {
-            Consola.ErrorFatal($"La comunicación terminó: {excepcion.Message}");
+            Consola.ErrorFatal(ConexionPerdida);
         }
-        catch (UnauthorizedAccessException excepcion)
+        catch (UnauthorizedAccessException)
         {
-            Consola.ErrorFatal($"Sin permisos sobre un archivo o carpeta local: {excepcion.Message}");
+            Consola.ErrorFatal("No hay permisos sobre un archivo o carpeta local.");
         }
 
         return 1;
