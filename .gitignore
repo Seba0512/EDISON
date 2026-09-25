@@ -23,3 +23,13 @@ TestResults/
 
 # Archivos locales de configuracion (los de ejemplo si se versionan)
 appsettings.local.json
+
+# Directorios generados en tiempo de ejecucion (CMD 15/16)
+/imagenes/
+Servidor/imagenes/
+/descargas/
+Cliente/descargas/
+
+# Datos locales de ejecucion
+imagenes/
+descargas/
