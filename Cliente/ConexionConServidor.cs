@@ -124,9 +124,12 @@ internal sealed class ConexionConServidor : IDisposable
 
             return imagen;
         }
+        // El Message de .NET viene en inglés y es técnico: al usuario se le dice qué revisar.
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
-            throw new OperacionRechazadaException($"No se pudo leer el archivo: {excepcion.Message}");
+            throw new OperacionRechazadaException(
+                $"No se pudo leer el archivo '{rutaArchivo}'. Verifique que tenga permisos de lectura " +
+                "y que no esté abierto en otro programa.");
         }
     }
 
@@ -148,7 +151,9 @@ internal sealed class ConexionConServidor : IDisposable
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
             IntentarEliminarTemporal(rutaTemporal);
-            throw new OperacionRechazadaException($"No se pudo guardar la imagen: {excepcion.Message}");
+            throw new OperacionRechazadaException(
+                $"No se pudo guardar la imagen en '{_downloadsDirectory}'. Verifique que la carpeta " +
+                "tenga permisos de escritura y que el archivo no esté abierto en otro programa.");
         }
     }
 
@@ -204,10 +209,9 @@ internal sealed class ConexionConServidor : IDisposable
         {
             File.Delete(rutaTemporal);
         }
-        catch (Exception excepcion)
+        catch (Exception)
         {
-            Console.Error.WriteLine(
-                $"No se pudo limpiar el archivo temporal '{rutaTemporal}': {excepcion.Message}");
+            Console.Error.WriteLine($"No se pudo borrar el archivo temporal '{rutaTemporal}'.");
         }
     }
 }
