@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Common;
 
@@ -150,6 +151,11 @@ internal static class TablaDeConsola
 
 internal static class Presentadores
 {
+    // Todas las fechas se muestran igual que como se ingresan. InvariantCulture para que el
+    // separador de la hora no dependa del idioma de la máquina.
+    private const string FormatoFecha = "dd-MM-yyyy";
+    private const string FormatoFechaHora = "dd-MM-yyyy HH:mm:ss";
+
     public static void MostrarModelos(IReadOnlyList<ModeloListado> modelos)
     {
         if (modelos.Count == 0)
@@ -165,7 +171,7 @@ internal static class Presentadores
             [
                 modelo.Nombre,
                 modelo.Precio.ToString("0.00"),
-                modelo.FechaEntregaPrometida.ToString("dd-MM-yyyy"),
+                Fecha(modelo.FechaEntregaPrometida),
                 modelo.UnidadesDisponibles.ToString()
             ]);
         }
@@ -193,8 +199,8 @@ internal static class Presentadores
                 reserva.Id.ToString(),
                 reserva.NombreModelo,
                 reserva.Estado,
-                reserva.FechaCreacion.ToString(),
-                reserva.UltimaActualizacion.ToString()
+                FechaHora(reserva.FechaCreacion),
+                FechaHora(reserva.UltimaActualizacion)
             ]);
         }
 
@@ -214,7 +220,7 @@ internal static class Presentadores
         {
             filas.Add(
             [
-                actividad.FechaHora.ToString("yyyy-MM-dd HH:mm:ss"),
+                FechaHora(actividad.FechaHora),
                 ConEspacios(actividad.Tipo),
                 actividad.Detalle
             ]);
@@ -232,13 +238,19 @@ internal static class Presentadores
             detalle.Descripcion.Length > 0 ? detalle.Descripcion : "(sin descripción)");
         Consola.Campo("Precio", detalle.Precio.ToString());
         Consola.Campo(
-            "Fecha de entrega prometida", detalle.FechaEntregaPrometida.ToString("yyyy-MM-dd"));
+            "Fecha de entrega prometida", Fecha(detalle.FechaEntregaPrometida));
         Consola.Campo("Unidades disponibles", detalle.UnidadesDisponibles.ToString());
         Consola.Campo("Unidades reservadas", detalle.UnidadesReservadas.ToString());
         Consola.Campo(
             "Imagen",
             detalle.NombreArchivoImagen.Length > 0 ? detalle.NombreArchivoImagen : "(sin imagen)");
     }
+
+    private static string Fecha(DateTime fecha)
+        => fecha.ToString(FormatoFecha, CultureInfo.InvariantCulture);
+
+    private static string FechaHora(DateTime fechaHora)
+        => fechaHora.ToString(FormatoFechaHora, CultureInfo.InvariantCulture);
 
     // El tipo llega como el nombre del enum en PascalCase (ej. "InicioSesion") y se separa
     // en palabras para mostrarlo.
