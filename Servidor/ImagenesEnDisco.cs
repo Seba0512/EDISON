@@ -82,7 +82,7 @@ internal sealed class ImagenesEnDisco
         {
             IntentarEliminarTemporal(rutaTemporal);
             throw new AlmacenDeImagenesException(
-                $"Error de almacenamiento guardando la imagen: {excepcion.Message}", excepcion);
+                "No se pudo guardar la imagen en el servidor. Intente nuevamente.", excepcion);
         }
     }
 
@@ -96,8 +96,9 @@ internal sealed class ImagenesEnDisco
         }
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
+            // Pasa, por ejemplo, si otro cliente reemplazó o borró la imagen justo antes.
             throw new AlmacenDeImagenesException(
-                $"Error de almacenamiento abriendo la imagen: {excepcion.Message}", excepcion);
+                "La imagen no está disponible en este momento. Intente nuevamente.", excepcion);
         }
     }
 
@@ -115,8 +116,7 @@ internal sealed class ImagenesEnDisco
         }
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
-            throw new AlmacenDeImagenesException(
-                $"Error de almacenamiento eliminando la imagen: {excepcion.Message}", excepcion);
+            throw new AlmacenDeImagenesException("No se pudo eliminar la imagen del servidor.", excepcion);
         }
     }
 

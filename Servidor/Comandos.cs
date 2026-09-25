@@ -47,6 +47,8 @@ internal sealed class EjecutorDeComandos
         catch (AlmacenDeImagenesException excepcion)
         {
             // Un problema de disco no desincroniza el stream, así que se rechaza y la conexión sigue.
+            // El detalle técnico, con rutas del servidor, queda en la consola del servidor.
+            Console.Error.WriteLine($"{excepcion.Message} Detalle: {excepcion.InnerException?.Message}");
             return RespuestaDelServidor.Rechazo(excepcion.Message);
         }
     }
@@ -231,8 +233,8 @@ internal sealed class EjecutorDeComandos
         catch (IOException excepcion)
         {
             // Todavía no se escribió nada en la red: se puede rechazar y la conexión sigue.
-            return RespuestaDelServidor.Rechazo(
-                $"Error de almacenamiento leyendo la imagen: {excepcion.Message}");
+            Console.Error.WriteLine($"No se pudo leer la imagen del modelo {modelo.Nombre}: {excepcion.Message}");
+            return RespuestaDelServidor.Rechazo("No se pudo leer la imagen en el servidor. Intente nuevamente.");
         }
     }
 
