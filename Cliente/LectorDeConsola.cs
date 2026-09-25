@@ -160,6 +160,13 @@ internal static class LectorDeConsola
             return null;
         }
 
+        // El nombre del archivo viaja como campo del mensaje: con un '#' el cliente no podría armarlo.
+        if (Validaciones.SinSeparador(Path.GetFileName(rutaArchivo)) is string error)
+        {
+            Consola.Error(error);
+            return null;
+        }
+
         return rutaArchivo;
     }
 
