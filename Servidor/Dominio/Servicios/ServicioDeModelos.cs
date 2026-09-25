@@ -141,7 +141,9 @@ public class ServicioDeModelos
 
     private static void ExigirFechaDeEntregaFutura(DateTime fechaEntregaPrometida)
     {
-        if (fechaEntregaPrometida.Date <= DateTime.UtcNow.Date)
+        // La fecha de entrega es una fecha de calendario sin zona: se compara con el día local,
+        // igual que el cliente. Con UTC, en Uruguay después de las 21 "hoy" ya sería mañana.
+        if (fechaEntregaPrometida.Date <= DateTime.Today)
         {
             throw new DominioException("La fecha de entrega debe ser futura");
         }
