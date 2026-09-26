@@ -147,8 +147,7 @@ internal sealed class EjecutorDeComandos
 
     private RespuestaDelServidor BajaDeModelo(Trama solicitud, Usuario usuario)
     {
-        string nombreArchivoImagen = _modelos.EliminarModelo(solicitud.DatosComoTexto(), usuario);
-        IntentarEliminarImagen(nombreArchivoImagen, "No se pudo limpiar la imagen del modelo eliminado");
+        _modelos.EliminarModelo(solicitud.DatosComoTexto(), usuario, _imagenes.Eliminar);
         return RespuestaDelServidor.Ok("Modelo eliminado correctamente.");
     }
 

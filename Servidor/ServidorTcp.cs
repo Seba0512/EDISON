@@ -54,7 +54,7 @@ internal sealed class ServidorTcp : IDisposable
 
     public bool Detener()
     {
-        if (!_ejecutando)
+        if (_listener is null)
         {
             return true;
         }

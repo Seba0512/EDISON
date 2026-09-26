@@ -134,6 +134,8 @@ public class VehiculoModelo
 
     public string Nombre => _datos.Nombre;
 
+    public bool EstaEliminado => _eliminado;
+
     public int Stock { get; private set; }
 
     public LecturaDeModelo TomarLectura(int confirmadas)
@@ -211,7 +213,7 @@ public class VehiculoModelo
         return nombreArchivoAnterior;
     }
 
-    // Devuelve el nombre de la imagen para borrar el archivo después, ya fuera del candado.
+    // Prepara la baja y devuelve la imagen para borrarla fuera del candado.
     public string MarcarComoEliminado(Usuario solicitante, int reservasActivas)
     {
         ExigirActivo();
@@ -224,6 +226,12 @@ public class VehiculoModelo
 
         _eliminado = true;
         return _datos.NombreArchivoImagen;
+    }
+
+    // Si el archivo no pudo borrarse, el modelo vuelve a estar disponible para reintentar.
+    public void RestaurarTrasBajaFallida()
+    {
+        _eliminado = false;
     }
 
     public void ExigirActivo()
