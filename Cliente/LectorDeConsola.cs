@@ -406,23 +406,4 @@ internal static class Validaciones
 
     public static string? Stock(int valor)
         => valor <= 0 ? "El stock debe ser mayor a cero" : null;
-
-    // La modificación reconstruye la misma ficha que el alta, así que el stock nuevo también
-    // debe ser mayor a cero, además de respetar reservas y disponibilidad actuales.
-    public static string? StockDeModificacion(int nuevoStock, DetalleDeModelo detalleActual)
-    {
-        string? errorBase = Stock(nuevoStock);
-        if (errorBase is not null)
-            return errorBase;
-
-        int stockTotalActual = detalleActual.UnidadesDisponibles + detalleActual.UnidadesReservadas;
-
-        if (detalleActual.UnidadesDisponibles == 0 && nuevoStock <= stockTotalActual)
-            return $"No se puede modificar el modelo {detalleActual.Nombre} porque no quedan unidades disponibles";
-
-        if (nuevoStock != stockTotalActual && nuevoStock < detalleActual.UnidadesReservadas)
-            return $"El stock no puede quedar por debajo de las {detalleActual.UnidadesReservadas} unidades reservadas";
-
-        return null;
-    }
 }

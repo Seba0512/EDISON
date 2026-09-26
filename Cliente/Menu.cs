@@ -150,7 +150,7 @@ internal sealed class Menu
             return;
 
         // Se consulta antes de pedir el resto de los datos. Si el modelo no existe, lanza y no
-        // sigue. Además el detalle trae la fecha y el stock actuales para validar los nuevos.
+        // sigue. Además el detalle trae la fecha actual para validar la nueva.
         DetalleDeModelo detalleActual = _conexion.Consultar(nombre);
 
         DatosDeAltaDeModelo? datos = LeerDatosParaModificacion(nombre, detalleActual);
@@ -287,9 +287,7 @@ internal sealed class Menu
         if (fechaEntrega is null)
             return null;
 
-        int? stock = LectorDeConsola.LeerEntero(
-            "Nuevo stock:",
-            nuevoStock => Validaciones.StockDeModificacion(nuevoStock, detalleActual));
+        int? stock = LectorDeConsola.LeerEntero("Nuevo stock:", Validaciones.Stock);
         if (stock is null)
             return null;
 
