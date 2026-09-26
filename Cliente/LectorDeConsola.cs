@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Common;
 
@@ -70,7 +71,7 @@ internal static class LectorDeConsola
     }
 
     public static decimal? LeerDecimal(string mensaje, Func<decimal, string?>? validar = null)
-        => LeerConvertido(mensaje, FormatoDeCampos.ADecimal, validar);
+        => LeerConvertido(mensaje, ADecimalDeConsola, validar);
 
     public static DateTime? LeerFecha(string mensaje, Func<DateTime, string?>? validar = null)
         => LeerConvertido(mensaje, FormatoDeCampos.AFecha, validar);
@@ -82,7 +83,7 @@ internal static class LectorDeConsola
         => LeerConvertido<Guid>(mensaje, FormatoDeCampos.AGuid, null);
 
     public static (bool Cancelada, decimal? Valor) LeerDecimalOpcional(string mensaje)
-        => LeerConvertidoOpcional(mensaje, FormatoDeCampos.ADecimal);
+        => LeerConvertidoOpcional(mensaje, ADecimalDeConsola);
 
     public static (bool Cancelada, DateTime? Valor) LeerFechaOpcional(string mensaje)
         => LeerConvertidoOpcional(mensaje, FormatoDeCampos.AFecha);
@@ -192,6 +193,23 @@ internal static class LectorDeConsola
         => ruta.Length >= 2 && ruta[0] == '"' && ruta[^1] == '"'
             ? ruta[1..^1]
             : ruta;
+
+    // La consola admite punto o coma decimal, pero no separadores de miles.
+    // Con tres cifras a la derecha, 1.000 y 1,000 son ambiguos y se rechazan.
+    private static decimal ADecimalDeConsola(string texto)
+    {
+        string normalizado = texto.Replace(',', '.');
+        string sinSigno = normalizado.TrimStart('+', '-');
+        int separador = sinSigno.IndexOf('.');
+        bool ambiguo = separador is >= 1 and <= 3 && sinSigno.Length - separador == 4;
+
+        if (!ambiguo && decimal.TryParse(normalizado,
+                NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+                CultureInfo.InvariantCulture, out decimal valor))
+            return valor;
+
+        throw new ProtocoloException($"'{texto}' no es un decimal válido (use punto o coma, sin miles)");
+    }
 
     private static T? LeerConvertido<T>(
         string mensaje, Func<string, T> convertir, Func<T, string?>? validar) where T : struct
