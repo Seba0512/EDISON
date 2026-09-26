@@ -57,17 +57,37 @@ public class ServicioDeModelos
         }
     }
 
-    // Devuelve el nombre del archivo de imagen para que la capa de arriba borre el archivo físico.
-    public string EliminarModelo(string nombreModelo, Usuario solicitante)
+    // Se valida y bloquea el modelo bajo el candado; el archivo se borra fuera de él.
+    // Solo después se quita el modelo y se registra la baja en el historial.
+    public void EliminarModelo(string nombreModelo, Usuario solicitante, Action<string> eliminarImagen)
     {
+        VehiculoModelo modelo;
+        string nombreArchivoImagen;
         lock (_estado.Candado)
         {
-            VehiculoModelo modelo = _estado.ObtenerModelo(nombreModelo);
-            string nombreArchivoImagen =
+            modelo = _estado.ObtenerModelo(nombreModelo);
+            nombreArchivoImagen =
                 modelo.MarcarComoEliminado(solicitante, _estado.ContarActivas(modelo));
+        }
+
+        try
+        {
+            eliminarImagen(nombreArchivoImagen);
+        }
+        catch
+        {
+            lock (_estado.Candado)
+            {
+                modelo.RestaurarTrasBajaFallida();
+            }
+
+            throw;
+        }
+
+        lock (_estado.Candado)
+        {
             _estado.Modelos.Remove(modelo.Nombre);
             solicitante.Registrar(Actividad.ModeloEliminado(modelo.Nombre));
-            return nombreArchivoImagen;
         }
     }
 
@@ -90,6 +110,7 @@ public class ServicioDeModelos
         lock (_estado.Candado)
         {
             return _estado.Modelos.Values
+                .Where(modelo => !modelo.EstaEliminado)
                 .Select(modelo => modelo.TomarLectura(_estado.ContarConfirmadas(modelo)))
                 .Where(modelo => modelo.TieneUnidadDisponible)
                 .Where(modelo => Cumple(modelo, filtro))

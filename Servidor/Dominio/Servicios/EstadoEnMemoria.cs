@@ -31,6 +31,7 @@ public sealed class EstadoEnMemoria
             throw new DominioException($"No existe el modelo {clave}");
         }
 
+        modelo.ExigirActivo();
         return modelo;
     }
 
