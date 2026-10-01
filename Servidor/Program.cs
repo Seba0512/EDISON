@@ -36,12 +36,22 @@ internal static class Program
         ServicioDeModelos modelos = new(estado);
         ServicioDeReservas reservas = new(estado, configuracion.ReservationDelaySeconds);
         ImagenesEnDisco imagenes = new(configuracion.ImagesDirectory);
+        // Si una sesión anterior terminó de golpe (cierre de consola, Ctrl+C) sus imágenes siguen en disco.
+        imagenes.EliminarTodas();
         EjecutorDeComandos ejecutor = new(
             usuarios, modelos, reservas, imagenes, configuracion.MaxFileBytes);
         using ServidorTcp servidor = new(configuracion, ejecutor);
-        servidor.Iniciar();
-        EsperarOrdenDeSalida();
-        servidor.Detener();
+        try
+        {
+            servidor.Iniciar();
+            EsperarOrdenDeSalida();
+        }
+        finally
+        {
+            // Primero se detienen los clientes, así ningún Thread está escribiendo una imagen al borrarlas.
+            servidor.Detener();
+            imagenes.EliminarTodas();
+        }
     }
 
     private static void EsperarOrdenDeSalida()
