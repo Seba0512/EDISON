@@ -299,27 +299,31 @@ internal sealed class Menu
     // lista, o el de una reserva que ya no se puede cancelar, y perder la elección por eso.
     private static Guid? LeerIdDeReservaCancelable(IReadOnlyList<ReservaListada> reservas)
     {
-        while (true)
+        Guid? candidato;
+        do
         {
-            Guid? candidato = LectorDeConsola.LeerGuid("Id de la reserva a cancelar:");
-            if (candidato is null)
-                return null;
+            candidato = LectorDeConsola.LeerGuid("Id de la reserva a cancelar:");
+        } while (candidato is not null && !EsCancelable(reservas, candidato.Value));
 
-            ReservaListada? reserva = ReservaConId(reservas, candidato.Value);
-            if (reserva is null)
-            {
-                Consola.Error("Ese id no corresponde a ninguna de tus reservas.");
-                continue;
-            }
+        return candidato;
+    }
 
-            if (!EstadosDeReserva.SePuedeCancelar(reserva.Value.Estado))
-            {
-                Consola.Error($"No se puede cancelar una reserva {reserva.Value.Estado}.");
-                continue;
-            }
-
-            return candidato;
+    private static bool EsCancelable(IReadOnlyList<ReservaListada> reservas, Guid id)
+    {
+        ReservaListada? reserva = ReservaConId(reservas, id);
+        if (reserva is null)
+        {
+            Consola.Error("Ese id no corresponde a ninguna de tus reservas.");
+            return false;
         }
+
+        if (!EstadosDeReserva.SePuedeCancelar(reserva.Value.Estado))
+        {
+            Consola.Error($"No se puede cancelar una reserva {reserva.Value.Estado}.");
+            return false;
+        }
+
+        return true;
     }
 
     // ReservaListada es un record struct. Buscar con FirstOrDefault devolvería una reserva
