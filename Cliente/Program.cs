@@ -94,19 +94,19 @@ internal static class Program
         Consola.Info("[Enter] Reintentar");
         Consola.Info($"[{OpcionDeSalida}] Salir");
 
-        while (true)
+        string? entrada = Console.ReadLine();
+        while (!EsEleccionValida(entrada))
         {
-            string? entrada = Console.ReadLine();
-            if (entrada is null
-                || entrada.Trim().Equals(OpcionDeSalida, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            if (entrada.Length == 0)
-                return true;
-
             Consola.Error("Opción inválida. Presione Enter para reintentar o escriba S para salir.");
+            entrada = Console.ReadLine();
         }
+
+        return entrada is { Length: 0 };
     }
+
+    // Fin de entrada cuenta como salir. Enter vacío reintenta.
+    private static bool EsEleccionValida(string? entrada)
+        => entrada is null
+           || entrada.Length == 0
+           || entrada.Trim().Equals(OpcionDeSalida, StringComparison.OrdinalIgnoreCase);
 }

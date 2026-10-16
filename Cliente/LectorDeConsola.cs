@@ -15,38 +15,27 @@ internal static class LectorDeConsola
     public static int? LeerOpcion(int cantidadDeOpciones)
     {
         Consola.Prompt("Ingrese opción: ");
-        while (true)
+        string? entrada = LeerLinea();
+        while (entrada is not null && !EsOpcion(entrada, cantidadDeOpciones))
         {
-            string? entrada = LeerLinea();
-            if (entrada is null)
-                return null;
-            if (int.TryParse(entrada, out int opcion) && opcion >= 1 && opcion <= cantidadDeOpciones)
-                return opcion - 1;
-
             Consola.Error($"Ingrese un número entre 1 y {cantidadDeOpciones}.");
             Consola.Prompt("Ingrese opción válida: ");
+            entrada = LeerLinea();
         }
+
+        return entrada is null ? null : int.Parse(entrada) - 1;
     }
 
     public static string? LeerTexto(string mensaje, Func<string, string?>? validar = null)
     {
         Consola.Info(mensaje);
-        while (true)
+        string? texto;
+        do
         {
-            string? entrada = LeerLinea();
-            if (entrada is null)
-                return null;
+            texto = LeerLinea()?.Trim();
+        } while (texto is not null && !EsTextoAceptable(texto, validar));
 
-            string texto = entrada.Trim();
-            if (texto.Length == 0)
-            {
-                Consola.Error("El texto no puede estar vacío.");
-                continue;
-            }
-
-            if (EsAceptable(texto, validar))
-                return texto;
-        }
+        return texto;
     }
 
     // Enter vacío omite el campo. Se devuelve el valor junto con el aviso de entrada agotada,
@@ -55,19 +44,16 @@ internal static class LectorDeConsola
         string mensaje, Func<string, string?>? validar = null)
     {
         Consola.Info(mensaje);
-        while (true)
+        string? texto;
+        do
         {
-            string? entrada = LeerLinea();
-            if (entrada is null)
-                return (true, null);
+            texto = LeerLinea()?.Trim();
+        } while (texto is { Length: > 0 } && !EsAceptable(texto, validar));
 
-            string texto = entrada.Trim();
-            if (texto.Length == 0)
-                return (false, null);
+        if (texto is null)
+            return (true, null);
 
-            if (EsAceptable(texto, validar))
-                return (false, texto);
-        }
+        return (false, texto.Length == 0 ? null : texto);
     }
 
     public static decimal? LeerDecimal(string mensaje, Func<decimal, string?>? validar = null)
@@ -214,31 +200,32 @@ internal static class LectorDeConsola
     private static T? LeerConvertido<T>(
         string mensaje, Func<string, T> convertir, Func<T, string?>? validar) where T : struct
     {
-        while (true)
+        string? texto;
+        T? valor = null;
+        do
         {
-            string? texto = LeerTexto(mensaje);
-            if (texto is null)
-                return null;
+            texto = LeerTexto(mensaje);
+            if (texto is not null && Convertido(texto, convertir) is T convertido)
+                valor = EsAceptable(convertido, validar) ? convertido : null;
+        } while (texto is not null && valor is null);
 
-            if (Convertido(texto, convertir) is T valor && EsAceptable(valor, validar))
-                return valor;
-        }
+        return valor;
     }
 
     private static (bool Cancelada, T? Valor) LeerConvertidoOpcional<T>(
         string mensaje, Func<string, T> convertir) where T : struct
     {
-        while (true)
+        bool cancelada;
+        string? texto;
+        T? valor = null;
+        do
         {
-            (bool cancelada, string? texto) = LeerTextoOpcional(mensaje);
-            if (cancelada)
-                return (true, null);
-            if (texto is null)
-                return (false, null);
+            (cancelada, texto) = LeerTextoOpcional(mensaje);
+            if (texto is not null)
+                valor = Convertido(texto, convertir);
+        } while (texto is not null && valor is null);
 
-            if (Convertido(texto, convertir) is T valor)
-                return (false, valor);
-        }
+        return (cancelada, valor);
     }
 
     // Un formato inválido no cancela nada: se avisa y se vuelve a pedir el mismo campo.
@@ -265,24 +252,38 @@ internal static class LectorDeConsola
         return false;
     }
 
+    // Un texto vacío nunca es aceptable: se avisa y se vuelve a pedir, como ante cualquier error.
+    private static bool EsTextoAceptable(string texto, Func<string, string?>? validar)
+    {
+        if (texto.Length > 0)
+            return EsAceptable(texto, validar);
+
+        Consola.Error("El texto no puede estar vacío.");
+        return false;
+    }
+
+    private static bool EsOpcion(string entrada, int cantidadDeOpciones)
+        => int.TryParse(entrada, out int opcion) && opcion >= 1 && opcion <= cantidadDeOpciones;
+
     private static string? LeerClave(string mensaje, Func<string, string?>? validar)
     {
         Consola.Info(mensaje);
-        while (true)
+        string? clave;
+        do
         {
-            string? clave = LeerClaveEnmascarada();
-            if (clave is null)
-                return null;
+            clave = LeerClaveEnmascarada();
+        } while (clave is not null && !EsClaveAceptable(clave, validar));
 
-            if (string.IsNullOrWhiteSpace(clave))
-            {
-                Consola.Error("La clave no puede estar vacía.");
-                continue;
-            }
+        return clave;
+    }
 
-            if (EsAceptable(clave, validar))
-                return clave;
-        }
+    private static bool EsClaveAceptable(string clave, Func<string, string?>? validar)
+    {
+        if (!string.IsNullOrWhiteSpace(clave))
+            return EsAceptable(clave, validar);
+
+        Consola.Error("La clave no puede estar vacía.");
+        return false;
     }
 
     // Con entrada redirigida (por ejemplo, corrección automatizada por pipe) no hay
@@ -293,26 +294,29 @@ internal static class LectorDeConsola
             return LeerLinea();
 
         StringBuilder clave = new();
-        while (true)
+        ConsoleKeyInfo tecla = Console.ReadKey(intercept: true);
+        while (tecla.Key != ConsoleKey.Enter)
         {
-            ConsoleKeyInfo tecla = Console.ReadKey(intercept: true);
-            if (tecla.Key == ConsoleKey.Enter)
-            {
-                Console.WriteLine();
-                return clave.ToString();
-            }
+            AplicarTecla(clave, tecla);
+            tecla = Console.ReadKey(intercept: true);
+        }
 
-            if (tecla.Key == ConsoleKey.Backspace)
-            {
-                BorrarUnCaracter(clave);
-                continue;
-            }
+        Console.WriteLine();
+        return clave.ToString();
+    }
 
-            if (!char.IsControl(tecla.KeyChar))
-            {
-                clave.Append(tecla.KeyChar);
-                Console.Write('*');
-            }
+    private static void AplicarTecla(StringBuilder clave, ConsoleKeyInfo tecla)
+    {
+        if (tecla.Key == ConsoleKey.Backspace)
+        {
+            BorrarUnCaracter(clave);
+            return;
+        }
+
+        if (!char.IsControl(tecla.KeyChar))
+        {
+            clave.Append(tecla.KeyChar);
+            Console.Write('*');
         }
     }
 

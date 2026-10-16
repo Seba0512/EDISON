@@ -13,20 +13,17 @@ internal sealed class EjecutorDeComandos
     private readonly ServicioDeModelos _modelos;
     private readonly ServicioDeReservas _reservas;
     private readonly ImagenesEnDisco _imagenes;
-    private readonly long _maxFileBytes;
 
     public EjecutorDeComandos(
         ServicioDeUsuarios usuarios,
         ServicioDeModelos modelos,
         ServicioDeReservas reservas,
-        ImagenesEnDisco imagenes,
-        long maxFileBytes)
+        ImagenesEnDisco imagenes)
     {
         _usuarios = usuarios;
         _modelos = modelos;
         _reservas = reservas;
         _imagenes = imagenes;
-        _maxFileBytes = maxFileBytes;
     }
 
     public RespuestaDelServidor Ejecutar(Trama solicitud, SesionDeCliente sesion)
@@ -79,7 +76,7 @@ internal sealed class EjecutorDeComandos
             case Comandos.ConsultarModelo:
                 return ConsultarModelo(solicitud);
             case Comandos.SubirImagen:
-                return SubirImagen(solicitud, sesion.UsuarioAutenticado!);
+                return SubirImagen(solicitud, sesion);
             case Comandos.DescargarImagen:
                 return DescargarImagen(solicitud);
             case Comandos.SolicitarReserva:
@@ -186,27 +183,25 @@ internal sealed class EjecutorDeComandos
         return RespuestaDelServidor.Ok(Mensajes.DeDetalleDeModelo(detalle));
     }
 
-    // La imagen viaja dentro de DATOS: primero el texto "modelo#archivo" y después sus bytes.
-    private RespuestaDelServidor SubirImagen(Trama solicitud, Usuario usuario)
+    // La subida va en dos pasos: validado el anuncio, la sesión confirma que puede recibir y
+    // recién entonces el cliente manda las partes, que se escriben directo al archivo temporal.
+    private RespuestaDelServidor SubirImagen(Trama solicitud, SesionDeCliente sesion)
     {
-        (string mensaje, byte[] imagen) = Mensajes.ATextoYBinario(solicitud.Datos.Span);
-        if (imagen.LongLength > _maxFileBytes)
-        {
-            return RespuestaDelServidor.Rechazo(
-                $"El archivo supera el tamaño máximo permitido ({_maxFileBytes} bytes)");
-        }
-
-        (string nombreModelo, string nombreArchivoCliente) = Mensajes.ASubidaDeImagen(mensaje);
-        string extension = Path.GetExtension(ImagenesEnDisco.ValidarNombre(nombreArchivoCliente));
+        SubidaDeImagen subida = Mensajes.ASubidaDeImagen(solicitud.DatosComoTexto());
+        string extension = Path.GetExtension(ImagenesEnDisco.ValidarNombre(subida.NombreArchivo));
         string nombreArchivoNuevo = $"{Guid.NewGuid():N}{extension}";
-        using MemoryStream archivo = new(imagen);
-        _imagenes.Guardar(nombreArchivoNuevo, archivo);
+        _imagenes.Guardar(
+            nombreArchivoNuevo,
+            destino => sesion.RecibirArchivo(solicitud.Comando, destino, subida.Largo));
 
-        string nombreArchivoAnterior = CambiarImagen(nombreModelo, nombreArchivoNuevo, usuario);
+        string nombreArchivoAnterior =
+            CambiarImagen(subida.NombreModelo, nombreArchivoNuevo, sesion.UsuarioAutenticado!);
         IntentarEliminarImagen(nombreArchivoAnterior, "No se pudo limpiar la imagen reemplazada");
         return RespuestaDelServidor.Ok("Imagen actualizada correctamente.");
     }
 
+    // La respuesta solo anuncia nombre y largo: la sesión manda las partes después de la trama,
+    // leyéndolas del disco de a una. La subida ya garantizó que la imagen no supera el máximo.
     private RespuestaDelServidor DescargarImagen(Trama solicitud)
     {
         LecturaDeModelo modelo = _modelos.ConsultarLectura(solicitud.DatosComoTexto());
@@ -216,25 +211,8 @@ internal sealed class EjecutorDeComandos
         }
 
         string nombreSugerido = $"{modelo.Nombre}{Path.GetExtension(modelo.NombreArchivoImagen)}";
-        using Stream origen = _imagenes.AbrirLectura(modelo.NombreArchivoImagen);
-        if (origen.Length > _maxFileBytes)
-        {
-            return RespuestaDelServidor.Rechazo(
-                $"La imagen supera el tamaño máximo de transferencia ({_maxFileBytes} bytes)");
-        }
-
-        try
-        {
-            using MemoryStream memoria = new();
-            origen.CopyTo(memoria);
-            return RespuestaDelServidor.OkConArchivo(nombreSugerido, memoria.ToArray());
-        }
-        catch (IOException excepcion)
-        {
-            // Todavía no se escribió nada en la red: se puede rechazar y la conexión sigue.
-            Console.Error.WriteLine($"No se pudo leer la imagen del modelo {modelo.Nombre}: {excepcion.Message}");
-            return RespuestaDelServidor.Rechazo("No se pudo leer la imagen en el servidor. Intente nuevamente.");
-        }
+        return RespuestaDelServidor.OkConArchivo(
+            nombreSugerido, _imagenes.AbrirLectura(modelo.NombreArchivoImagen));
     }
 
     private RespuestaDelServidor SolicitarReserva(Trama solicitud, Usuario usuario)

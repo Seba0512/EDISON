@@ -34,12 +34,11 @@ internal static class Program
         EstadoEnMemoria estado = new();
         ServicioDeUsuarios usuarios = new(estado);
         ServicioDeModelos modelos = new(estado);
-        ServicioDeReservas reservas = new(estado, configuracion.ReservationDelaySeconds);
+        ServicioDeReservas reservas = new(estado);
         ImagenesEnDisco imagenes = new(configuracion.ImagesDirectory);
         // Si una sesión anterior terminó de golpe (cierre de consola, Ctrl+C) sus imágenes siguen en disco.
         imagenes.EliminarTodas();
-        EjecutorDeComandos ejecutor = new(
-            usuarios, modelos, reservas, imagenes, configuracion.MaxFileBytes);
+        EjecutorDeComandos ejecutor = new(usuarios, modelos, reservas, imagenes);
         using ServidorTcp servidor = new(configuracion, ejecutor);
         try
         {
@@ -57,14 +56,14 @@ internal static class Program
     private static void EsperarOrdenDeSalida()
     {
         Console.WriteLine($"Escriba '{OrdenDeSalida}' para cerrar el servidor.");
-        while (true)
+        bool esperandoOrden = true;
+        while (esperandoOrden)
         {
             string? orden = Console.ReadLine();
             // Fin de entrada (por ejemplo con la entrada redirigida) cierra igual que la orden.
-            if (orden is null || EsOrdenDeSalida(orden))
-                return;
-
-            Console.WriteLine($"Orden desconocida. Escriba '{OrdenDeSalida}'.");
+            esperandoOrden = orden is not null && !EsOrdenDeSalida(orden);
+            if (esperandoOrden)
+                Console.WriteLine($"Orden desconocida. Escriba '{OrdenDeSalida}'.");
         }
     }
 

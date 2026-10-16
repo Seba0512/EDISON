@@ -24,6 +24,11 @@ public readonly record struct DetalleDeModelo(
     int UnidadesReservadas,
     string NombreArchivoImagen);
 
+// La imagen no viaja en DATOS: el anuncio dice cuántos bytes van a seguir por el stream.
+public readonly record struct SubidaDeImagen(string NombreModelo, string NombreArchivo, long Largo);
+
+public readonly record struct ArchivoAnunciado(string Nombre, long Largo);
+
 public readonly record struct ReservaListada(
     Guid Id, string NombreModelo, string Estado, DateTime FechaCreacion, DateTime UltimaActualizacion);
 

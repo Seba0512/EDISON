@@ -33,6 +33,18 @@ public static class Estados
     public const int Largo = 2;
 }
 
+// Los límites son reglas del protocolo, no del entorno: cliente y servidor tienen que usar los
+// mismos valores, así que se definen una sola vez acá y no en el App.config de cada uno.
+public static class Limites
+{
+    public const long LargoMaximoDeArchivo = 10 * 1024 * 1024;
+
+    // Tope de DATOS: frena un LARGO absurdo antes de reservar memoria para leerlo. Los archivos
+    // no viajan en DATOS sino después de la trama, en partes (TransferenciaPorPartes), así que
+    // DATOS solo lleva texto: 1 MiB alcanza para listados de miles de modelos.
+    public const int LargoMaximoDeDatos = 1024 * 1024;
+}
+
 // La trama es [CMD: 2 caracteres '00'-'99'][LARGO: Int32 big-endian][DATOS: LARGO bytes].
 // No lleva REQ/RES porque el cliente solo envía solicitudes y el servidor solo respuestas.
 public sealed class Trama
@@ -90,18 +102,6 @@ public sealed class CodecDeTramas
     private const int LargoComando = 2;
     private const int LargoCampoLargo = 4;
 
-    private readonly int _maxPayloadBytes;
-
-    public CodecDeTramas(int maxPayloadBytes)
-    {
-        if (maxPayloadBytes <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(maxPayloadBytes));
-        }
-
-        _maxPayloadBytes = maxPayloadBytes;
-    }
-
     public Trama Leer(Stream stream)
     {
         int comando = LeerComando(stream);
@@ -114,9 +114,9 @@ public sealed class CodecDeTramas
     {
         int largo = trama.Datos.Length;
         // La validación es previa a escribir: no se mandó nada todavía y la conexión puede seguir.
-        if (largo > _maxPayloadBytes)
+        if (largo > Limites.LargoMaximoDeDatos)
         {
-            throw new PayloadDemasiadoGrandeException(largo, _maxPayloadBytes);
+            throw new PayloadDemasiadoGrandeException(largo, Limites.LargoMaximoDeDatos);
         }
 
         byte[] salida = new byte[LargoComando + LargoCampoLargo + largo];
@@ -162,11 +162,11 @@ public sealed class CodecDeTramas
         return buffer;
     }
 
-    private int LeerLargo(Stream stream)
+    private static int LeerLargo(Stream stream)
     {
         byte[] bytes = LeerExactamente(stream, LargoCampoLargo, "LARGO");
         int largo = BinaryPrimitives.ReadInt32BigEndian(bytes);
-        if (largo < 0 || largo > _maxPayloadBytes)
+        if (largo < 0 || largo > Limites.LargoMaximoDeDatos)
         {
             throw new ProtocoloException($"LARGO fuera de rango: {largo}");
         }
@@ -199,30 +199,39 @@ public sealed class CodecDeTramas
     }
 }
 
-// El DATOS de toda respuesta empieza con dos caracteres de estado y sigue con el contenido.
-// El contenido es texto UTF-8, salvo en la descarga de imagen que lleva texto más binario.
-public sealed class RespuestaDelServidor
+// El DATOS de toda respuesta empieza con dos caracteres de estado y sigue con el contenido, que
+// siempre es texto UTF-8. Un archivo nunca va en DATOS: viaja después de la trama, en partes.
+public sealed class RespuestaDelServidor : IDisposable
 {
     private readonly byte[] _contenido;
+    // Stream.Null cuando la respuesta no lleva archivo: su largo es cero y no manda nada.
+    private readonly Stream _archivo;
 
     private RespuestaDelServidor(string estado, byte[] contenido)
+        : this(estado, contenido, Stream.Null)
+    {
+    }
+
+    private RespuestaDelServidor(string estado, byte[] contenido, Stream archivo)
     {
         Estado = estado;
         _contenido = contenido;
+        _archivo = archivo;
     }
 
     public string Estado { get; }
-
-    public ReadOnlyMemory<byte> ContenidoCrudo => _contenido;
 
     public static RespuestaDelServidor Ok(string contenido)
     {
         return new RespuestaDelServidor(Estados.Ok, TextoUtf8.Codificar(contenido));
     }
 
-    public static RespuestaDelServidor OkConArchivo(string texto, byte[] archivo)
+    // El contenido solo anuncia el nombre y el largo; las partes salen después, con EnviarArchivo.
+    public static RespuestaDelServidor OkConArchivo(string nombreArchivo, Stream archivo)
     {
-        return new RespuestaDelServidor(Estados.Ok, Mensajes.DeTextoYBinario(texto, archivo));
+        ArchivoAnunciado anuncio = new(nombreArchivo, archivo.Length);
+        byte[] contenido = TextoUtf8.Codificar(Mensajes.DeArchivoAnunciado(anuncio));
+        return new RespuestaDelServidor(Estados.Ok, contenido, archivo);
     }
 
     public static RespuestaDelServidor Rechazo(string mensaje)
@@ -263,5 +272,15 @@ public sealed class RespuestaDelServidor
     public string ContenidoComoTexto()
     {
         return TextoUtf8.Decodificar(_contenido);
+    }
+
+    public void EnviarArchivo(TransferenciaPorPartes transferencia)
+    {
+        transferencia.Enviar(_archivo, _archivo.Length);
+    }
+
+    public void Dispose()
+    {
+        _archivo.Dispose();
     }
 }

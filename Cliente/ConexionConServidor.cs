@@ -12,7 +12,7 @@ internal sealed class ConexionConServidor : IDisposable
     private readonly Socket _socket;
     private readonly NetworkStream _stream;
     private readonly CodecDeTramas _codec;
-    private readonly long _maxFileBytes;
+    private readonly TransferenciaPorPartes _archivos;
     private readonly string _downloadsDirectory;
     private bool _cerrada;
 
@@ -21,8 +21,8 @@ internal sealed class ConexionConServidor : IDisposable
         _socket = socket;
         // ownsSocket en false porque Dispose ya se encarga de cerrar el stream y el socket en orden.
         _stream = new NetworkStream(socket, ownsSocket: false);
-        _codec = new CodecDeTramas(configuracion.MaxPayloadBytes);
-        _maxFileBytes = configuracion.MaxFileBytes;
+        _codec = new CodecDeTramas();
+        _archivos = new TransferenciaPorPartes(_stream);
         _downloadsDirectory = Path.GetFullPath(configuracion.DownloadsDirectory);
     }
 
@@ -82,21 +82,33 @@ internal sealed class ConexionConServidor : IDisposable
     public IReadOnlyList<ActividadListada> Historial()
         => Mensajes.AActividades(Enviar(Comandos.ConsultarHistorial, string.Empty));
 
-    // La imagen viaja dentro de DATOS: primero el texto "modelo#archivo" y después sus bytes.
+    // La subida va en dos pasos: se anuncia la imagen y solo con el OK del servidor se mandan sus
+    // partes, así un rechazo de entrada no hace viajar ningún byte del archivo.
     public string SubirImagen(string nombreModelo, string rutaArchivo)
     {
-        byte[] imagen = LeerArchivoLocal(rutaArchivo);
-        string mensaje = Mensajes.DeSubidaDeImagen(nombreModelo, Path.GetFileName(rutaArchivo));
-        return Solicitar(Comandos.SubirImagen, Mensajes.DeTextoYBinario(mensaje, imagen))
-            .ContenidoComoTexto();
+        using FileStream imagen = AbrirArchivoLocal(rutaArchivo);
+        ExigirTamañoPermitido(imagen.Length);
+        SubidaDeImagen subida = new(nombreModelo, Path.GetFileName(rutaArchivo), imagen.Length);
+        Enviar(Comandos.SubirImagen, Mensajes.DeSubidaDeImagen(subida));
+        _archivos.Enviar(imagen, subida.Largo);
+        return RecibirRespuesta(Comandos.SubirImagen).ContenidoComoTexto();
     }
 
+    // El OK anuncia nombre y largo, y las partes llegan a continuación: cada una se escribe
+    // directo al archivo temporal, sin juntar la imagen entera en memoria.
     public string DescargarImagen(string nombreModelo)
     {
-        RespuestaDelServidor respuesta =
-            Solicitar(Comandos.DescargarImagen, TextoUtf8.Codificar(nombreModelo));
-        (string nombreSugerido, byte[] imagen) = Mensajes.ATextoYBinario(respuesta.ContenidoCrudo.Span);
-        return GuardarImagen(nombreSugerido, imagen);
+        string rutaTemporal =
+            Path.Combine(_downloadsDirectory, $"{Guid.NewGuid():N}{SufijoTemporal}");
+        try
+        {
+            ArchivoAnunciado imagen = RecibirImagen(nombreModelo, rutaTemporal);
+            return MoverADescargas(rutaTemporal, imagen);
+        }
+        finally
+        {
+            IntentarEliminarTemporal(rutaTemporal);
+        }
     }
 
     public void Dispose()
@@ -111,18 +123,11 @@ internal sealed class ConexionConServidor : IDisposable
     }
 
     // Un problema local con el archivo todavía no tocó la red, así que la sesión puede continuar.
-    private byte[] LeerArchivoLocal(string rutaArchivo)
+    private static FileStream AbrirArchivoLocal(string rutaArchivo)
     {
         try
         {
-            byte[] imagen = File.ReadAllBytes(rutaArchivo);
-            if (imagen.LongLength > _maxFileBytes)
-            {
-                throw new OperacionRechazadaException(
-                    $"El archivo supera el tamaño máximo permitido ({_maxFileBytes} bytes)");
-            }
-
-            return imagen;
+            return File.OpenRead(rutaArchivo);
         }
         // El Message de .NET viene en inglés y es técnico: al usuario se le dice qué revisar.
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
@@ -133,28 +138,69 @@ internal sealed class ConexionConServidor : IDisposable
         }
     }
 
-    // La imagen ya llegó entera en la trama: si falla el guardado local, la conexión queda sana.
-    private string GuardarImagen(string nombreSugerido, byte[] imagen)
+    private static void ExigirTamañoPermitido(long largo)
     {
-        string? rutaTemporal = null;
+        if (largo > Limites.LargoMaximoDeArchivo)
+        {
+            throw new OperacionRechazadaException("El archivo supera el tamaño máximo permitido " +
+                $"({Limites.LargoMaximoDeArchivo} bytes)");
+        }
+    }
+
+    // El archivo local se crea antes de pedir la imagen: si falla, todavía no viajó nada por la
+    // red. Si falla a mitad, Recibir igual consume las partes y la conexión queda sana.
+    private ArchivoAnunciado RecibirImagen(string nombreModelo, string rutaTemporal)
+    {
+        using FileStream destino = CrearArchivoLocal(rutaTemporal);
+        string anuncio = Enviar(Comandos.DescargarImagen, nombreModelo);
+        ArchivoAnunciado imagen = Mensajes.AArchivoAnunciado(anuncio);
         try
         {
-            string nombreArchivo = NombreDeDescargaSeguro.Crear(nombreSugerido);
+            _archivos.Recibir(destino, imagen.Largo);
+        }
+        catch (ArchivoLocalException)
+        {
+            throw NoSePudoGuardar();
+        }
+
+        return imagen;
+    }
+
+    private FileStream CrearArchivoLocal(string ruta)
+    {
+        try
+        {
             Directory.CreateDirectory(_downloadsDirectory);
-            string rutaDestino = Path.Combine(_downloadsDirectory, nombreArchivo);
-            rutaTemporal = rutaDestino + SufijoTemporal;
-            // Se escribe a un .tmp y luego se mueve, para no dejar una imagen a medias si falla la copia.
-            File.WriteAllBytes(rutaTemporal, imagen);
-            File.Move(rutaTemporal, rutaDestino, overwrite: true);
-            return $"Imagen guardada en '{rutaDestino}' ({imagen.Length} bytes)";
+            return File.Create(ruta);
         }
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
-            IntentarEliminarTemporal(rutaTemporal);
-            throw new OperacionRechazadaException(
-                $"No se pudo guardar la imagen en '{_downloadsDirectory}'. Verifique que la carpeta " +
-                "tenga permisos de escritura y que el archivo no esté abierto en otro programa.");
+            throw NoSePudoGuardar();
         }
+    }
+
+    // Se recibe a un .tmp y recién completo se mueve, para no dejar una imagen a medias.
+    private string MoverADescargas(string rutaTemporal, ArchivoAnunciado imagen)
+    {
+        string nombreArchivo = NombreDeDescargaSeguro.Crear(imagen.Nombre);
+        string rutaDestino = Path.Combine(_downloadsDirectory, nombreArchivo);
+        try
+        {
+            File.Move(rutaTemporal, rutaDestino, overwrite: true);
+        }
+        catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
+        {
+            throw NoSePudoGuardar();
+        }
+
+        return $"Imagen guardada en '{rutaDestino}' ({imagen.Largo} bytes)";
+    }
+
+    private OperacionRechazadaException NoSePudoGuardar()
+    {
+        return new OperacionRechazadaException(
+            $"No se pudo guardar la imagen en '{_downloadsDirectory}'. Verifique que la carpeta " +
+            "tenga permisos de escritura y que el archivo no esté abierto en otro programa.");
     }
 
     private string Enviar(int comando, string mensaje)
@@ -164,6 +210,12 @@ internal sealed class ConexionConServidor : IDisposable
     {
         ObjectDisposedException.ThrowIf(_cerrada, this);
         _codec.Escribir(_stream, new Trama(comando, datos));
+        return RecibirRespuesta(comando);
+    }
+
+    // La subida espera dos respuestas al mismo comando: la que habilita las partes y la final.
+    private RespuestaDelServidor RecibirRespuesta(int comando)
+    {
         Trama respuesta = _codec.Leer(_stream);
         // Sin header REQ/RES la única verificación es que la respuesta traiga el comando enviado.
         if (respuesta.Comando != comando)
@@ -200,9 +252,9 @@ internal sealed class ConexionConServidor : IDisposable
         }
     }
 
-    private static void IntentarEliminarTemporal(string? rutaTemporal)
+    private static void IntentarEliminarTemporal(string rutaTemporal)
     {
-        if (rutaTemporal is null || !File.Exists(rutaTemporal))
+        if (!File.Exists(rutaTemporal))
             return;
 
         try
