@@ -33,6 +33,17 @@ public static class Estados
     public const int Largo = 2;
 }
 
+// Los límites son reglas del protocolo, no del entorno: cliente y servidor tienen que usar los
+// mismos valores, así que se definen una sola vez acá y no en el App.config de cada uno.
+public static class Limites
+{
+    public const long LargoMaximoDeArchivo = 10 * 1024 * 1024;
+
+    // Tope de DATOS: frena un LARGO absurdo antes de reservar memoria para leerlo. Alcanza para
+    // una imagen completa más el texto que la acompaña.
+    public const int LargoMaximoDeDatos = (int)LargoMaximoDeArchivo + 1024;
+}
+
 // La trama es [CMD: 2 caracteres '00'-'99'][LARGO: Int32 big-endian][DATOS: LARGO bytes].
 // No lleva REQ/RES porque el cliente solo envía solicitudes y el servidor solo respuestas.
 public sealed class Trama
@@ -90,18 +101,6 @@ public sealed class CodecDeTramas
     private const int LargoComando = 2;
     private const int LargoCampoLargo = 4;
 
-    private readonly int _maxPayloadBytes;
-
-    public CodecDeTramas(int maxPayloadBytes)
-    {
-        if (maxPayloadBytes <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(maxPayloadBytes));
-        }
-
-        _maxPayloadBytes = maxPayloadBytes;
-    }
-
     public Trama Leer(Stream stream)
     {
         int comando = LeerComando(stream);
@@ -114,9 +113,9 @@ public sealed class CodecDeTramas
     {
         int largo = trama.Datos.Length;
         // La validación es previa a escribir: no se mandó nada todavía y la conexión puede seguir.
-        if (largo > _maxPayloadBytes)
+        if (largo > Limites.LargoMaximoDeDatos)
         {
-            throw new PayloadDemasiadoGrandeException(largo, _maxPayloadBytes);
+            throw new PayloadDemasiadoGrandeException(largo, Limites.LargoMaximoDeDatos);
         }
 
         byte[] salida = new byte[LargoComando + LargoCampoLargo + largo];
@@ -162,11 +161,11 @@ public sealed class CodecDeTramas
         return buffer;
     }
 
-    private int LeerLargo(Stream stream)
+    private static int LeerLargo(Stream stream)
     {
         byte[] bytes = LeerExactamente(stream, LargoCampoLargo, "LARGO");
         int largo = BinaryPrimitives.ReadInt32BigEndian(bytes);
-        if (largo < 0 || largo > _maxPayloadBytes)
+        if (largo < 0 || largo > Limites.LargoMaximoDeDatos)
         {
             throw new ProtocoloException($"LARGO fuera de rango: {largo}");
         }

@@ -12,7 +12,6 @@ internal sealed class ConexionConServidor : IDisposable
     private readonly Socket _socket;
     private readonly NetworkStream _stream;
     private readonly CodecDeTramas _codec;
-    private readonly long _maxFileBytes;
     private readonly string _downloadsDirectory;
     private bool _cerrada;
 
@@ -21,8 +20,7 @@ internal sealed class ConexionConServidor : IDisposable
         _socket = socket;
         // ownsSocket en false porque Dispose ya se encarga de cerrar el stream y el socket en orden.
         _stream = new NetworkStream(socket, ownsSocket: false);
-        _codec = new CodecDeTramas(configuracion.MaxPayloadBytes);
-        _maxFileBytes = configuracion.MaxFileBytes;
+        _codec = new CodecDeTramas();
         _downloadsDirectory = Path.GetFullPath(configuracion.DownloadsDirectory);
     }
 
@@ -116,10 +114,10 @@ internal sealed class ConexionConServidor : IDisposable
         try
         {
             byte[] imagen = File.ReadAllBytes(rutaArchivo);
-            if (imagen.LongLength > _maxFileBytes)
+            if (imagen.LongLength > Limites.LargoMaximoDeArchivo)
             {
                 throw new OperacionRechazadaException(
-                    $"El archivo supera el tamaño máximo permitido ({_maxFileBytes} bytes)");
+                    $"El archivo supera el tamaño máximo permitido ({Limites.LargoMaximoDeArchivo} bytes)");
             }
 
             return imagen;

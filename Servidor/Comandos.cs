@@ -13,20 +13,17 @@ internal sealed class EjecutorDeComandos
     private readonly ServicioDeModelos _modelos;
     private readonly ServicioDeReservas _reservas;
     private readonly ImagenesEnDisco _imagenes;
-    private readonly long _maxFileBytes;
 
     public EjecutorDeComandos(
         ServicioDeUsuarios usuarios,
         ServicioDeModelos modelos,
         ServicioDeReservas reservas,
-        ImagenesEnDisco imagenes,
-        long maxFileBytes)
+        ImagenesEnDisco imagenes)
     {
         _usuarios = usuarios;
         _modelos = modelos;
         _reservas = reservas;
         _imagenes = imagenes;
-        _maxFileBytes = maxFileBytes;
     }
 
     public RespuestaDelServidor Ejecutar(Trama solicitud, SesionDeCliente sesion)
@@ -190,10 +187,10 @@ internal sealed class EjecutorDeComandos
     private RespuestaDelServidor SubirImagen(Trama solicitud, Usuario usuario)
     {
         (string mensaje, byte[] imagen) = Mensajes.ATextoYBinario(solicitud.Datos.Span);
-        if (imagen.LongLength > _maxFileBytes)
+        if (imagen.LongLength > Limites.LargoMaximoDeArchivo)
         {
             return RespuestaDelServidor.Rechazo(
-                $"El archivo supera el tamaño máximo permitido ({_maxFileBytes} bytes)");
+                $"El archivo supera el tamaño máximo permitido ({Limites.LargoMaximoDeArchivo} bytes)");
         }
 
         (string nombreModelo, string nombreArchivoCliente) = Mensajes.ASubidaDeImagen(mensaje);
@@ -217,10 +214,10 @@ internal sealed class EjecutorDeComandos
 
         string nombreSugerido = $"{modelo.Nombre}{Path.GetExtension(modelo.NombreArchivoImagen)}";
         using Stream origen = _imagenes.AbrirLectura(modelo.NombreArchivoImagen);
-        if (origen.Length > _maxFileBytes)
+        if (origen.Length > Limites.LargoMaximoDeArchivo)
         {
             return RespuestaDelServidor.Rechazo(
-                $"La imagen supera el tamaño máximo de transferencia ({_maxFileBytes} bytes)");
+                $"La imagen supera el tamaño máximo de transferencia ({Limites.LargoMaximoDeArchivo} bytes)");
         }
 
         try

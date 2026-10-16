@@ -34,10 +34,9 @@ internal static class Program
         EstadoEnMemoria estado = new();
         ServicioDeUsuarios usuarios = new(estado);
         ServicioDeModelos modelos = new(estado);
-        ServicioDeReservas reservas = new(estado, configuracion.ReservationDelaySeconds);
+        ServicioDeReservas reservas = new(estado);
         ImagenesEnDisco imagenes = new(configuracion.ImagesDirectory);
-        EjecutorDeComandos ejecutor = new(
-            usuarios, modelos, reservas, imagenes, configuracion.MaxFileBytes);
+        EjecutorDeComandos ejecutor = new(usuarios, modelos, reservas, imagenes);
         using ServidorTcp servidor = new(configuracion, ejecutor);
         servidor.Iniciar();
         EsperarOrdenDeSalida();

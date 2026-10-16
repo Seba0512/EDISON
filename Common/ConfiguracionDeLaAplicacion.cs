@@ -5,7 +5,8 @@ using System.Net;
 namespace Common;
 
 // Punto unico de lectura del App.config. Cliente y Servidor validaban por separado, con el
-// mismo codigo, las mismas tres cosas: una direccion IP, un puerto y un entero positivo.
+// mismo codigo, las mismas dos cosas: una direccion IP y un puerto. En el App.config solo
+// queda lo que depende del entorno; los limites del protocolo estan en Common (Limites).
 public static class ConfiguracionDeLaAplicacion
 {
     public static string Leer(string clave)
@@ -59,17 +60,6 @@ public static class ConfiguracionDeLaAplicacion
 
         throw new ConfigurationErrorsException(
             $"La clave '{clave}' debe estar entre 1 y {IPEndPoint.MaxPort}");
-    }
-
-    public static int LeerPositivo(string clave)
-    {
-        int valor = LeerEntero(clave);
-        if (valor > 0)
-        {
-            return valor;
-        }
-
-        throw new ConfigurationErrorsException($"La clave '{clave}' debe ser mayor que cero");
     }
 
     private static string? Buscar(string clave)

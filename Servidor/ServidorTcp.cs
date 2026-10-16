@@ -8,6 +8,14 @@ namespace Servidor;
 // desbloquea los Accept y Receive pendientes para poder esperar cada Thread.
 internal sealed class ServidorTcp : IDisposable
 {
+    // Conexiones que el sistema operativo encola mientras el aceptador no las tomó con Accept.
+    // No limita los clientes conectados, y como el aceptador las toma enseguida, alcanza con pocas.
+    private const int ConexionesEnEspera = 10;
+
+    // Al cerrar se espera a cada Thread como mucho este tiempo: si alguno no termina, se informa
+    // en vez de dejar el cierre colgado.
+    private static readonly TimeSpan EsperaMaximaPorThread = TimeSpan.FromSeconds(5);
+
     private readonly ConfiguracionServidor _configuracion;
     private readonly EjecutorDeComandos _ejecutor;
     private readonly CodecDeTramas _codec;
@@ -22,7 +30,7 @@ internal sealed class ServidorTcp : IDisposable
     {
         _configuracion = configuracion;
         _ejecutor = ejecutor;
-        _codec = new CodecDeTramas(configuracion.MaxPayloadBytes);
+        _codec = new CodecDeTramas();
     }
 
     public void Iniciar()
@@ -37,7 +45,7 @@ internal sealed class ServidorTcp : IDisposable
         try
         {
             listener.Bind(_configuracion.Endpoint);
-            listener.Listen(_configuracion.Backlog);
+            listener.Listen(ConexionesEnEspera);
         }
         catch
         {
@@ -161,7 +169,7 @@ internal sealed class ServidorTcp : IDisposable
 
     private bool UnirThread(Thread thread, string descripcion)
     {
-        if (thread.Join(_configuracion.JoinTimeoutMilliseconds))
+        if (thread.Join(EsperaMaximaPorThread))
         {
             return true;
         }
