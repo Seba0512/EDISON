@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Globalization;
 
 namespace Common;
@@ -10,6 +9,11 @@ public static class FormatoDeCampos
     private const string FormatoFechaHora = "yyyyMMddHHmmss";
 
     public static string De(int valor)
+    {
+        return valor.ToString(CultureInfo.InvariantCulture);
+    }
+
+    public static string De(long valor)
     {
         return valor.ToString(CultureInfo.InvariantCulture);
     }
@@ -37,6 +41,16 @@ public static class FormatoDeCampos
     public static int AEntero(string texto)
     {
         if (int.TryParse(texto, NumberStyles.Integer, CultureInfo.InvariantCulture, out int valor))
+        {
+            return valor;
+        }
+
+        throw new ProtocoloException($"'{texto}' no es un entero válido");
+    }
+
+    public static long AEnteroLargo(string texto)
+    {
+        if (long.TryParse(texto, NumberStyles.Integer, CultureInfo.InvariantCulture, out long valor))
         {
             return valor;
         }
@@ -298,44 +312,45 @@ public static class Mensajes
         return actividades;
     }
 
-    // Payload mixto para las imágenes: [4 bytes big-endian: largo del texto][texto UTF-8][binario].
-    public static byte[] DeTextoYBinario(string texto, byte[] binario)
+    // Las imágenes no viajan en DATOS: el anuncio dice cuántos bytes van a seguir por el stream.
+    public static string DeSubidaDeImagen(SubidaDeImagen subida)
     {
-        byte[] textoEnBytes = TextoUtf8.Codificar(texto);
-        byte[] datos = new byte[sizeof(int) + textoEnBytes.Length + binario.Length];
-        BinaryPrimitives.WriteInt32BigEndian(datos, textoEnBytes.Length);
-        textoEnBytes.CopyTo(datos, sizeof(int));
-        binario.CopyTo(datos, sizeof(int) + textoEnBytes.Length);
-        return datos;
+        return Unir(subida.NombreModelo, subida.NombreArchivo, FormatoDeCampos.De(subida.Largo));
     }
 
-    public static (string Texto, byte[] Binario) ATextoYBinario(ReadOnlySpan<byte> datos)
+    public static SubidaDeImagen ASubidaDeImagen(string mensaje)
     {
-        if (datos.Length < sizeof(int))
-        {
-            throw new ProtocoloException("El payload no contiene el largo del texto");
-        }
-
-        int largoTexto = BinaryPrimitives.ReadInt32BigEndian(datos);
-        if (largoTexto < 0 || largoTexto > datos.Length - sizeof(int))
-        {
-            throw new ProtocoloException($"El largo del texto es inválido: {largoTexto}");
-        }
-
-        string texto = TextoUtf8.Decodificar(datos.Slice(sizeof(int), largoTexto));
-        byte[] binario = datos[(sizeof(int) + largoTexto)..].ToArray();
-        return (texto, binario);
+        string[] campos = Separar(mensaje, 3);
+        return new SubidaDeImagen(campos[0], campos[1], ALargoDeArchivo(campos[2]));
     }
 
-    public static string DeSubidaDeImagen(string nombreModelo, string nombreArchivo)
+    public static string DeArchivoAnunciado(ArchivoAnunciado archivo)
     {
-        return Unir(nombreModelo, nombreArchivo);
+        return Unir(archivo.Nombre, FormatoDeCampos.De(archivo.Largo));
     }
 
-    public static (string NombreModelo, string NombreArchivo) ASubidaDeImagen(string mensaje)
+    public static ArchivoAnunciado AArchivoAnunciado(string mensaje)
     {
         string[] campos = Separar(mensaje, 2);
-        return (campos[0], campos[1]);
+        return new ArchivoAnunciado(campos[0], ALargoDeArchivo(campos[1]));
+    }
+
+    // El largo se valida al leer el anuncio, antes de leer un solo byte del archivo.
+    private static long ALargoDeArchivo(string texto)
+    {
+        long largo = FormatoDeCampos.AEnteroLargo(texto);
+        if (largo < 0)
+        {
+            throw new ProtocoloException($"'{texto}' no es un largo de archivo válido");
+        }
+
+        if (largo > Limites.LargoMaximoDeArchivo)
+        {
+            throw new ProtocoloException("El archivo supera el tamaño máximo permitido " +
+                $"({Limites.LargoMaximoDeArchivo} bytes)");
+        }
+
+        return largo;
     }
 
     // Recorre una lista plana: primero la cantidad y después los campos de cada elemento en orden.

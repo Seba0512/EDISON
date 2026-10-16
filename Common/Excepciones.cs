@@ -36,3 +36,13 @@ public sealed class PayloadDemasiadoGrandeException : ProtocoloException
     {
     }
 }
+
+// El archivo local falló a mitad de una transferencia. Las partes que faltaban igual se leyeron,
+// así que la conexión sigue sincronizada y el error se puede informar sin cortarla.
+public sealed class ArchivoLocalException : Exception
+{
+    public ArchivoLocalException(Exception causaOriginal)
+        : base("No se pudo escribir el archivo recibido", causaOriginal)
+    {
+    }
+}

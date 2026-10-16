@@ -14,6 +14,9 @@ internal sealed class AlmacenDeImagenesException : Exception
 
 internal sealed class ImagenesEnDisco
 {
+    private const string NoSePudoGuardar =
+        "No se pudo guardar la imagen en el servidor. Intente nuevamente.";
+
     private static readonly string[] ExtensionesPermitidas = { ".png", ".jpg", ".jpeg" };
 
     // Windows no permite estos nombres de archivo ni siquiera con extensión.
@@ -64,25 +67,25 @@ internal sealed class ImagenesEnDisco
         return nombre;
     }
 
-    public void Guardar(string nombreArchivo, Stream contenido)
+    // El contenido lo escribe quien llama, directo sobre el archivo: en la subida, la sesión a
+    // medida que llegan las partes. Así la imagen nunca se junta entera en memoria.
+    public void Guardar(string nombreArchivo, Action<Stream> escribirContenido)
     {
         string ruta = RutaDe(nombreArchivo);
         // Se escribe a un .tmp y luego se mueve, para no dejar una imagen a medias si falla la copia.
         string rutaTemporal = ruta + ".tmp";
         try
         {
-            using (FileStream destino = File.Create(rutaTemporal))
+            using (FileStream destino = CrearTemporal(rutaTemporal))
             {
-                contenido.CopyTo(destino);
+                EscribirContenido(destino, escribirContenido);
             }
 
-            File.Move(rutaTemporal, ruta, overwrite: true);
+            Mover(rutaTemporal, ruta);
         }
-        catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
+        finally
         {
             IntentarEliminarTemporal(rutaTemporal);
-            throw new AlmacenDeImagenesException(
-                "No se pudo guardar la imagen en el servidor. Intente nuevamente.", excepcion);
         }
     }
 
@@ -136,6 +139,44 @@ internal sealed class ImagenesEnDisco
         if (!rutaCompleta.StartsWith(raizConSeparador, ComparacionDeRutas))
         {
             throw new ProtocoloException("La ruta del archivo queda fuera del directorio permitido");
+        }
+    }
+
+    private static FileStream CrearTemporal(string rutaTemporal)
+    {
+        try
+        {
+            return File.Create(rutaTemporal);
+        }
+        catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
+        {
+            throw new AlmacenDeImagenesException(NoSePudoGuardar, excepcion);
+        }
+    }
+
+    // Solo una falla del disco se informa como error del almacén. Un corte de red a mitad de la
+    // subida sigue de largo, porque esa conexión ya no puede recibir una respuesta.
+    private static void EscribirContenido(Stream destino, Action<Stream> escribirContenido)
+    {
+        try
+        {
+            escribirContenido(destino);
+        }
+        catch (ArchivoLocalException excepcion)
+        {
+            throw new AlmacenDeImagenesException(NoSePudoGuardar, excepcion);
+        }
+    }
+
+    private static void Mover(string rutaTemporal, string ruta)
+    {
+        try
+        {
+            File.Move(rutaTemporal, ruta, overwrite: true);
+        }
+        catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
+        {
+            throw new AlmacenDeImagenesException(NoSePudoGuardar, excepcion);
         }
     }
 

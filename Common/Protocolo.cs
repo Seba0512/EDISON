@@ -39,9 +39,10 @@ public static class Limites
 {
     public const long LargoMaximoDeArchivo = 10 * 1024 * 1024;
 
-    // Tope de DATOS: frena un LARGO absurdo antes de reservar memoria para leerlo. Alcanza para
-    // una imagen completa más el texto que la acompaña.
-    public const int LargoMaximoDeDatos = (int)LargoMaximoDeArchivo + 1024;
+    // Tope de DATOS: frena un LARGO absurdo antes de reservar memoria para leerlo. Los archivos
+    // no viajan en DATOS sino después de la trama, en partes (TransferenciaPorPartes), así que
+    // DATOS solo lleva texto: 1 MiB alcanza para listados de miles de modelos.
+    public const int LargoMaximoDeDatos = 1024 * 1024;
 }
 
 // La trama es [CMD: 2 caracteres '00'-'99'][LARGO: Int32 big-endian][DATOS: LARGO bytes].
@@ -198,30 +199,39 @@ public sealed class CodecDeTramas
     }
 }
 
-// El DATOS de toda respuesta empieza con dos caracteres de estado y sigue con el contenido.
-// El contenido es texto UTF-8, salvo en la descarga de imagen que lleva texto más binario.
-public sealed class RespuestaDelServidor
+// El DATOS de toda respuesta empieza con dos caracteres de estado y sigue con el contenido, que
+// siempre es texto UTF-8. Un archivo nunca va en DATOS: viaja después de la trama, en partes.
+public sealed class RespuestaDelServidor : IDisposable
 {
     private readonly byte[] _contenido;
+    // Stream.Null cuando la respuesta no lleva archivo: su largo es cero y no manda nada.
+    private readonly Stream _archivo;
 
     private RespuestaDelServidor(string estado, byte[] contenido)
+        : this(estado, contenido, Stream.Null)
+    {
+    }
+
+    private RespuestaDelServidor(string estado, byte[] contenido, Stream archivo)
     {
         Estado = estado;
         _contenido = contenido;
+        _archivo = archivo;
     }
 
     public string Estado { get; }
-
-    public ReadOnlyMemory<byte> ContenidoCrudo => _contenido;
 
     public static RespuestaDelServidor Ok(string contenido)
     {
         return new RespuestaDelServidor(Estados.Ok, TextoUtf8.Codificar(contenido));
     }
 
-    public static RespuestaDelServidor OkConArchivo(string texto, byte[] archivo)
+    // El contenido solo anuncia el nombre y el largo; las partes salen después, con EnviarArchivo.
+    public static RespuestaDelServidor OkConArchivo(string nombreArchivo, Stream archivo)
     {
-        return new RespuestaDelServidor(Estados.Ok, Mensajes.DeTextoYBinario(texto, archivo));
+        ArchivoAnunciado anuncio = new(nombreArchivo, archivo.Length);
+        byte[] contenido = TextoUtf8.Codificar(Mensajes.DeArchivoAnunciado(anuncio));
+        return new RespuestaDelServidor(Estados.Ok, contenido, archivo);
     }
 
     public static RespuestaDelServidor Rechazo(string mensaje)
@@ -262,5 +272,15 @@ public sealed class RespuestaDelServidor
     public string ContenidoComoTexto()
     {
         return TextoUtf8.Decodificar(_contenido);
+    }
+
+    public void EnviarArchivo(TransferenciaPorPartes transferencia)
+    {
+        transferencia.Enviar(_archivo, _archivo.Length);
+    }
+
+    public void Dispose()
+    {
+        _archivo.Dispose();
     }
 }

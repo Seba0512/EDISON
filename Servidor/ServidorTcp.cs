@@ -133,8 +133,11 @@ internal sealed class ServidorTcp : IDisposable
     private void IncorporarCliente(Socket socket)
     {
         int numero = ++_siguienteCliente;
+        // La sesión abre su stream acá y no en el Thread del cliente: Detener cierra los sockets
+        // recién después de esperar al aceptador, así que este todavía no pudo cerrarse.
+        SesionDeCliente sesion = new(socket, numero, _codec, _ejecutor);
         ConexionDeCliente? conexion = null;
-        Thread thread = new(() => Atender(conexion!)) { Name = $"Cliente {numero}" };
+        Thread thread = new(() => Atender(conexion!, sesion)) { Name = $"Cliente {numero}" };
         conexion = new ConexionDeCliente(numero, socket, thread);
         lock (_candado)
         {
@@ -151,11 +154,11 @@ internal sealed class ServidorTcp : IDisposable
         thread.Start();
     }
 
-    private void Atender(ConexionDeCliente conexion)
+    private void Atender(ConexionDeCliente conexion, SesionDeCliente sesion)
     {
         try
         {
-            new SesionDeCliente(conexion.Socket, conexion.Numero, _codec, _ejecutor).Atender();
+            sesion.Atender();
         }
         finally
         {
