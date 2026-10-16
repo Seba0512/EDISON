@@ -47,14 +47,14 @@ internal static class Program
     private static void EsperarOrdenDeSalida()
     {
         Console.WriteLine($"Escriba '{OrdenDeSalida}' para cerrar el servidor.");
-        while (true)
+        bool esperandoOrden = true;
+        while (esperandoOrden)
         {
             string? orden = Console.ReadLine();
             // Fin de entrada (por ejemplo con la entrada redirigida) cierra igual que la orden.
-            if (orden is null || EsOrdenDeSalida(orden))
-                return;
-
-            Console.WriteLine($"Orden desconocida. Escriba '{OrdenDeSalida}'.");
+            esperandoOrden = orden is not null && !EsOrdenDeSalida(orden);
+            if (esperandoOrden)
+                Console.WriteLine($"Orden desconocida. Escriba '{OrdenDeSalida}'.");
         }
     }
 

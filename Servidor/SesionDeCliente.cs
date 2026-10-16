@@ -27,13 +27,11 @@ internal sealed class SesionDeCliente
         try
         {
             using NetworkStream stream = new(_socket, ownsSocket: false);
-            while (true)
+            bool conexionAbierta = true;
+            while (conexionAbierta)
             {
                 Trama solicitud = _codec.Leer(stream);
-                if (!AtenderSolicitud(stream, solicitud))
-                {
-                    return;
-                }
+                conexionAbierta = AtenderSolicitud(stream, solicitud);
             }
         }
         catch (Exception exception)
