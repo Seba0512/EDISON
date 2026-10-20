@@ -199,6 +199,18 @@ internal sealed class ServidorTcp : IAsyncDisposable
             Console.Error.WriteLine($"El Task {descripcion} no terminó dentro del timeout");
             return false;
         }
+        catch (OperationCanceledException)
+        {
+            // Terminar cancelado es una forma normal de terminar durante el cierre.
+            return true;
+        }
+        catch (Exception exception)
+        {
+            // Un Task que falló ya terminó: se informa y el cierre sigue con lo demás, en vez de
+            // cortarse y dejar sin esperar a las reservas que se estaban resolviendo.
+            Console.Error.WriteLine($"El Task {descripcion} terminó con un error: {exception.Message}");
+            return false;
+        }
     }
 
     private sealed class ConexionDeCliente
