@@ -282,8 +282,10 @@ internal sealed class Menu
     private static DatosDeAltaDeModelo? LeerDatosParaModificacion(
         string nombreModelo, DetalleDeModelo detalleActual)
     {
+        // Se muestran los valores vigentes para que el usuario sepa qué está cambiando.
+        Presentadores.MostrarDetalle(detalleActual);
         (bool sinEntrada, string? descripcion) = LectorDeConsola.LeerTextoOpcional(
-            "Nueva descripción (Enter para omitir):", Validaciones.Descripcion);
+            "Nueva descripción (Enter para conservar la actual):", Validaciones.Descripcion);
         if (sinEntrada)
             return null;
 
@@ -301,8 +303,13 @@ internal sealed class Menu
         if (stock is null)
             return null;
 
+        // Enter vacío conserva la descripción vigente: mandar "" la borraría sin aviso.
         return new DatosDeAltaDeModelo(
-            nombreModelo, descripcion ?? string.Empty, precio.Value, fechaEntrega.Value, stock.Value);
+            nombreModelo,
+            descripcion ?? detalleActual.Descripcion,
+            precio.Value,
+            fechaEntrega.Value,
+            stock.Value);
     }
 
     // Valida contra las reservas ya mostradas. Evita mandar al servidor un id que no está en la
