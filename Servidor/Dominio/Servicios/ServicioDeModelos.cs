@@ -1,5 +1,6 @@
 using Servidor.Dominio.Entidades;
 using Servidor.Dominio.Excepciones;
+using Servidor.Dominio.Repositorios;
 
 namespace Servidor.Dominio.Servicios;
 
@@ -13,43 +14,51 @@ public sealed record FiltroDeModelos(
     public static FiltroDeModelos SinFiltros => new(null, null, null, null, null);
 }
 
-// Catálogo de modelos: alta, modificación, baja, búsqueda, consulta e imagen.
+// Catálogo de modelos: alta, modificación, baja, búsqueda, consulta e imagen. Cada operación
+// toma el candado global y dentro lee, valida y guarda, así dos clientes no se pisan.
 public class ServicioDeModelos
 {
-    private readonly EstadoEnMemoria _estado;
+    private readonly IRepositorioDeModelos _modelos;
+    private readonly IRepositorioDeReservas _reservas;
+    private readonly CandadoGlobal _candado;
 
-    public ServicioDeModelos(EstadoEnMemoria estado)
+    public ServicioDeModelos(
+        IRepositorioDeModelos modelos,
+        IRepositorioDeReservas reservas,
+        CandadoGlobal candado)
     {
-        _estado = estado;
+        _modelos = modelos;
+        _reservas = reservas;
+        _candado = candado;
     }
 
     public async Task AltaDeModeloAsync(FichaDeModelo ficha, Usuario creador)
     {
         ExigirFechaDeEntregaFutura(ficha.Datos.FechaEntregaPrometida);
         VehiculoModelo modelo = new VehiculoModelo(ficha, creador);
-        await _estado.Candado.WaitAsync();
+        await _candado.TomarAsync();
         try
         {
-            if (_estado.Modelos.ContainsKey(modelo.Nombre))
+            if (await _modelos.BuscarPorNombreAsync(modelo.Nombre) is not null)
             {
                 throw new DominioException($"Ya existe un modelo llamado {modelo.Nombre}");
             }
 
-            _estado.Modelos.Add(modelo.Nombre, modelo);
-            creador.Registrar(Actividad.ModeloCreado(ficha.Nombre));
+            await _modelos.AgregarAsync(
+                modelo, Actividad.ModeloCreado(ficha.Nombre), creador.NombreUsuario);
         }
         finally
         {
-            _estado.Candado.Release();
+            _candado.Liberar();
         }
     }
 
     public async Task ModificarModeloAsync(FichaDeModelo ficha, Usuario solicitante)
     {
-        await _estado.Candado.WaitAsync();
+        await _candado.TomarAsync();
         try
         {
-            VehiculoModelo modelo = _estado.ObtenerModelo(ficha.Nombre);
+            VehiculoModelo modelo = await _modelos.ObtenerAsync(ficha.Nombre);
             // Solo se exige futura si la fecha efectivamente cambió, para permitir la edición tardía
             // de otros campos de un modelo cuya fecha ya venció.
             if (ficha.Datos.FechaEntregaPrometida.Date != modelo.FechaEntregaVigente.Date)
@@ -58,61 +67,37 @@ public class ServicioDeModelos
             }
 
             modelo.ModificarDatos(
-                ficha, solicitante, _estado.ContarConfirmadas(modelo), _estado.ContarActivas(modelo));
-            solicitante.Registrar(Actividad.ModeloModificado(ficha.Nombre));
+                ficha,
+                solicitante,
+                await _reservas.ContarConfirmadasAsync(modelo.Id),
+                await _reservas.ContarActivasAsync(modelo.Id));
+            await _modelos.ActualizarAsync(
+                modelo, Actividad.ModeloModificado(ficha.Nombre), solicitante.NombreUsuario);
         }
         finally
         {
-            _estado.Candado.Release();
+            _candado.Liberar();
         }
     }
 
-    // Se valida y bloquea el modelo bajo el candado; el archivo se borra fuera de él.
-    // Solo después se quita el modelo y se registra la baja en el historial.
-    public async Task EliminarModeloAsync(string nombreModelo, Usuario solicitante, Action<string> eliminarImagen)
+    // Se valida la baja, se borra el archivo y recién entonces se borra el modelo de la base.
+    // Si el archivo no se puede borrar la baja falla y el modelo queda como estaba.
+    public async Task EliminarModeloAsync(
+        string nombreModelo, Usuario solicitante, Action<string> eliminarImagen)
     {
-        VehiculoModelo modelo;
-        string nombreArchivoImagen;
-        await _estado.Candado.WaitAsync();
+        await _candado.TomarAsync();
         try
         {
-            modelo = _estado.ObtenerModelo(nombreModelo);
-            nombreArchivoImagen =
-                modelo.MarcarComoEliminado(solicitante, _estado.ContarActivas(modelo));
-        }
-        finally
-        {
-            _estado.Candado.Release();
-        }
-
-        try
-        {
+            VehiculoModelo modelo = await _modelos.ObtenerAsync(nombreModelo);
+            string nombreArchivoImagen =
+                modelo.ValidarBaja(solicitante, await _reservas.ContarActivasAsync(modelo.Id));
             eliminarImagen(nombreArchivoImagen);
-        }
-        catch
-        {
-            await _estado.Candado.WaitAsync();
-            try
-            {
-                modelo.RestaurarTrasBajaFallida();
-            }
-            finally
-            {
-                _estado.Candado.Release();
-            }
-
-            throw;
-        }
-
-        await _estado.Candado.WaitAsync();
-        try
-        {
-            _estado.Modelos.Remove(modelo.Nombre);
-            solicitante.Registrar(Actividad.ModeloEliminado(modelo.Nombre));
+            await _modelos.EliminarAsync(
+                modelo, Actividad.ModeloEliminado(modelo.Nombre), solicitante.NombreUsuario);
         }
         finally
         {
-            _estado.Candado.Release();
+            _candado.Liberar();
         }
     }
 
@@ -120,50 +105,52 @@ public class ServicioDeModelos
     public async Task<string> CambiarImagenDeModeloAsync(
         string nombreModelo, string nuevoNombreArchivoImagen, Usuario solicitante)
     {
-        await _estado.Candado.WaitAsync();
+        await _candado.TomarAsync();
         try
         {
-            VehiculoModelo modelo = _estado.ObtenerModelo(nombreModelo);
+            VehiculoModelo modelo = await _modelos.ObtenerAsync(nombreModelo);
             string nombreArchivoAnterior = modelo.CambiarImagen(
-                solicitante, nuevoNombreArchivoImagen, _estado.ContarConfirmadas(modelo));
-            solicitante.Registrar(Actividad.ModeloModificado(modelo.Nombre));
+                solicitante,
+                nuevoNombreArchivoImagen,
+                await _reservas.ContarConfirmadasAsync(modelo.Id));
+            await _modelos.ActualizarAsync(
+                modelo, Actividad.ModeloModificado(modelo.Nombre), solicitante.NombreUsuario);
             return nombreArchivoAnterior;
         }
         finally
         {
-            _estado.Candado.Release();
+            _candado.Liberar();
         }
     }
 
     public async Task<IReadOnlyList<LecturaDeModelo>> BuscarAsync(FiltroDeModelos filtro)
     {
-        await _estado.Candado.WaitAsync();
+        await _candado.TomarAsync();
         try
         {
-            return _estado.Modelos.Values
-                .Where(modelo => !modelo.EstaEliminado)
-                .Select(modelo => modelo.TomarLectura(_estado.ContarConfirmadas(modelo)))
+            return (await _modelos.ListarAsync())
+                .Select(item => item.Modelo.TomarLectura(item.Confirmadas))
                 .Where(modelo => modelo.TieneUnidadDisponible)
                 .Where(modelo => Cumple(modelo, filtro))
                 .ToList();
         }
         finally
         {
-            _estado.Candado.Release();
+            _candado.Liberar();
         }
     }
 
     public async Task<LecturaDeModelo> ConsultarLecturaAsync(string nombreModelo)
     {
-        await _estado.Candado.WaitAsync();
+        await _candado.TomarAsync();
         try
         {
-            VehiculoModelo modelo = _estado.ObtenerModelo(nombreModelo);
-            return modelo.TomarLectura(_estado.ContarConfirmadas(modelo));
+            VehiculoModelo modelo = await _modelos.ObtenerAsync(nombreModelo);
+            return modelo.TomarLectura(await _reservas.ContarConfirmadasAsync(modelo.Id));
         }
         finally
         {
-            _estado.Candado.Release();
+            _candado.Liberar();
         }
     }
 

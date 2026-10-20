@@ -10,7 +10,6 @@ public class Usuario
     private const int LargoMaximoNombre = 20;
 
     private readonly Credencial _credencial;
-    private readonly Historial _historial;
 
     public string NombreUsuario { get; }
 
@@ -18,8 +17,21 @@ public class Usuario
     {
         NombreUsuario = NombreValidado(nombreUsuario);
         _credencial = new Credencial(clave);
-        _historial = new Historial();
     }
+
+    private Usuario(string nombreUsuario, Credencial credencial)
+    {
+        NombreUsuario = nombreUsuario;
+        _credencial = credencial;
+    }
+
+    // Rehidrata un usuario ya registrado: lo que se guardó en la base pasó las validaciones de alta.
+    internal static Usuario Restaurar(string nombreUsuario, Credencial credencial)
+    {
+        return new Usuario(nombreUsuario, credencial);
+    }
+
+    internal Credencial Credencial => _credencial;
 
     public bool SeLlama(string nombreUsuario)
     {
@@ -29,16 +41,6 @@ public class Usuario
     public bool VerificarClave(string claveIngresada)
     {
         return _credencial.Verifica(claveIngresada);
-    }
-
-    public void Registrar(Actividad actividad)
-    {
-        _historial.Registrar(actividad);
-    }
-
-    public IReadOnlyList<Actividad> Actividades()
-    {
-        return _historial.Actividades;
     }
 
     private static string NombreValidado(string nombreUsuario)
@@ -74,6 +76,22 @@ public class Credencial
         _salt = RandomNumberGenerator.GetBytes(LargoDelSalt);
         _resumen = ResumenDe(clave, _salt);
     }
+
+    private Credencial(byte[] salt, byte[] resumen)
+    {
+        _salt = salt;
+        _resumen = resumen;
+    }
+
+    // Rehidrata la credencial con el salt y el resumen guardados: la clave original no se conoce.
+    internal static Credencial Restaurar(byte[] salt, byte[] resumen)
+    {
+        return new Credencial(salt, resumen);
+    }
+
+    internal byte[] Salt => (byte[])_salt.Clone();
+
+    internal byte[] Resumen => (byte[])_resumen.Clone();
 
     public bool Verifica(string claveIngresada)
     {
