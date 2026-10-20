@@ -379,3 +379,29 @@ la cuenta de las esperas:
 4. **Nombres reservados en Windows.** Si el servidor corre en Windows, un usuario llamado `CON`,
    `NUL`, `COM1`, etc. no obtiene comprobantes (se registra en la consola). En el contenedor Linux no
    ocurre.
+
+## 7. Declaración de uso de IA
+
+Según las pautas de la letra, para cada uso se indica (a) la herramienta y (b) el contexto. Todo el
+contenido generado con IA fue revisado y verificado por el equipo, que es responsable de él.
+
+### Andrés Bustamante
+
+**Herramienta:** Claude Code (Anthropic), modelo Claude Opus 5.5, el 20 de octubre de 2026.
+
+| Contexto de uso | Sobre qué parte | Verificación |
+|---|---|---|
+| Análisis | Revisión del repositorio contra la letra y el plan de trabajo, para detectar faltantes y errores en lo ya integrado | Se discutió cada hallazgo antes de corregirlo. Uno se descartó: invertir el orden de la baja de imagen rompía la garantía de SR3 |
+| Asistencia de git | Resolución de los conflictos de un `git pull` entre los cambios locales y las fases 1 a 4 | Se verificó que el código resultante quedara idéntico al de `develop` |
+| Implementación asistida | Las correcciones de la sección 2.2 | Cada cambio se compiló en Release sin advertencias y se probó contra el servidor real con MySQL en Docker: registro con ñ, reservas confirmadas, rechazadas y canceladas, comprobante, base caída con la sesión viva, reinicio con una reserva pendiente, nombres de usuario inválidos |
+| Herramienta de prueba | Un cliente de prueba descartable que habla el protocolo usando `Common` (no forma parte de la entrega) | Se usó solo para ejecutar los escenarios anteriores |
+| Borrador de documentación | `README.md`, `docs/protocolo.md`, los diagramas PlantUML de `docs/uml/` y este documento | Se revisaron contra el código; los diagramas se exportaron y se controlaron visualmente |
+
+### Juan *(completar)*
+
+*Herramientas y contexto de uso en las fases 1 a 4: configuración por entorno, migración async,
+persistencia MySQL y cancelación de reservas con comprobantes.*
+
+### Sebastián Luciardi *(completar)*
+
+*Herramientas y contexto de uso en Docker (fase 5) y en la regresión (fase 6).*
