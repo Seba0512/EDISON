@@ -8,7 +8,9 @@ public sealed class CandadoGlobal
 {
     private readonly SemaphoreSlim _semaforo = new(1, 1);
 
-    public Task TomarAsync() => _semaforo.WaitAsync();
+    // Con token, la espera se puede abandonar: si se cancela antes de obtener el candado, lanza
+    // OperationCanceledException y el candado no queda tomado.
+    public Task TomarAsync(CancellationToken token = default) => _semaforo.WaitAsync(token);
 
     public void Liberar() => _semaforo.Release();
 }

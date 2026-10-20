@@ -14,6 +14,7 @@ public class ServicioDeReservas
     private readonly ResolutorDeReservas _resolutor;
     // Toda reserva se resuelve este tiempo después de pedirla. Llega por configuración.
     private readonly TimeSpan _plazoDeResolucion;
+    private readonly CancellationToken _apagado;
 
     public ServicioDeReservas(
         IRepositorioDeReservas reservas,
@@ -28,6 +29,7 @@ public class ServicioDeReservas
         _candado = candado;
         _comprobantes = comprobantes;
         _plazoDeResolucion = plazoDeResolucion;
+        _apagado = apagado;
         _resolutor = new ResolutorDeReservas(ResolverReservaAsync, apagado);
     }
 
@@ -131,7 +133,10 @@ public class ServicioDeReservas
     {
         LecturaDeReserva? confirmada = null;
         decimal precio = 0;
-        await _candado.TomarAsync();
+        // Política de apagado: una resolución que todavía espera el candado se abandona (la reserva
+        // queda Pendiente y el próximo arranque la reprograma). Una que ya lo tomó se completa, y el
+        // cierre la espera junto con su comprobante.
+        await _candado.TomarAsync(_apagado);
         try
         {
             Reserva? reserva = await _reservas.BuscarAsync(idReserva);
