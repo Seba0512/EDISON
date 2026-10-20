@@ -7,6 +7,7 @@ public static class FormatoDeCampos
 {
     private const string FormatoFecha = "dd-MM-yyyy";
     private const string FormatoFechaHora = "yyyyMMddHHmmss";
+    private const NumberStyles EstiloDecimal = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint;
 
     public static string De(int valor)
     {
@@ -60,7 +61,8 @@ public static class FormatoDeCampos
 
     public static decimal ADecimal(string texto)
     {
-        if (decimal.TryParse(texto, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal valor))
+        // Sin separador de miles: con NumberStyles.Number, "1,5" se leería como 15 sin error.
+        if (decimal.TryParse(texto, EstiloDecimal, CultureInfo.InvariantCulture, out decimal valor))
         {
             return valor;
         }
