@@ -325,7 +325,12 @@ internal static class LectorDeConsola
         if (clave.Length == 0)
             return;
 
-        clave.Length--;
+        // Un emoji ocupa dos char (un par de surrogates): borrar solo uno dejaría medio carácter, que
+        // después no se puede codificar en UTF-8.
+        bool terminaEnPar = clave.Length >= 2
+                            && char.IsLowSurrogate(clave[clave.Length - 1])
+                            && char.IsHighSurrogate(clave[clave.Length - 2]);
+        clave.Length -= terminaEnPar ? 2 : 1;
         Console.Write("\b \b");
     }
 
