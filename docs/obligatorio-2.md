@@ -101,16 +101,27 @@ el cliente manejado por entrada estándar.
 | Dominio | Con el servidor en Windows, un usuario llamado `CON`, `NUL`, etc. no recibía comprobantes | Esos nombres se rechazan al registrarse | `877565e` |
 | Dominio | Una falla pasajera al resolver una reserva la dejaba Pendiente hasta el próximo arranque | Hasta 5 intentos con 10 s de pausa (probado apagando MySQL durante el plazo) | `88d5a3e` |
 | Cliente | Con todas las reservas Rechazadas o Canceladas, "Cancelar reserva" pedía un id para siempre | Avisa y vuelve al menú | `d25a614` |
-| Cliente | Al modificar un modelo, dejar vacía la descripción la borraba sin aviso | Se conserva la actual y se muestran los valores vigentes | `e090be6` |
+| Cliente | Al modificar un modelo, dejar vacía la descripción la borraba sin aviso. Figuraba como error conocido en la documentación de la entrega 1 | Se conserva la actual y se muestran los valores vigentes | `e090be6` |
 | Cliente | Con una ruta de imagen inválida (inexistente, `.gif`, demasiado grande), el modelo se creaba igual sin imagen | La ruta se valida antes del alta y se vuelve a pedir | `9c60a59` |
 | Cliente | Sin entrada estándar (Docker sin `-it`) el cliente terminaba en silencio, y no ofrecía reintentar ante un host o una red inalcanzables | Aviso explícito y reintento | `afe2c78`, `7a2dfed` |
 
-Se revisaron y se dejaron como están, a propósito:
+Se revisó y se dejó como está, a propósito, la regla de stock de la entrega 1: el stock nuevo tiene
+que superar las reservas activas, incluidas las pendientes.
 
-- la regla de stock de la entrega 1: el stock nuevo tiene que superar las reservas activas, incluidas
-  las pendientes;
-- el orden de la baja de un modelo (imagen antes que la fila), que la entrega 1 eligió para
-  garantizar SR3. Si la base falla después de borrar la imagen, reintentar la baja la completa.
+### 2.4 Informe de auditoría del equipo sobre las fases 1 a 4
+
+Un integrante auditó las fases 1 a 4, con pruebas contra MySQL real y fallas provocadas con triggers,
+y lo contrastó con la documentación de la entrega 1. Su informe tenía nueve hallazgos. Los de la
+tabla 2.2 ya estaban corregidos (cierre sin esperar comprobantes, cancelación no guardada, solo la
+primera dirección DNS, precio fuera de rango). Los restantes se corrigieron así:
+
+| Hallazgo del informe | Corrección | Commits |
+|---|---|---|
+| Si el apagado llegaba mientras una resolución esperaba el candado, la reserva igual se confirmaba después de pedido el cierre | La resolución espera el candado con el token de apagado. **Política:** una resolución que todavía no tomó el candado se abandona y la reserva queda Pendiente (se reprograma al arrancar). Una que ya lo tomó se completa, y el cierre la espera junto con su comprobante | `618074a`, `ec9c486` |
+| El archivo de una subida se abría sin modo asíncrono | `FileStream` con `useAsync: true`, como el resto | `b848960` |
+| Si el DELETE fallaba en MySQL, la baja ya había borrado la imagen y el modelo seguía vigente sin ella | **Baja recuperable**, mediante el puerto `IImagenesDeModelos`. La imagen se aparta (se renombra a `.baja`), se borra la fila y recién con la baja confirmada se descarta. Si la base falla, se restaura. Si no se puede apartar, la baja se rechaza como antes (SR3). Probado con un trigger que hace fallar el DELETE | `fbcc8e9`, `0fac864` |
+| Si el commit de una subida tenía resultado incierto (la conexión se corta mientras MySQL confirma), borrar la imagen nueva podía dejar al modelo apuntando a un archivo inexistente | Solo se borra si la base confirma que no quedó asociada. Si no se puede confirmar, se conserva, y la **reconciliación del arranque** (base como fuente de verdad) borra las imágenes sin uso y resuelve las bajas interrumpidas: restaura el `.baja` si el modelo sigue existiendo y lo descarta si no | `6c4fed8`, `a539126`, `ea5e2e8` |
+| Un usuario registrado antes de la regla de nombres (por ejemplo `x/y` o `con`) no recibía comprobante | Toda identidad tiene carpeta: el nombre tal cual si es válido, o con escapes `%XXXX` si no. Probado con usuarios heredados insertados en la base | `643e932` |
 
 ## 3. Modificaciones al código y su motivación
 
@@ -300,8 +311,11 @@ corra en otra zona horaria, y un cliente en otra zona ve su propia hora.
 
 - El servidor reintenta la conexión con MySQL hasta 15 veces, con `Task.Delay` de 2 s, porque el
   contenedor de la base tarda en estar listo.
-- Las imágenes ya no se borran al arrancar ni al apagar: pertenecen a modelos que ahora persisten.
-  SR3 sigue cumplido, porque la imagen se borra con la baja del modelo.
+- Las imágenes ya no se borran todas al arrancar ni al apagar: pertenecen a modelos que ahora
+  persisten. SR3 sigue cumplido, porque la imagen se borra con la baja del modelo.
+- Antes de aceptar clientes se **reconcilia** la carpeta de imágenes con la base, que es la fuente de
+  verdad: se borran los archivos que ningún modelo usa (temporales de una subida cortada, o una
+  imagen de un commit de resultado incierto) y se resuelven las bajas interrumpidas (sección 2.4).
 
 **Fallas de la base durante la operación.** Responden `ER` sin cortar la sesión (sección 2.2).
 
@@ -338,7 +352,9 @@ la cuenta de las esperas:
 - **Carrera entre cancelar y resolver:** las dos operaciones toman el `CandadoGlobal`. La resolución
   relee la reserva dentro del candado y, si ya no está Pendiente, no hace nada.
 - **Cierre:** el resolutor sigue sus Tasks y el cierre espera, con un tope de 3 s, a las reservas que
-  se estaban confirmando.
+  se estaban confirmando. El límite es el candado: una resolución que todavía lo espera cuando llega
+  el apagado se abandona, porque lo espera con el token de apagado, y la reserva queda Pendiente. Una
+  que ya lo tomó se completa con su comprobante.
 - **Fallas pasajeras:** si la resolución falla (por ejemplo, con MySQL caído), se reprograma hasta 5
   veces con 10 s de pausa. Cada reintento tiene su propio CTS, así que el usuario puede cancelarlo
   igual que la espera original.
@@ -349,9 +365,13 @@ la cuenta de las esperas:
   usuario, modelo, precio y fechas de solicitud y de confirmación, en hora local y con su zona.
 - El texto se arma a mano: no pasa por ningún serializador.
 - Se escribe en un `.tmp` y después se mueve, para no dejar un comprobante a medias.
-- El nombre de usuario se usa como carpeta, con dos barreras:
-  - el registro solo acepta nombres válidos como carpeta, y `ComprobantesEnDisco` los vuelve a
-    validar (sin separadores, sin rutas absolutas, sin `.` ni `..`);
+- El nombre de usuario se usa como carpeta, con estas reglas:
+  - el registro solo acepta nombres válidos como carpeta, así que lo normal es usar el nombre tal
+    cual;
+  - un nombre que no sirve (de un usuario anterior a esa regla) se escribe con escapes `%XXXX`. Esto
+    aplica a los separadores, los caracteres que Windows no admite, el `.` o el espacio en los
+    extremos y los nombres reservados, con el criterio de Windows en cualquier sistema operativo.
+    Como el `%` también se escapa, dos usuarios distintos nunca comparten carpeta;
   - se verifica que la ruta final (`Path.GetFullPath`) quede dentro de `DIRECTORIO_COMPROBANTES`.
 - Se genera después de confirmar en la base y fuera del candado, para no retener a los demás clientes
   mientras se escribe el disco. Si falla, se registra en la consola y la confirmación no se revierte
@@ -435,7 +455,8 @@ contenido generado con IA fue revisado y verificado por el equipo, que es respon
 
 | Contexto de uso | Sobre qué parte | Verificación |
 |---|---|---|
-| Análisis | Revisión del repositorio contra la letra y el plan de trabajo, para detectar faltantes y errores en lo ya integrado | Se discutió cada hallazgo antes de corregirlo. Uno se descartó: invertir el orden de la baja de imagen rompía la garantía de SR3 |
+| Análisis | Revisión del repositorio contra la letra y el plan de trabajo, para detectar faltantes y errores en lo ya integrado | Se discutió cada hallazgo antes de corregirlo. Invertir el orden de la baja se descartó porque rompía la garantía de SR3. Después se resolvió con la baja recuperable que propuso el informe de la sección 2.4 |
+| Correcciones del informe del equipo | Implementación de las correcciones pendientes del informe de auditoría (sección 2.4) | Cada una se reprodujo y se volvió a probar con MySQL real: triggers que hacen fallar DELETE y UPDATE, usuarios heredados insertados en la base, carpeta de imágenes desordenada antes de arrancar |
 | Asistencia de git | Resolución de los conflictos de un `git pull` entre los cambios locales y las fases 1 a 4 | Se verificó que el código resultante quedara idéntico al de `develop` |
 | Auditoría | Revisión de todo el código por áreas (protocolo, servidor, dominio y persistencia, cliente), con subagentes de Claude Code en modo solo lectura | Cada hallazgo se contrastó con el código antes de corregirlo. Se descartaron los que no eran errores (por ejemplo, la regla de stock de la entrega 1) |
 | Implementación asistida | Las correcciones de las secciones 2.2 y 2.3 | Cada cambio se compiló en Release sin advertencias y se probó contra el servidor real con MySQL en Docker: registro con ñ, reservas confirmadas, rechazadas y canceladas, comprobante, base caída con la sesión viva, reinicio con una reserva pendiente, nombres de usuario inválidos |
