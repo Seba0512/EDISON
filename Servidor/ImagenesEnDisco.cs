@@ -20,6 +20,7 @@ internal sealed class ImagenesEnDisco
     // Los FileStream se abren con useAsync: true, así ReadAsync/WriteAsync son I/O asincrónico real.
     private const int TamañoDeBuffer = 4096;
     private const int SinBuffer = 0;
+    private const string SufijoTemporal = ".tmp";
 
     private static readonly string[] ExtensionesPermitidas = { ".png", ".jpg", ".jpeg" };
 
@@ -40,6 +41,17 @@ internal sealed class ImagenesEnDisco
     {
         _directorio = Path.GetFullPath(directorio);
         Directory.CreateDirectory(_directorio);
+        EliminarTemporalesHuerfanos();
+    }
+
+    // Un .tmp sobrevive solo si el proceso terminó de golpe a mitad de una subida. Al arrancar todavía
+    // no hay subidas en curso, así que cualquier .tmp que quede es basura y se borra.
+    private void EliminarTemporalesHuerfanos()
+    {
+        foreach (string temporal in Directory.EnumerateFiles(_directorio, "*" + SufijoTemporal))
+        {
+            IntentarEliminarTemporal(temporal);
+        }
     }
 
     public static string ValidarNombre(string nombrePropuesto)
@@ -77,7 +89,7 @@ internal sealed class ImagenesEnDisco
     {
         string ruta = RutaDe(nombreArchivo);
         // Se escribe a un .tmp y luego se mueve, para no dejar una imagen a medias si falla la copia.
-        string rutaTemporal = ruta + ".tmp";
+        string rutaTemporal = ruta + SufijoTemporal;
         try
         {
             await using (FileStream destino = CrearTemporal(rutaTemporal))
