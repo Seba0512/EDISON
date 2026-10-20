@@ -1,0 +1,79 @@
+@startuml secuencia-reserva
+title Solicitar reserva y sus tres finales: plazo vencido, cancelación del usuario, apagado
+skinparam shadowing false
+autonumber
+
+actor Usuario
+participant "Cliente" as Cliente
+participant "SesionDeCliente\n+ EjecutorDeComandos" as Sesion
+participant "ServicioDeReservas" as Servicio
+participant "CandadoGlobal\n(SemaphoreSlim 1,1)" as Candado
+participant "ResolutorDeReservas" as Resolutor
+participant "IRepositorioDeReservas\nIRepositorioDeModelos" as Repos
+database MySQL
+participant "IGeneradorDeComprobantes" as Comprobantes
+
+Usuario -> Cliente : solicitar reserva
+Cliente -> Sesion : CMD 20 "modelo"
+Sesion -> Servicio : SolicitarReservaAsync(modelo, usuario)
+Servicio -> Candado : await TomarAsync()
+Servicio -> Repos : await ObtenerAsync(modelo)
+Servicio -> Repos : await AgregarAsync(reserva Pendiente, actividad)
+Repos -> MySQL : INSERT reserva + actividad\n(una transacción)
+Servicio -> Candado : Liberar()
+Servicio -> Resolutor : Programar(id, plazo)
+activate Resolutor
+note right of Resolutor
+  CTS propio de la reserva, vinculado al token
+  de apagado (CreateLinkedTokenSource).
+  ResolverTrasDemoraAsync:
+  await Task.Delay(plazo, cts.Token)
+  No ocupa ningún hilo mientras espera.
+end note
+Servicio --> Sesion : id
+Sesion --> Cliente : OK "Reserva <id> creada, pendiente"
+
+alt vence el plazo
+  Resolutor -> Servicio : ResolverReservaAsync(id)
+  Servicio -> Candado : await TomarAsync()
+  Servicio -> Repos : await BuscarAsync(id)
+  alt la reserva ya no está Pendiente
+    Servicio -> Candado : Liberar()
+  else stock disponible
+    Servicio -> Repos : await ActualizarEstadoAsync(Confirmada, Compra)
+    Repos -> MySQL : UPDATE + INSERT actividad
+    Servicio -> Candado : Liberar()
+    Servicio -> Comprobantes : await GenerarAsync(lectura, precio)
+    note right : comprobantes/<usuario>/<id>.txt\n(fuera del candado; si falla se registra)
+  else sin stock
+    Servicio -> Repos : await ActualizarEstadoAsync(Rechazada)
+    Servicio -> Candado : Liberar()
+  end
+else el usuario la cancela antes
+  Usuario -> Cliente : cancelar reserva
+  Cliente -> Sesion : CMD 21 "id"
+  Sesion -> Servicio : CancelarReservaAsync(id, usuario)
+  Servicio -> Candado : await TomarAsync()
+  Servicio -> Repos : await BuscarAsync(id)
+  Servicio -> Repos : await ActualizarEstadoAsync(Cancelada)
+  Repos -> MySQL : UPDATE + INSERT actividad
+  Servicio -> Resolutor : Cancelar(id)
+  note right of Resolutor
+    cts.Cancel(): Task.Delay termina con
+    OperationCanceledException y la espera
+    se registra como cancelada.
+  end note
+  Servicio -> Candado : Liberar()
+  Sesion --> Cliente : OK "Reserva cancelada"
+else se apaga el servidor (SIGTERM / Ctrl+C / salir)
+  note over Resolutor
+    Program cancela el token de apagado: el CTS vinculado se cancela,
+    Task.Delay lanza OperationCanceledException y, como el apagado está
+    pedido, la reserva NO se toca: queda Pendiente en MySQL.
+    Al arrancar, ReprogramarPendientesAsync la vuelve a programar con
+    la demora restante: max(0, creación + plazo - ahora), en UTC.
+  end note
+end
+Resolutor -> Resolutor : finally: saca y dispone el CTS
+deactivate Resolutor
+@enduml

@@ -1,0 +1,65 @@
+@startuml componentes
+title Componentes - Edison (entrega 2)
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam linetype ortho
+
+package "Cliente (proceso o contenedor)" {
+  component "Menu\nLectorDeConsola\nVistas" as Consola
+  component "ConexionConServidor" as Conexion
+}
+
+component "Common\n--\nCodecDeTramas, RespuestaDelServidor\nMensajes, TransferenciaPorPartes\nConfiguracionDeLaAplicacion" as Common
+
+package "Servidor (proceso o contenedor)" {
+  component "Program\n(composición, arranque y cierre)" as Program
+  component "ServidorTcp\nSesionDeCliente" as Red
+  component "EjecutorDeComandos" as Ejecutor
+  component "ImagenesEnDisco" as Imagenes
+
+  package "Dominio" {
+    component "ServicioDeUsuarios\nServicioDeModelos\nServicioDeReservas\nResolutorDeReservas\nCandadoGlobal" as Servicios
+    component "Usuario, VehiculoModelo\nReserva, Actividad" as Entidades
+    interface "IRepositorioDe*" as IRepos
+    interface "IGeneradorDeComprobantes" as IComprobantes
+  }
+
+  component "Persistencia\n(MysqlRepositorioDe*,\nFabricaDeConexionesMysql)" as Persistencia
+  component "ComprobantesEnDisco" as Comprobantes
+}
+
+database "MySQL 8.4\n(contenedor)" as MySQL
+folder "imagenes/" as CarpetaImagenes
+folder "comprobantes/<usuario>/" as CarpetaComprobantes
+folder "descargas/" as CarpetaDescargas
+
+Consola --> Conexion
+Conexion --> Red : TCP\ntrama CMD | LARGO | DATOS
+Conexion ..> Common
+Conexion ..> CarpetaDescargas
+
+Program ..> Red : inicia y detiene
+Program ..> Persistencia : crea e inyecta
+Red --> Ejecutor
+Red ..> Common
+Ejecutor --> Servicios
+Ejecutor --> Imagenes
+Ejecutor ..> Common
+Imagenes ..> CarpetaImagenes
+
+Servicios --> Entidades
+Servicios ..> IRepos : usa
+Servicios ..> IComprobantes : usa
+IRepos -- Persistencia
+IComprobantes -- Comprobantes
+Persistencia --> MySQL : ADO.NET\n(MySqlConnector)
+Comprobantes ..> CarpetaComprobantes
+
+note right of IRepos
+  IRepositorioDeUsuarios, IRepositorioDeModelos,
+  IRepositorioDeReservas, IRepositorioDeActividades.
+  Puertos del dominio: el dominio solo conoce las
+  interfaces y Program decide que las implemente
+  MySQL (DIP / Variaciones Protegidas).
+end note
+@enduml
