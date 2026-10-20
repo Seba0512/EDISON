@@ -174,6 +174,10 @@ internal sealed class ServidorTcp : IAsyncDisposable
     {
         try
         {
+            // Un método async corre en el hilo de quien lo llama hasta su primera espera real: sin
+            // este Yield, un cliente que manda tramas sin pausa retendría al aceptador y los demás
+            // clientes esperarían para conectarse.
+            await Task.Yield();
             await sesion.AtenderAsync(token);
         }
         finally
