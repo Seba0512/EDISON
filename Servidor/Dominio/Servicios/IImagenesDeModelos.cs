@@ -13,4 +13,8 @@ public interface IImagenesDeModelos
 
     // La baja falló: la imagen vuelve a su lugar y el modelo sigue completo. Una falla solo se registra.
     void Restaurar(string nombreArchivo);
+
+    // Al arrancar, con la base como fuente de verdad: borra lo que ningún modelo usa (temporales,
+    // huérfanas) y resuelve las bajas interrumpidas según el modelo siga existiendo o no.
+    void Reconciliar(IReadOnlySet<string> imagenesEnUso);
 }

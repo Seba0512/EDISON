@@ -45,17 +45,6 @@ internal sealed class ImagenesEnDisco : IImagenesDeModelos
     {
         _directorio = Path.GetFullPath(directorio);
         Directory.CreateDirectory(_directorio);
-        EliminarTemporalesHuerfanos();
-    }
-
-    // Un .tmp sobrevive solo si el proceso terminó de golpe a mitad de una subida. Al arrancar todavía
-    // no hay subidas en curso, así que cualquier .tmp que quede es basura y se borra.
-    private void EliminarTemporalesHuerfanos()
-    {
-        foreach (string temporal in Directory.EnumerateFiles(_directorio, "*" + SufijoTemporal))
-        {
-            IntentarEliminarTemporal(temporal);
-        }
     }
 
     public static string ValidarNombre(string nombrePropuesto)
@@ -105,7 +94,7 @@ internal sealed class ImagenesEnDisco : IImagenesDeModelos
         }
         finally
         {
-            IntentarEliminarTemporal(rutaTemporal);
+            IntentarBorrarArchivo(rutaTemporal);
         }
     }
 
@@ -213,6 +202,38 @@ internal sealed class ImagenesEnDisco : IImagenesDeModelos
         }
     }
 
+    // Corre antes de aceptar clientes, así ninguna subida o baja está en curso mientras tanto.
+    public void Reconciliar(IReadOnlySet<string> imagenesEnUso)
+    {
+        foreach (string ruta in Directory.EnumerateFiles(_directorio))
+        {
+            string nombre = Path.GetFileName(ruta);
+            if (nombre.EndsWith(SufijoDeBaja, StringComparison.Ordinal))
+            {
+                ResolverBajaInterrumpida(nombre[..^SufijoDeBaja.Length], imagenesEnUso);
+            }
+            else if (!imagenesEnUso.Contains(nombre))
+            {
+                Console.WriteLine($"Se borra la imagen '{nombre}': ningún modelo la usa.");
+                IntentarBorrarArchivo(ruta);
+            }
+        }
+    }
+
+    // Si el modelo sigue apuntando a la imagen, la baja no llegó a confirmarse y se restaura; si no,
+    // la baja se confirmó y la imagen apartada ya no le sirve a nadie.
+    private void ResolverBajaInterrumpida(string nombreOriginal, IReadOnlySet<string> imagenesEnUso)
+    {
+        if (imagenesEnUso.Contains(nombreOriginal))
+        {
+            Restaurar(nombreOriginal);
+        }
+        else
+        {
+            Descartar(nombreOriginal);
+        }
+    }
+
     private string RutaDe(string nombreArchivo)
     {
         string ruta = Path.GetFullPath(Path.Combine(_directorio, nombreArchivo));
@@ -275,18 +296,19 @@ internal sealed class ImagenesEnDisco : IImagenesDeModelos
         }
     }
 
-    private static void IntentarEliminarTemporal(string rutaTemporal)
+    // Limpieza de mejor esfuerzo (temporales e imágenes sin uso): una falla solo se registra.
+    private static void IntentarBorrarArchivo(string ruta)
     {
         try
         {
-            if (File.Exists(rutaTemporal))
+            if (File.Exists(ruta))
             {
-                File.Delete(rutaTemporal);
+                File.Delete(ruta);
             }
         }
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
-            Console.Error.WriteLine($"No se pudo limpiar el archivo temporal '{rutaTemporal}': {excepcion}");
+            Console.Error.WriteLine($"No se pudo borrar el archivo '{ruta}': {excepcion.Message}");
         }
     }
 }
