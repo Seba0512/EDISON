@@ -7,6 +7,8 @@ public class DatosDeModelo
     private const int LargoMinimoNombre = 2;
     private const int LargoMaximoNombre = 60;
     private const int LargoMaximoDescripcion = 500;
+    // El mayor entero que entra en la columna precio, DECIMAL(12,2). Más que eso, MySQL lo rechaza.
+    private const decimal PrecioMaximo = 9_999_999_999m;
 
     public string Nombre { get; }
 
@@ -75,6 +77,11 @@ public class DatosDeModelo
         if (precioRedondeado <= 0)
         {
             throw new DominioException("El precio debe ser mayor a cero");
+        }
+
+        if (precioRedondeado > PrecioMaximo)
+        {
+            throw new DominioException($"El precio no puede superar {PrecioMaximo}");
         }
 
         return precioRedondeado;
