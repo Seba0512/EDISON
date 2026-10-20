@@ -17,14 +17,19 @@ public sealed record LecturaDeReserva(
     DateTime FechaCreacion,
     DateTime UltimaActualizacion);
 
-// Las transiciones las coordina Edison bajo su candado global. Pendiente puede confirmarse,
+// Las transiciones las coordinan los servicios bajo el candado global. Pendiente puede confirmarse,
 // rechazarse o cancelarse. Confirmada solo puede cancelarse. Rechazada y Cancelada son finales.
+// Guarda el nombre del modelo y no una referencia: sigue mostrándose aunque el modelo se dé de baja.
 public class Reserva
 {
-    private readonly Usuario _solicitante;
-    private readonly VehiculoModelo _modelo;
-
     public Guid Id { get; }
+
+    public string NombreSolicitante { get; }
+
+    // Null cuando el modelo fue dado de baja (la base lo deja en NULL).
+    public int? ModeloId { get; }
+
+    public string NombreModelo { get; }
 
     public EstadoDeReserva Estado { get; private set; }
 
@@ -34,40 +39,70 @@ public class Reserva
 
     internal Reserva(Usuario solicitante, VehiculoModelo modelo)
     {
-        _solicitante = solicitante;
-        _modelo = modelo;
         Id = Guid.NewGuid();
+        NombreSolicitante = solicitante.NombreUsuario;
+        ModeloId = modelo.Id;
+        NombreModelo = modelo.Nombre;
         Estado = EstadoDeReserva.Pendiente;
         FechaCreacion = DateTime.UtcNow;
         UltimaActualizacion = FechaCreacion;
+    }
+
+    private Reserva(
+        Guid id,
+        string nombreSolicitante,
+        int? modeloId,
+        string nombreModelo,
+        EstadoDeReserva estado,
+        DateTime fechaCreacion,
+        DateTime ultimaActualizacion)
+    {
+        Id = id;
+        NombreSolicitante = nombreSolicitante;
+        ModeloId = modeloId;
+        NombreModelo = nombreModelo;
+        Estado = estado;
+        FechaCreacion = fechaCreacion;
+        UltimaActualizacion = ultimaActualizacion;
+    }
+
+    // Rehidrata una reserva guardada. Las fechas están en UTC: la base las devuelve sin zona.
+    internal static Reserva Restaurar(
+        Guid id,
+        string nombreSolicitante,
+        int? modeloId,
+        string nombreModelo,
+        EstadoDeReserva estado,
+        DateTime fechaCreacion,
+        DateTime ultimaActualizacion)
+    {
+        return new Reserva(
+            id,
+            nombreSolicitante,
+            modeloId,
+            nombreModelo,
+            estado,
+            DateTime.SpecifyKind(fechaCreacion, DateTimeKind.Utc),
+            DateTime.SpecifyKind(ultimaActualizacion, DateTimeKind.Utc));
     }
 
     public bool EstaPendiente => Estado == EstadoDeReserva.Pendiente;
 
     public bool EstaActiva => Estado is EstadoDeReserva.Pendiente or EstadoDeReserva.Confirmada;
 
-    internal VehiculoModelo Modelo => _modelo;
-
-    internal Usuario Solicitante => _solicitante;
-
     public string NombreDelModelo()
     {
-        return _modelo.Nombre;
+        return NombreModelo;
     }
 
     public bool FueHechaPor(string nombreUsuario)
     {
-        return _solicitante.SeLlama(nombreUsuario);
-    }
-
-    public bool EsDelModelo(VehiculoModelo modelo)
-    {
-        return ReferenceEquals(_modelo, modelo);
+        return NombreSolicitante.Equals(nombreUsuario?.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
     public LecturaDeReserva TomarLectura()
     {
-        return new LecturaDeReserva(Id, _modelo.Nombre, Estado, FechaCreacion, UltimaActualizacion);
+        return new LecturaDeReserva(Id, NombreModelo, Estado, FechaCreacion, UltimaActualizacion);
     }
 
     internal void Confirmar()

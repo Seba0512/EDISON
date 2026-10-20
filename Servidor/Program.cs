@@ -1,13 +1,18 @@
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using Common;
+using MySqlConnector;
+using Servidor.Dominio.Repositorios;
 using Servidor.Dominio.Servicios;
+using Servidor.Persistencia;
 
 namespace Servidor;
 
 internal static class Program
 {
     private const string OrdenDeSalida = "salir";
+    private const int IntentosDeConexionConLaBase = 15;
+    private static readonly TimeSpan DemoraEntreIntentos = TimeSpan.FromSeconds(2);
 
     private static async Task<int> Main()
     {
@@ -27,22 +32,37 @@ internal static class Program
             Console.Error.WriteLine($"No se pudo iniciar el servidor: {exception.Message}");
             return 1;
         }
+        catch (MySqlException exception)
+        {
+            Console.Error.WriteLine($"No se pudo conectar con la base de datos: {exception.Message}");
+            return 1;
+        }
     }
 
     private static async Task EjecutarAsync()
     {
         ConfiguracionServidor configuracion = ConfiguracionServidor.Cargar();
-        EstadoEnMemoria estado = new();
-        ServicioDeUsuarios usuarios = new(estado);
-        ServicioDeModelos modelos = new(estado);
-        ServicioDeReservas reservas = new(estado, configuracion.ReservationTimeout);
-        ImagenesEnDisco imagenes = new(configuracion.ImagesDirectory);
-        // Si una sesión anterior terminó de golpe (cierre de consola, Ctrl+C) sus imágenes siguen en disco.
-        imagenes.EliminarTodas();
-        EjecutorDeComandos ejecutor = new(usuarios, modelos, reservas, imagenes);
-
         using CancellationTokenSource cierre = new();
         using IDisposable señales = RegistrarSeñalesDeCierre(cierre);
+
+        FabricaDeConexionesMysql conexiones = new(configuracion.MysqlConnectionString);
+        await conexiones.EsperarDisponibilidadAsync(
+            IntentosDeConexionConLaBase, DemoraEntreIntentos, cierre.Token);
+
+        // Wiring: el dominio recibe los puertos y acá se decide que los implementa MySQL.
+        IRepositorioDeUsuarios repositorioDeUsuarios = new MysqlRepositorioDeUsuarios(conexiones);
+        IRepositorioDeModelos repositorioDeModelos = new MysqlRepositorioDeModelos(conexiones);
+        IRepositorioDeReservas repositorioDeReservas = new MysqlRepositorioDeReservas(conexiones);
+        IRepositorioDeActividades repositorioDeActividades = new MysqlRepositorioDeActividades(conexiones);
+        CandadoGlobal candado = new();
+        ServicioDeUsuarios usuarios = new(repositorioDeUsuarios, repositorioDeActividades, candado);
+        ServicioDeModelos modelos = new(repositorioDeModelos, repositorioDeReservas, candado);
+        ServicioDeReservas reservas = new(
+            repositorioDeReservas, repositorioDeModelos, candado, configuracion.ReservationTimeout);
+        // Las imágenes pertenecen a modelos guardados en la base: no se borran al arrancar ni al cerrar.
+        ImagenesEnDisco imagenes = new(configuracion.ImagesDirectory);
+        EjecutorDeComandos ejecutor = new(usuarios, modelos, reservas, imagenes);
+
         await using ServidorTcp servidor = new(configuracion, ejecutor);
         try
         {
@@ -51,9 +71,7 @@ internal static class Program
         }
         finally
         {
-            // Primero se detienen los clientes, así ningún Task está escribiendo una imagen al borrarlas.
             await servidor.DetenerAsync();
-            imagenes.EliminarTodas();
         }
     }
 

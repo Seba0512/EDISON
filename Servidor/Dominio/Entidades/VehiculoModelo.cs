@@ -117,24 +117,43 @@ public sealed record LecturaDeModelo(
 }
 
 // El stock es la capacidad total y las disponibles se derivan restando las reservas confirmadas,
-// que Edison cuenta sobre su lista de reservas: no hay contadores duplicados que desincronizar.
-// Todos los métodos se llaman con el candado global de Edison ya tomado; acá no hay locks.
+// que se cuentan sobre las reservas guardadas: no hay contadores duplicados que desincronizar.
+// Los servicios llaman a estos métodos con el candado global tomado; acá no hay locks.
 public class VehiculoModelo
 {
-    private readonly Usuario _creador;
+    private readonly string _nombreCreador;
     private DatosDeModelo _datos;
-    private bool _eliminado;
 
     public VehiculoModelo(FichaDeModelo ficha, Usuario creador)
     {
         _datos = ficha.Datos;
         Stock = ficha.Stock;
-        _creador = creador;
+        _nombreCreador = creador.NombreUsuario;
     }
+
+    private VehiculoModelo(int id, DatosDeModelo datos, int stock, string nombreCreador)
+    {
+        Id = id;
+        _datos = datos;
+        Stock = stock;
+        _nombreCreador = nombreCreador;
+    }
+
+    // Rehidrata un modelo guardado: sus datos ya pasaron las validaciones de alta.
+    internal static VehiculoModelo Restaurar(
+        int id, DatosDeModelo datos, int stock, string nombreCreador)
+    {
+        return new VehiculoModelo(id, datos, stock, nombreCreador);
+    }
+
+    // Cero hasta que se guarda: lo asigna la base (AUTO_INCREMENT).
+    public int Id { get; internal set; }
 
     public string Nombre => _datos.Nombre;
 
-    public bool EstaEliminado => _eliminado;
+    public string NombreCreador => _nombreCreador;
+
+    public DatosDeModelo Datos => _datos;
 
     public int Stock { get; private set; }
 
@@ -155,7 +174,6 @@ public class VehiculoModelo
 
     public void ModificarDatos(FichaDeModelo ficha, Usuario solicitante, int confirmadas, int activas)
     {
-        ExigirActivo();
         ExigirPropietario(solicitante);
         if (!_datos.DescribeAlMismoModeloQue(ficha.Datos))
         {
@@ -194,7 +212,6 @@ public class VehiculoModelo
     // Devuelve la imagen reemplazada para que quien llama borre el archivo sin fugas.
     public string CambiarImagen(Usuario solicitante, string nuevoNombreArchivoImagen, int confirmadas)
     {
-        ExigirActivo();
         ExigirPropietario(solicitante);
         if (Stock - confirmadas == 0)
         {
@@ -213,10 +230,9 @@ public class VehiculoModelo
         return nombreArchivoAnterior;
     }
 
-    // Prepara la baja y devuelve la imagen para borrarla fuera del candado.
-    public string MarcarComoEliminado(Usuario solicitante, int reservasActivas)
+    // Valida la baja y devuelve la imagen para que quien llama la borre.
+    public string ValidarBaja(Usuario solicitante, int reservasActivas)
     {
-        ExigirActivo();
         ExigirPropietario(solicitante);
         if (reservasActivas > 0)
         {
@@ -224,27 +240,12 @@ public class VehiculoModelo
                 $"No se puede eliminar el modelo {Nombre} porque tiene reservas activas");
         }
 
-        _eliminado = true;
         return _datos.NombreArchivoImagen;
-    }
-
-    // Si el archivo no pudo borrarse, el modelo vuelve a estar disponible para reintentar.
-    public void RestaurarTrasBajaFallida()
-    {
-        _eliminado = false;
-    }
-
-    public void ExigirActivo()
-    {
-        if (_eliminado)
-        {
-            throw new DominioException($"El modelo {Nombre} fue eliminado");
-        }
     }
 
     private void ExigirPropietario(Usuario usuario)
     {
-        if (!_creador.SeLlama(usuario.NombreUsuario))
+        if (!_nombreCreador.Equals(usuario.NombreUsuario, StringComparison.OrdinalIgnoreCase))
         {
             throw new DominioException(
                 $"Solo el creador del modelo {Nombre} puede modificarlo o eliminarlo");

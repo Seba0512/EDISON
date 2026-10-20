@@ -127,40 +127,6 @@ internal sealed class ImagenesEnDisco
         }
     }
 
-    // Las imágenes pertenecen a modelos que viven en memoria: al apagar el servidor dejan de tener dueño.
-    // Solo se borran archivos que este almacén pudo haber creado, nunca otros que estén en la carpeta.
-    public void EliminarTodas()
-    {
-        if (!Directory.Exists(_directorio))
-        {
-            return;
-        }
-
-        foreach (string ruta in Directory.EnumerateFiles(_directorio))
-        {
-            if (!FueCreadoPorElAlmacen(ruta))
-            {
-                continue;
-            }
-
-            try
-            {
-                File.Delete(ruta);
-            }
-            catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
-            {
-                // Un archivo trabado no debe impedir que se borren los demás.
-                Console.Error.WriteLine($"No se pudo eliminar la imagen '{ruta}': {excepcion.Message}");
-            }
-        }
-    }
-
-    private static bool FueCreadoPorElAlmacen(string ruta)
-    {
-        string extension = Path.GetExtension(ruta).ToLowerInvariant();
-        return ExtensionesPermitidas.Contains(extension) || extension == ".tmp";
-    }
-
     private string RutaDe(string nombreArchivo)
     {
         string ruta = Path.GetFullPath(Path.Combine(_directorio, nombreArchivo));

@@ -1,35 +1,43 @@
 using Servidor.Dominio.Entidades;
 using Servidor.Dominio.Excepciones;
+using Servidor.Dominio.Repositorios;
 
 namespace Servidor.Dominio.Servicios;
 
 // Ciclo de vida de las reservas: solicitud, resolución diferida y cancelación.
 public class ServicioDeReservas
 {
-    private readonly EstadoEnMemoria _estado;
+    private readonly IRepositorioDeReservas _reservas;
+    private readonly IRepositorioDeModelos _modelos;
+    private readonly CandadoGlobal _candado;
     // Toda reserva se resuelve este tiempo después de pedirla. Llega por configuración.
     private readonly TimeSpan _plazoDeResolucion;
 
-    public ServicioDeReservas(EstadoEnMemoria estado, TimeSpan plazoDeResolucion)
+    public ServicioDeReservas(
+        IRepositorioDeReservas reservas,
+        IRepositorioDeModelos modelos,
+        CandadoGlobal candado,
+        TimeSpan plazoDeResolucion)
     {
-        _estado = estado;
+        _reservas = reservas;
+        _modelos = modelos;
+        _candado = candado;
         _plazoDeResolucion = plazoDeResolucion;
     }
 
     public async Task<Guid> SolicitarReservaAsync(string nombreModelo, Usuario solicitante)
     {
         Reserva reserva;
-        await _estado.Candado.WaitAsync();
+        await _candado.TomarAsync();
         try
         {
-            VehiculoModelo modelo = _estado.ObtenerModelo(nombreModelo);
+            VehiculoModelo modelo = await _modelos.ObtenerAsync(nombreModelo);
             reserva = new Reserva(solicitante, modelo);
-            _estado.Reservas.Add(reserva.Id, reserva);
-            solicitante.Registrar(Actividad.ReservaCreada(modelo.Nombre));
+            await _reservas.AgregarAsync(reserva, Actividad.ReservaCreada(modelo.Nombre));
         }
         finally
         {
-            _estado.Candado.Release();
+            _candado.Liberar();
         }
 
         // La espera es un Task.Delay y no ocupa ningún hilo mientras dura. Nadie espera este
@@ -40,37 +48,38 @@ public class ServicioDeReservas
 
     public async Task CancelarReservaAsync(Guid idReserva, Usuario solicitante)
     {
-        await _estado.Candado.WaitAsync();
+        await _candado.TomarAsync();
         try
         {
-            Reserva reserva = _estado.ObtenerReserva(idReserva);
+            Reserva reserva = await _reservas.BuscarAsync(idReserva)
+                ?? throw new DominioException($"No existe la reserva {idReserva}");
             if (!reserva.FueHechaPor(solicitante.NombreUsuario))
             {
                 throw new DominioException("Solo se pueden cancelar las reservas propias");
             }
 
             reserva.Cancelar();
-            solicitante.Registrar(Actividad.ReservaCancelada(reserva.NombreDelModelo()));
+            await _reservas.ActualizarEstadoAsync(
+                reserva, Actividad.ReservaCancelada(reserva.NombreDelModelo()));
         }
         finally
         {
-            _estado.Candado.Release();
+            _candado.Liberar();
         }
     }
 
     public async Task<IReadOnlyList<LecturaDeReserva>> ConsultarReservasDeAsync(Usuario usuario)
     {
-        await _estado.Candado.WaitAsync();
+        await _candado.TomarAsync();
         try
         {
-            return _estado.Reservas.Values
-                .Where(reserva => reserva.FueHechaPor(usuario.NombreUsuario))
+            return (await _reservas.ListarDeAsync(usuario.NombreUsuario))
                 .Select(reserva => reserva.TomarLectura())
                 .ToList();
         }
         finally
         {
-            _estado.Candado.Release();
+            _candado.Liberar();
         }
     }
 
@@ -91,30 +100,36 @@ public class ServicioDeReservas
 
     private async Task ResolverReservaAsync(Guid idReserva)
     {
-        await _estado.Candado.WaitAsync();
+        await _candado.TomarAsync();
         try
         {
+            Reserva? reserva = await _reservas.BuscarAsync(idReserva);
             // Si la cancelaron antes de que venciera el plazo, ya no hay nada que resolver.
-            if (!_estado.Reservas.TryGetValue(idReserva, out Reserva? reserva) || !reserva.EstaPendiente)
+            if (reserva is null || !reserva.EstaPendiente)
             {
                 return;
             }
 
-            int disponibles = reserva.Modelo.Stock - _estado.ContarConfirmadas(reserva.Modelo);
+            VehiculoModelo modelo = await _modelos.BuscarPorIdAsync(reserva.ModeloId!.Value)
+                ?? throw new InvalidOperationException(
+                    $"La reserva pendiente {idReserva} apunta a un modelo que no existe");
+            int disponibles = modelo.Stock - await _reservas.ContarConfirmadasAsync(modelo.Id);
             if (disponibles > 0)
             {
                 reserva.Confirmar();
                 // Solo una confirmación cuenta como compra en el historial. Un rechazo no registra nada.
-                reserva.Solicitante.Registrar(Actividad.Compra(reserva.NombreDelModelo()));
+                await _reservas.ActualizarEstadoAsync(
+                    reserva, Actividad.Compra(reserva.NombreDelModelo()));
             }
             else
             {
                 reserva.Rechazar();
+                await _reservas.ActualizarEstadoAsync(reserva, null);
             }
         }
         finally
         {
-            _estado.Candado.Release();
+            _candado.Liberar();
         }
     }
 }

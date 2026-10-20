@@ -20,11 +20,22 @@ public class Actividad
 
     public string Detalle { get; }
 
-    private Actividad(TipoActividad tipo, string detalle)
+    private Actividad(TipoActividad tipo, string detalle, DateTime fechaHora)
     {
         Tipo = tipo;
         Detalle = detalle;
-        FechaHora = DateTime.UtcNow;
+        FechaHora = fechaHora;
+    }
+
+    private Actividad(TipoActividad tipo, string detalle)
+        : this(tipo, detalle, DateTime.UtcNow)
+    {
+    }
+
+    // Rehidrata una actividad guardada. La fecha se guarda en UTC: la base la devuelve sin zona.
+    internal static Actividad Restaurar(TipoActividad tipo, string detalle, DateTime fechaHoraUtc)
+    {
+        return new Actividad(tipo, detalle, DateTime.SpecifyKind(fechaHoraUtc, DateTimeKind.Utc));
     }
 
     public static Actividad InicioSesion()
@@ -65,19 +76,5 @@ public class Actividad
     public static Actividad Compra(string nombreModelo)
     {
         return new Actividad(TipoActividad.Compra, $"Se confirmo su reserva de {nombreModelo}");
-    }
-}
-
-// Se lee y se escribe siempre con el candado global de Edison tomado; por eso no tiene lock propio.
-public class Historial
-{
-    private readonly List<Actividad> _actividades = new();
-
-    // Devuelve una copia para que quien la recorra no dependa del candado.
-    public IReadOnlyList<Actividad> Actividades => _actividades.ToList();
-
-    public void Registrar(Actividad actividad)
-    {
-        _actividades.Add(actividad);
     }
 }
