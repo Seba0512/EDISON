@@ -8,6 +8,7 @@ public class Usuario
 {
     private const int LargoMinimoNombre = 3;
     private const int LargoMaximoNombre = 20;
+    private const string SeparadoresPermitidos = " .-_";
 
     private readonly Credencial _credencial;
 
@@ -57,7 +58,25 @@ public class Usuario
                 $"El nombre de usuario debe tener entre {LargoMinimoNombre} y {LargoMaximoNombre} caracteres");
         }
 
+        if (!TieneCaracteresPermitidos(nombreSinEspacios))
+        {
+            throw new DominioException(
+                "El nombre de usuario solo puede tener letras, números, espacios, '.', '-' y '_', " +
+                "y tiene que empezar y terminar con una letra o un número");
+        }
+
         return nombreSinEspacios;
+    }
+
+    // El nombre también es la carpeta de los comprobantes del usuario (comprobantes/<usuario>/): solo
+    // se aceptan caracteres válidos en un nombre de carpeta en cualquier sistema operativo, así toda
+    // reserva aprobada puede generar su comprobante.
+    private static bool TieneCaracteresPermitidos(string nombre)
+    {
+        return char.IsLetterOrDigit(nombre[0])
+               && char.IsLetterOrDigit(nombre[^1])
+               && nombre.All(caracter => char.IsLetterOrDigit(caracter)
+                                         || SeparadoresPermitidos.Contains(caracter));
     }
 }
 
