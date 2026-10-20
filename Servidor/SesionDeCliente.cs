@@ -111,15 +111,18 @@ internal sealed class SesionDeCliente
         }
     }
 
+    // Cada línea dice qué conexión la produjo, así con dos clientes a la vez se ve que el servidor
+    // los atiende en paralelo. No se muestra un id de Task: en un método async Task.CurrentId es nulo.
     private void Informar(string mensaje)
     {
-        Console.WriteLine($"[{Identidad()} | Task {Task.CurrentId?.ToString() ?? "-"}] {mensaje}");
+        Console.WriteLine($"[{Identidad()}] {mensaje}");
     }
 
-    // Con sesión iniciada identifica por nombre de usuario. El número cambia en cada reconexión.
+    // El número identifica la conexión (cambia en cada reconexión) y el usuario, quién la está usando.
     private string Identidad()
     {
-        return UsuarioAutenticado?.NombreUsuario ?? $"Cliente {_numero}";
+        string conexion = $"Cliente {_numero}";
+        return UsuarioAutenticado is null ? conexion : $"{conexion} | {UsuarioAutenticado.NombreUsuario}";
     }
 
     private static string Describir(Exception exception)
