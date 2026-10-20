@@ -343,6 +343,7 @@ internal static class Validaciones
 {
     private const int LargoMinimoNombreUsuario = 3;
     private const int LargoMaximoNombreUsuario = 20;
+    private const string SeparadoresDeNombreDeUsuario = " .-_";
     private const int LargoMinimoClave = 4;
     private const int LargoMinimoNombreDeModelo = 2;
     private const int LargoMaximoNombreDeModelo = 60;
@@ -359,10 +360,21 @@ internal static class Validaciones
         if (SinSeparador(texto) is string error)
             return error;
 
-        return texto.Length is < LargoMinimoNombreUsuario or > LargoMaximoNombreUsuario
-            ? $"El nombre de usuario debe tener entre {LargoMinimoNombreUsuario} y {LargoMaximoNombreUsuario} caracteres"
-            : null;
+        if (texto.Length is < LargoMinimoNombreUsuario or > LargoMaximoNombreUsuario)
+            return $"El nombre de usuario debe tener entre {LargoMinimoNombreUsuario} y {LargoMaximoNombreUsuario} caracteres";
+
+        // El servidor usa el nombre como carpeta de los comprobantes del usuario.
+        return TieneCaracteresDeNombreDeUsuario(texto)
+            ? null
+            : "El nombre de usuario solo puede tener letras, números, espacios, '.', '-' y '_', " +
+              "y tiene que empezar y terminar con una letra o un número";
     }
+
+    private static bool TieneCaracteresDeNombreDeUsuario(string texto)
+        => char.IsLetterOrDigit(texto[0])
+           && char.IsLetterOrDigit(texto[^1])
+           && texto.All(caracter => char.IsLetterOrDigit(caracter)
+                                    || SeparadoresDeNombreDeUsuario.Contains(caracter));
 
     public static string? Clave(string texto)
     {
