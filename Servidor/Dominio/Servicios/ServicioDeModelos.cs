@@ -21,15 +21,18 @@ public class ServicioDeModelos
     private readonly IRepositorioDeModelos _modelos;
     private readonly IRepositorioDeReservas _reservas;
     private readonly CandadoGlobal _candado;
+    private readonly IImagenesDeModelos _imagenes;
 
     public ServicioDeModelos(
         IRepositorioDeModelos modelos,
         IRepositorioDeReservas reservas,
-        CandadoGlobal candado)
+        CandadoGlobal candado,
+        IImagenesDeModelos imagenes)
     {
         _modelos = modelos;
         _reservas = reservas;
         _candado = candado;
+        _imagenes = imagenes;
     }
 
     public async Task AltaDeModeloAsync(FichaDeModelo ficha, Usuario creador)
@@ -82,8 +85,10 @@ public class ServicioDeModelos
 
     // Se valida la baja, se borra el archivo y recién entonces se borra el modelo de la base.
     // Si el archivo no se puede borrar la baja falla y el modelo queda como estaba.
-    public async Task EliminarModeloAsync(
-        string nombreModelo, Usuario solicitante, Action<string> eliminarImagen)
+    // La imagen se aparta antes de borrar la fila y se descarta recién con la baja confirmada. Si
+    // no se puede apartar, la baja se rechaza (SR3); si la base falla, la imagen vuelve a su lugar
+    // y el modelo sigue completo.
+    public async Task EliminarModeloAsync(string nombreModelo, Usuario solicitante)
     {
         await _candado.TomarAsync();
         try
@@ -91,13 +96,28 @@ public class ServicioDeModelos
             VehiculoModelo modelo = await _modelos.ObtenerAsync(nombreModelo);
             string nombreArchivoImagen =
                 modelo.ValidarBaja(solicitante, await _reservas.ContarActivasAsync(modelo.Id));
-            eliminarImagen(nombreArchivoImagen);
-            await _modelos.EliminarAsync(
-                modelo, Actividad.ModeloEliminado(modelo.Nombre), solicitante.NombreUsuario);
+            _imagenes.Apartar(nombreArchivoImagen);
+            await EliminarConImagenApartadaAsync(modelo, nombreArchivoImagen, solicitante);
+            _imagenes.Descartar(nombreArchivoImagen);
         }
         finally
         {
             _candado.Liberar();
+        }
+    }
+
+    private async Task EliminarConImagenApartadaAsync(
+        VehiculoModelo modelo, string nombreArchivoImagen, Usuario solicitante)
+    {
+        try
+        {
+            await _modelos.EliminarAsync(
+                modelo, Actividad.ModeloEliminado(modelo.Nombre), solicitante.NombreUsuario);
+        }
+        catch
+        {
+            _imagenes.Restaurar(nombreArchivoImagen);
+            throw;
         }
     }
 

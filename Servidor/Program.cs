@@ -72,7 +72,9 @@ internal static class Program
         // Se cancela al cerrar y corta las esperas de las reservas pendientes sin tocarlas.
         using CancellationTokenSource apagado = new();
         ServicioDeUsuarios usuarios = new(repositorioDeUsuarios, repositorioDeActividades, candado);
-        ServicioDeModelos modelos = new(repositorioDeModelos, repositorioDeReservas, candado);
+        // Las imágenes pertenecen a modelos guardados en la base: no se borran al arrancar ni al cerrar.
+        ImagenesEnDisco imagenes = new(configuracion.ImagesDirectory);
+        ServicioDeModelos modelos = new(repositorioDeModelos, repositorioDeReservas, candado, imagenes);
         ComprobantesEnDisco comprobantes = new(configuracion.ReceiptsDirectory);
         ServicioDeReservas reservas = new(
             repositorioDeReservas,
@@ -81,8 +83,6 @@ internal static class Program
             comprobantes,
             configuracion.ReservationTimeout,
             apagado.Token);
-        // Las imágenes pertenecen a modelos guardados en la base: no se borran al arrancar ni al cerrar.
-        ImagenesEnDisco imagenes = new(configuracion.ImagesDirectory);
         EjecutorDeComandos ejecutor = new(usuarios, modelos, reservas, imagenes);
 
         await using ServidorTcp servidor = new(configuracion, ejecutor);
