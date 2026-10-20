@@ -16,10 +16,11 @@ package "Dominio.Servicios" as PServicios {
   class ServicioDeModelos {
     +AltaDeModeloAsync(ficha, creador) : Task
     +ModificarModeloAsync(ficha, solicitante) : Task
-    +EliminarModeloAsync(nombre, solicitante, eliminarImagen) : Task
+    +EliminarModeloAsync(nombre, solicitante) : Task
     +CambiarImagenDeModeloAsync(nombre, archivo, solicitante) : Task<string>
     +BuscarAsync(filtro) : Task<IReadOnlyList<LecturaDeModelo>>
     +ConsultarLecturaAsync(nombre) : Task<LecturaDeModelo>
+    +ReconciliarImagenesAsync() : Task
   }
   class ServicioDeReservas {
     -plazoDeResolucion : TimeSpan
@@ -40,11 +41,17 @@ package "Dominio.Servicios" as PServicios {
   }
   class CandadoGlobal {
     -semaforo : SemaphoreSlim(1, 1)
-    +TomarAsync() : Task
+    +TomarAsync(token) : Task
     +Liberar()
   }
   interface IGeneradorDeComprobantes {
     +GenerarAsync(reserva, precio) : Task
+  }
+  interface IImagenesDeModelos {
+    +Apartar(archivo)
+    +Descartar(archivo)
+    +Restaurar(archivo)
+    +Reconciliar(imagenesEnUso)
   }
 }
 
@@ -146,6 +153,7 @@ ServicioDeUsuarios --> CandadoGlobal
 ServicioDeModelos --> IRepositorioDeModelos
 ServicioDeModelos --> IRepositorioDeReservas
 ServicioDeModelos --> CandadoGlobal
+ServicioDeModelos --> IImagenesDeModelos
 ServicioDeReservas --> IRepositorioDeReservas
 ServicioDeReservas --> IRepositorioDeModelos
 ServicioDeReservas --> CandadoGlobal

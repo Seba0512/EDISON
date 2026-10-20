@@ -21,7 +21,8 @@ package "Servidor (proceso o contenedor)" {
     component "ServicioDeUsuarios\nServicioDeModelos\nServicioDeReservas\nResolutorDeReservas\nCandadoGlobal" as Servicios
     component "Usuario, VehiculoModelo\nReserva, Actividad" as Entidades
     interface "IRepositorioDe*" as IRepos
-    interface "IGeneradorDeComprobantes" as IComprobantes
+    interface "IGenerador\nDeComprobantes" as IComprobantes
+    interface "IImagenes\nDeModelos" as IImagenes
   }
 
   component "Persistencia\n(MysqlRepositorioDe*,\nFabricaDeConexionesMysql)" as Persistencia
@@ -50,8 +51,10 @@ Imagenes ..> CarpetaImagenes
 Servicios --> Entidades
 Servicios ..> IRepos : usa
 Servicios ..> IComprobantes : usa
+Servicios ..> IImagenes : usa
 IRepos -- Persistencia
 IComprobantes -- Comprobantes
+IImagenes -- Imagenes
 Persistencia --> MySQL : ADO.NET\n(MySqlConnector)
 Comprobantes ..> CarpetaComprobantes
 

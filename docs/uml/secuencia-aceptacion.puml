@@ -9,10 +9,16 @@ participant "Task aceptador\nAceptarConexionesAsync" as Aceptador
 participant "Task del cliente\nAtenderAsync" as Atencion
 participant "SesionDeCliente" as Sesion
 participant "EjecutorDeComandos" as Ejecutor
+participant "ServicioDeModelos" as Modelos
 participant "ServicioDeReservas" as Reservas
 actor Cliente
 
 == Arranque ==
+Program -> Modelos : await ReconciliarImagenesAsync()
+note right of Modelos
+  La carpeta de imágenes se ajusta a la base: borra
+  las que no usa nadie y resuelve bajas interrumpidas.
+end note
 Program -> Reservas : await ReprogramarPendientesAsync()
 Program -> Servidor : Iniciar()
 Servidor -> Servidor : Bind + Listen
