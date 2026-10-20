@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Common;
 using Servidor.Dominio.Entidades;
 using Servidor.Dominio.Excepciones;
@@ -8,6 +9,8 @@ namespace Servidor;
 internal sealed class EjecutorDeComandos
 {
     public const string SesionRequerida = "Debe iniciar sesión para realizar esta operación";
+    private const string BaseNoDisponible =
+        "No se pudo acceder a los datos del sistema. Intente nuevamente en unos instantes.";
 
     private readonly ServicioDeUsuarios _usuarios;
     private readonly ServicioDeModelos _modelos;
@@ -48,6 +51,14 @@ internal sealed class EjecutorDeComandos
             // El detalle técnico, con rutas del servidor, queda en la consola del servidor.
             Console.Error.WriteLine($"{excepcion.Message} Detalle: {excepcion.InnerException?.Message}");
             return RespuestaDelServidor.Rechazo(excepcion.Message);
+        }
+        catch (DbException excepcion)
+        {
+            // Que la base no responda no es un error del servidor ni desincroniza el stream: se
+            // rechaza el pedido y la sesión sigue. El detalle técnico queda en la consola del servidor.
+            Console.Error.WriteLine(
+                $"Error de base de datos en CMD {solicitud.Comando:D2}: {excepcion.Message}");
+            return RespuestaDelServidor.Rechazo(BaseNoDisponible);
         }
     }
 
