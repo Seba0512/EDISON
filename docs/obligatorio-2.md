@@ -176,3 +176,148 @@ otro hilo, y un monitor tiene que liberarlo el mismo hilo que lo tomó.
 
 **Costo:** las operaciones que toman el candado se ejecutan de a una. Es aceptable para la carga del
 obligatorio, y como el candado se espera con `await`, mientras tanto no se bloquea ningún hilo.
+
+### 3.3 De App.config a variables de entorno
+
+**Antes.** Cada aplicación leía su `App.config` con `ConfigurationManager`, y el cliente solo
+aceptaba una IP (`IPAddress.TryParse`).
+
+**Problema.**
+
+- En un contenedor, el App.config queda adentro de la imagen: cambiar un valor obliga a reconstruirla
+  o a montar un archivo.
+- Docker entrega la configuración con `-e` / `environment:`.
+- El cliente tiene que llegar al servidor por el *nombre* de su contenedor, no por una IP fija.
+
+**Alternativas.**
+
+1. `appsettings.json` con Microsoft.Extensions.Configuration. Igual habría que montar el archivo o
+   sobrescribirlo con variables, y suma una dependencia.
+2. Un archivo montado como volumen.
+3. Variables de entorno.
+
+**Decisión: la alternativa 3** (`Common/ConfiguracionDeLaAplicacion.cs`).
+
+- Todo valor tiene un default razonable, así las aplicaciones corren sin Docker sin configurar nada.
+- Un valor mal formado lanza `ConfiguracionInvalidaException` y el proceso termina con un mensaje
+  claro.
+- `LeerHost` devuelve el texto tal cual, IP o nombre: el cliente lo resuelve al conectar.
+- Se eliminaron los dos App.config y el paquete System.Configuration.ConfigurationManager.
+- Las variables están en el `README.md`.
+
+**El plazo de resolución de reservas** (`PLAZO_RESERVA_SEGUNDOS`, 30 s por defecto) se volvió
+configurable a propósito: es un parámetro de operación, no una regla del protocolo. Permite probar y
+demostrar el requerimiento 5 con plazos cortos sin recompilar. Los límites del protocolo, en cambio,
+siguen siendo constantes de `Common`, por la devolución de la entrega 1.
+
+**Beneficio.** La misma imagen sirve en cualquier entorno, la configuración queda visible en el
+comando o en el compose, y el cliente puede usar el DNS interno de Docker.
+
+### 3.4 De memoria a MySQL
+
+**Antes.** El estado vivía en memoria (`EstadoEnMemoria`, con colecciones protegidas por el `lock`
+global). Al reiniciar el servidor se perdía todo, y por eso también se borraban las imágenes al
+arrancar y al apagar.
+
+**Alternativas de acceso a datos.**
+
+1. Entity Framework Core: un ORM con migraciones, que esconde el SQL.
+2. ADO.NET con el driver oficial MySql.Data, cuyos métodos async fueron por mucho tiempo sincrónicos
+   por dentro.
+3. ADO.NET con MySqlConnector: async real y SQL explícito.
+
+**Decisión: la alternativa 3**, con estas reglas:
+
+- **Puertos en el dominio** (DIP / Variaciones Protegidas). `IRepositorioDeUsuarios`, `…DeModelos`,
+  `…DeReservas` e `…DeActividades` están en `Servidor/Dominio/Repositorios/`. Las implementaciones
+  `MysqlRepositorioDe*` están en `Servidor/Persistencia/`. `Program` hace el wiring, y el dominio no
+  referencia MySQL.
+- **SQL siempre con parámetros** (`@nombre`), nunca concatenando datos, contra la inyección SQL.
+- **Transacciones** (`MySqlTransaction`) cuando una operación toca dos tablas: un alta de modelo o una
+  reserva se guarda junto con su actividad del historial, o no se guarda ninguna de las dos.
+- **Una conexión por operación**, abierta por `FabricaDeConexionesMysql`. El driver mantiene un pool,
+  y así nunca se comparte una conexión entre clientes concurrentes.
+- **Rehidratación** con fábricas `internal` (`Usuario.Restaurar`, `Reserva.Restaurar`, …). Las
+  validaciones de alta siguen en los constructores públicos.
+- **Conteos** con `SELECT COUNT(*)`. Por ejemplo, las reservas confirmadas de un modelo se cuentan
+  para validar el stock.
+- **Baja de un modelo:** `reservas.modelo_id` queda en `NULL` (`ON DELETE SET NULL`) y la reserva
+  conserva `nombre_modelo`, así CR9 sigue mostrando el modelo después de la baja.
+
+**Esquema** (`db/init.sql`):
+
+- La base y las tablas usan `utf8mb4`, para guardar bien tildes y eñes.
+- Los nombres de usuario y de modelo usan la colación `utf8mb4_0900_as_ci`: no distinguen mayúsculas
+  (como la comparación `OrdinalIgnoreCase` del dominio) pero sí tildes, así "Peña" y "Pena" son
+  distintos.
+- El script se monta en `/docker-entrypoint-initdb.d/` y MySQL lo ejecuta una sola vez, con el
+  volumen vacío.
+
+**Fechas en UTC.** El dominio usa `DateTime.UtcNow` y la base guarda `DATETIME` en UTC. El protocolo
+transmite las fechas y horas en UTC, y solo el cliente (y el comprobante) las convierte a hora local
+para mostrarlas. Así, el plazo de una reserva se calcula igual aunque el contenedor del servidor
+corra en otra zona horaria, y un cliente en otra zona ve su propia hora.
+
+**Arranque.**
+
+- El servidor reintenta la conexión con MySQL hasta 15 veces, con `Task.Delay` de 2 s, porque el
+  contenedor de la base tarda en estar listo.
+- Las imágenes ya no se borran al arrancar ni al apagar: pertenecen a modelos que ahora persisten.
+  SR3 sigue cumplido, porque la imagen se borra con la baja del modelo.
+
+**Fallas de la base durante la operación.** Responden `ER` sin cortar la sesión (sección 2.2).
+
+**Beneficio.** Los datos sobreviven a reinicios y a la recreación de contenedores. El dominio sigue
+sin depender de la tecnología de persistencia, y cada operación compuesta es atómica también en la
+base.
+
+### 3.5 Reservas cancelables y comprobantes (requerimiento 5)
+
+**Antes.** Cada reserva lanzaba un `Thread` que dormía el plazo y después la resolvía. Cancelar una
+reserva pendiente solo cambiaba su estado: el hilo seguía vivo hasta despertar y recién ahí veía que
+ya no tenía nada que hacer.
+
+**Decisión.** `Servidor/Dominio/Servicios/ResolutorDeReservas.cs` es una fabricación pura que lleva
+la cuenta de las esperas:
+
+- Cada reserva pendiente tiene su propio `CancellationTokenSource`, en un
+  `ConcurrentDictionary<Guid, CancellationTokenSource>`, vinculado
+  (`CreateLinkedTokenSource`) al token de apagado del servidor.
+- `Programar(id, demora)` lanza `await Task.Delay(demora, token)` y después resuelve la reserva:
+  Confirmada si hay stock, Rechazada si no. La espera no ocupa ningún hilo.
+- `Cancelar(id)` hace `Cancel()` sobre el CTS de esa reserva: el `Task.Delay` termina enseguida con
+  `OperationCanceledException`. Así se cancela *el mecanismo*, no solo el estado.
+- Por cualquier camino, al terminar, el CTS sale del diccionario y se dispone (`finally`): las
+  reservas resueltas no quedan en memoria.
+- La `OperationCanceledException` tiene dos causas y se tratan distinto:
+  - **Cancelación del usuario:** es el final esperado. `ServicioDeReservas` ya guardó el estado
+    Cancelada, y la espera se cancela recién después de guardarlo.
+  - **Apagado del servidor:** la reserva no se toca y queda Pendiente en la base. Al arrancar,
+    `ReprogramarPendientesAsync` la vuelve a programar con la demora restante,
+    `max(0, creación + plazo − ahora)`, en UTC. Con persistencia, un reinicio no puede dejar
+    reservas pendientes para siempre. Esto se probó matando el servidor con una reserva pendiente:
+    al volver, se confirmó a los 20 s exactos de creada.
+- **Carrera entre cancelar y resolver:** las dos operaciones toman el `CandadoGlobal`. La resolución
+  relee la reserva dentro del candado y, si ya no está Pendiente, no hace nada.
+- **Cierre:** el resolutor sigue sus Tasks y el cierre espera, con un tope de 3 s, a las reservas que
+  se estaban confirmando.
+
+**Comprobante** (`Servidor/ComprobantesEnDisco.cs`, detrás del puerto `IGeneradorDeComprobantes`):
+
+- Cada reserva confirmada genera `DIRECTORIO_COMPROBANTES/<usuario>/<idReserva>.txt`, con id,
+  usuario, modelo, precio y fechas de solicitud y de confirmación, en hora local y con su zona.
+- El texto se arma a mano: no pasa por ningún serializador.
+- Se escribe en un `.tmp` y después se mueve, para no dejar un comprobante a medias.
+- El nombre de usuario se usa como carpeta, con dos barreras:
+  - el registro solo acepta nombres válidos como carpeta, y `ComprobantesEnDisco` los vuelve a
+    validar (sin separadores, sin rutas absolutas, sin `.` ni `..`);
+  - se verifica que la ruta final (`Path.GetFullPath`) quede dentro de `DIRECTORIO_COMPROBANTES`.
+- Se genera después de confirmar en la base y fuera del candado, para no retener a los demás clientes
+  mientras se escribe el disco. Si falla, se registra en la consola y la confirmación no se revierte
+  (sección 5).
+
+**Beneficio frente a la entrega 1.**
+
+- Una cancelación libera de inmediato el recurso de la espera.
+- El apagado no pierde reservas.
+- Cada reserva aprobada deja un comprobante que se puede ver desde el host (sección 4).
