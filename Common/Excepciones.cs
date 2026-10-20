@@ -20,7 +20,10 @@ public sealed class ConexionCerradaException : Exception
 }
 
 // La conexión se cortó a mitad de una trama: lo recibido queda incompleto y no se puede usar.
-public sealed class TramaTruncadaException : ProtocoloException
+// Es un corte de conexión y no un dato mal formado, por eso es una IOException y no una
+// ProtocoloException: no se responde ER sobre una conexión muerta, y el cliente lo informa como
+// conexión perdida.
+public sealed class TramaTruncadaException : EndOfStreamException
 {
     public TramaTruncadaException(string campo)
         : base($"La conexión se cerró a mitad del campo {campo}")

@@ -8,6 +8,9 @@ namespace Cliente;
 internal sealed class ConexionConServidor : IAsyncDisposable
 {
     private const string SufijoTemporal = ".tmp";
+    // Las partes llegan de a 32 KiB: sin buffer, una falla del disco aparece al escribir esa parte,
+    // donde se la atrapa con la conexión sincronizada, y no recién al cerrar el archivo.
+    private const int SinBuffer = 0;
 
     private readonly Socket _socket;
     private readonly NetworkStream _stream;
@@ -142,6 +145,11 @@ internal sealed class ConexionConServidor : IAsyncDisposable
 
     private static void ExigirTamañoPermitido(long largo)
     {
+        if (largo == 0)
+        {
+            throw new OperacionRechazadaException("El archivo está vacío: no es una imagen válida");
+        }
+
         if (largo > Limites.LargoMaximoDeArchivo)
         {
             throw new OperacionRechazadaException("El archivo supera el tamaño máximo permitido " +
@@ -155,7 +163,9 @@ internal sealed class ConexionConServidor : IAsyncDisposable
     {
         await using FileStream destino = CrearArchivoLocal(rutaTemporal);
         string anuncio = await EnviarAsync(Comandos.DescargarImagen, nombreModelo);
-        ArchivoAnunciado imagen = Mensajes.AArchivoAnunciado(anuncio);
+        ArchivoAnunciado anunciado = Mensajes.AArchivoAnunciado(anuncio);
+        // El nombre se valida con el anuncio, antes de recibir: si no sirve, no se baja ningún byte.
+        ArchivoAnunciado imagen = anunciado with { Nombre = NombreDeDescargaSeguro.Crear(anunciado.Nombre) };
         try
         {
             await _archivos.RecibirAsync(destino, imagen.Largo);
@@ -174,7 +184,7 @@ internal sealed class ConexionConServidor : IAsyncDisposable
         {
             Directory.CreateDirectory(_downloadsDirectory);
             return new FileStream(
-                ruta, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true);
+                ruta, FileMode.Create, FileAccess.Write, FileShare.None, SinBuffer, useAsync: true);
         }
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
@@ -185,8 +195,7 @@ internal sealed class ConexionConServidor : IAsyncDisposable
     // Se recibe a un .tmp y recién completo se mueve, para no dejar una imagen a medias.
     private string MoverADescargas(string rutaTemporal, ArchivoAnunciado imagen)
     {
-        string nombreArchivo = NombreDeDescargaSeguro.Crear(imagen.Nombre);
-        string rutaDestino = Path.Combine(_downloadsDirectory, nombreArchivo);
+        string rutaDestino = Path.Combine(_downloadsDirectory, imagen.Nombre);
         try
         {
             File.Move(rutaTemporal, rutaDestino, overwrite: true);

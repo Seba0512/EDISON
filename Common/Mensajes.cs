@@ -7,6 +7,7 @@ public static class FormatoDeCampos
 {
     private const string FormatoFecha = "dd-MM-yyyy";
     private const string FormatoFechaHora = "yyyyMMddHHmmss";
+    private const NumberStyles EstiloDecimal = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint;
 
     public static string De(int valor)
     {
@@ -60,7 +61,8 @@ public static class FormatoDeCampos
 
     public static decimal ADecimal(string texto)
     {
-        if (decimal.TryParse(texto, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal valor))
+        // Sin separador de miles: con NumberStyles.Number, "1,5" se leería como 15 sin error.
+        if (decimal.TryParse(texto, EstiloDecimal, CultureInfo.InvariantCulture, out decimal valor))
         {
             return valor;
         }
@@ -339,7 +341,8 @@ public static class Mensajes
     private static long ALargoDeArchivo(string texto)
     {
         long largo = FormatoDeCampos.AEnteroLargo(texto);
-        if (largo < 0)
+        // Un archivo vacío no es una imagen: aceptarlo dejaría al modelo con una imagen de 0 bytes.
+        if (largo <= 0)
         {
             throw new ProtocoloException($"'{texto}' no es un largo de archivo válido");
         }
@@ -367,7 +370,9 @@ public static class Mensajes
             _camposPorElemento = camposPorElemento;
             _elementosRestantes = FormatoDeCampos.AEntero(_campos[0]);
             _posicion = 1;
-            int camposEsperados = 1 + _elementosRestantes * camposPorElemento;
+            // En long: una cantidad enorme desbordaría el int y podría coincidir por casualidad con
+            // los campos recibidos, y la lectura terminaría fuera de rango.
+            long camposEsperados = 1L + (long)_elementosRestantes * camposPorElemento;
             bool listaVaciaBienFormada = _elementosRestantes == 0 && _campos.Length == 2
                 && _campos[1].Length == 0;
             if (_elementosRestantes < 0
