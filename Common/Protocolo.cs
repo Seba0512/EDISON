@@ -34,7 +34,7 @@ public static class Estados
 }
 
 // Los límites son reglas del protocolo, no del entorno: cliente y servidor tienen que usar los
-// mismos valores, así que se definen una sola vez acá y no en el App.config de cada uno.
+// mismos valores, así que se definen una sola vez acá en vez de configurarse en cada uno.
 public static class Limites
 {
     public const long LargoMaximoDeArchivo = 10 * 1024 * 1024;

@@ -3,9 +3,9 @@ using System.Net;
 
 namespace Common;
 
-// Punto unico de lectura de la configuracion. Todo lo que depende del entorno llega por
+// Punto único de lectura de la configuración. Todo lo que depende del entorno llega por
 // variables de entorno, que es lo que un contenedor sabe recibir (-e, environment:). Los
-// limites del protocolo no se configuran: estan en Common (Limites).
+// límites del protocolo no se configuran: están en Common (Limites).
 public static class ConfiguracionDeLaAplicacion
 {
     public static string Leer(string clave)
