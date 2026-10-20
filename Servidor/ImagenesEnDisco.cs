@@ -19,6 +19,7 @@ internal sealed class ImagenesEnDisco
 
     // Los FileStream se abren con useAsync: true, así ReadAsync/WriteAsync son I/O asincrónico real.
     private const int TamañoDeBuffer = 4096;
+    private const int SinBuffer = 0;
 
     private static readonly string[] ExtensionesPermitidas = { ".png", ".jpg", ".jpeg" };
 
@@ -150,9 +151,11 @@ internal sealed class ImagenesEnDisco
     {
         try
         {
+            // Sin buffer: las partes ya llegan de a 32 KiB, y así una falla del disco aparece en la
+            // escritura de esa parte, donde se la atrapa, y no recién al cerrar el archivo.
             return new FileStream(
                 rutaTemporal, FileMode.Create, FileAccess.Write, FileShare.None,
-                TamañoDeBuffer, useAsync: true);
+                SinBuffer, useAsync: true);
         }
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {

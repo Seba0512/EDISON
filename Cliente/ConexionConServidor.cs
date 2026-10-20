@@ -8,6 +8,9 @@ namespace Cliente;
 internal sealed class ConexionConServidor : IAsyncDisposable
 {
     private const string SufijoTemporal = ".tmp";
+    // Las partes llegan de a 32 KiB: sin buffer, una falla del disco aparece al escribir esa parte,
+    // donde se la atrapa con la conexión sincronizada, y no recién al cerrar el archivo.
+    private const int SinBuffer = 0;
 
     private readonly Socket _socket;
     private readonly NetworkStream _stream;
@@ -179,7 +182,7 @@ internal sealed class ConexionConServidor : IAsyncDisposable
         {
             Directory.CreateDirectory(_downloadsDirectory);
             return new FileStream(
-                ruta, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true);
+                ruta, FileMode.Create, FileAccess.Write, FileShare.None, SinBuffer, useAsync: true);
         }
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
