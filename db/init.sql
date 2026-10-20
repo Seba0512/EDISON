@@ -10,6 +10,10 @@
 CREATE DATABASE IF NOT EXISTS edison
     CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- Con MYSQL_DATABASE=edison la imagen de MySQL crea la base antes de correr este script, con la
+-- colación por defecto del servidor, y el CREATE de arriba no hace nada: acá se la fija igual.
+ALTER DATABASE edison CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 USE edison;
 
 CREATE TABLE IF NOT EXISTS usuarios (
