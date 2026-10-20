@@ -348,6 +348,7 @@ internal static class Validaciones
     private const int LargoMinimoNombreDeModelo = 2;
     private const int LargoMaximoNombreDeModelo = 60;
     private const int LargoMaximoDescripcion = 500;
+    private const decimal PrecioMaximo = 9_999_999_999m;
 
     // El '#' es el separador de campos del protocolo: dentro de un campo rompería el mensaje.
     public static string? SinSeparador(string texto)
@@ -408,9 +409,13 @@ internal static class Validaciones
 
     // El servidor redondea el precio a entero antes de exigir que sea mayor a cero.
     public static string? Precio(decimal valor)
-        => Math.Round(valor, 0, MidpointRounding.AwayFromZero) <= 0
-            ? "El precio debe ser mayor a cero"
-            : null;
+    {
+        decimal redondeado = Math.Round(valor, 0, MidpointRounding.AwayFromZero);
+        if (redondeado <= 0)
+            return "El precio debe ser mayor a cero";
+
+        return redondeado > PrecioMaximo ? $"El precio no puede superar {PrecioMaximo}" : null;
+    }
 
     public static string? FechaFutura(DateTime valor)
         => valor.Date <= DateTime.Today
