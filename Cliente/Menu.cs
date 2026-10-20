@@ -43,9 +43,13 @@ internal sealed class Menu
         {
             Mostrar();
             int? indice = LectorDeConsola.LeerOpcion(_opcionesActuales.Count);
-            // Se acabó la entrada y eso es una salida normal, no un error.
+            // Se acabó la entrada y eso es una salida normal, no un error. Igual se avisa: en Docker
+            // pasa si el cliente se ejecuta sin -it, y sin el aviso parecería que se cerró solo.
             if (indice is null)
+            {
+                Consola.Info("Se terminó la entrada estándar: el cliente se cierra. En Docker, ejecútelo con -it.");
                 return;
+            }
 
             Console.WriteLine();
             bool requierePausa = await EjecutarOpcionAsync(_opcionesActuales[indice.Value]);
@@ -221,6 +225,13 @@ internal sealed class Menu
         if (reservas.Count == 0)
             return;
 
+        // Sin esto, con todas las reservas Rechazadas o Canceladas, el id se pediría para siempre.
+        if (!reservas.Any(reserva => EstadosDeReserva.SePuedeCancelar(reserva.Estado)))
+        {
+            Consola.Info("No tenés reservas que se puedan cancelar.");
+            return;
+        }
+
         Guid? idReserva = LeerIdDeReservaCancelable(reservas);
         if (idReserva is null)
             return;
@@ -275,8 +286,10 @@ internal sealed class Menu
     private static DatosDeAltaDeModelo? LeerDatosParaModificacion(
         string nombreModelo, DetalleDeModelo detalleActual)
     {
+        // Se muestran los valores vigentes para que el usuario sepa qué está cambiando.
+        Presentadores.MostrarDetalle(detalleActual);
         (bool sinEntrada, string? descripcion) = LectorDeConsola.LeerTextoOpcional(
-            "Nueva descripción (Enter para omitir):", Validaciones.Descripcion);
+            "Nueva descripción (Enter para conservar la actual):", Validaciones.Descripcion);
         if (sinEntrada)
             return null;
 
@@ -294,8 +307,13 @@ internal sealed class Menu
         if (stock is null)
             return null;
 
+        // Enter vacío conserva la descripción vigente: mandar "" la borraría sin aviso.
         return new DatosDeAltaDeModelo(
-            nombreModelo, descripcion ?? string.Empty, precio.Value, fechaEntrega.Value, stock.Value);
+            nombreModelo,
+            descripcion ?? detalleActual.Descripcion,
+            precio.Value,
+            fechaEntrega.Value,
+            stock.Value);
     }
 
     // Valida contra las reservas ya mostradas. Evita mandar al servidor un id que no está en la

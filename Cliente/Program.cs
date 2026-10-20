@@ -85,13 +85,16 @@ internal static class Program
         return false;
     }
 
-    // Fallas que pueden resolverse solas: el servidor todavía no escucha, o su nombre todavía no
-    // resuelve (en Docker, el contenedor del servidor aún no existe o no está en la red).
+    // Fallas que pueden resolverse solas: el servidor todavía no escucha, su nombre todavía no
+    // resuelve o su red todavía no está disponible (en Docker, el contenedor del servidor aún no
+    // existe, está apagado o no está en la red).
     private static bool AmeritaReintento(SocketError error)
         => error is SocketError.ConnectionRefused
             or SocketError.HostNotFound
             or SocketError.TryAgain
-            or SocketError.TimedOut;
+            or SocketError.TimedOut
+            or SocketError.HostUnreachable
+            or SocketError.NetworkUnreachable;
 
     private static bool ElegirSiReintentar()
     {

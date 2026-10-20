@@ -12,6 +12,10 @@ internal static class LectorDeConsola
     private const char Bom = '\uFEFF';
     private const string Afirmacion = "s";
 
+    // Las mismas que acepta el servidor: se repiten acá para avisar antes de crear el modelo.
+    private static readonly HashSet<string> ExtensionesDeImagen =
+        new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg" };
+
     public static int? LeerOpcion(int cantidadDeOpciones)
     {
         Consola.Prompt("Ingrese opción: ");
@@ -136,25 +140,42 @@ internal static class LectorDeConsola
         if (!Confirmar("¿Desea subir una imagen para el modelo? (s/n):"))
             return null;
 
-        string? rutaArchivo = LeerTexto("Ruta local del archivo de imagen:");
-        if (rutaArchivo is null)
-            return null;
-
-        rutaArchivo = SinComillas(rutaArchivo);
-        if (!File.Exists(rutaArchivo))
+        string? rutaArchivo;
+        string? error;
+        do
         {
-            Consola.Error($"No se encontró el archivo '{rutaArchivo}'.");
-            return null;
-        }
+            (bool cancelada, rutaArchivo) =
+                LeerTextoOpcional("Ruta local del archivo de imagen (Enter para omitir):");
+            if (cancelada || rutaArchivo is null)
+                return null;
+
+            rutaArchivo = SinComillas(rutaArchivo);
+            error = ErrorDeArchivoDeImagen(rutaArchivo);
+            if (error is not null)
+                Consola.Error(error);
+        } while (error is not null);
+
+        return rutaArchivo;
+    }
+
+    // Se valida antes de crear el modelo: si el archivo no sirve, el usuario lo corrige en el momento
+    // en vez de enterarse cuando el modelo ya se creó sin imagen.
+    private static string? ErrorDeArchivoDeImagen(string rutaArchivo)
+    {
+        if (!File.Exists(rutaArchivo))
+            return $"No se encontró el archivo '{rutaArchivo}'.";
 
         // El nombre del archivo viaja como campo del mensaje: con un '#' el cliente no podría armarlo.
         if (Validaciones.SinSeparador(Path.GetFileName(rutaArchivo)) is string error)
-        {
-            Consola.Error(error);
-            return null;
-        }
+            return error;
 
-        return rutaArchivo;
+        if (!ExtensionesDeImagen.Contains(Path.GetExtension(rutaArchivo)))
+            return "La imagen tiene que ser .png, .jpg o .jpeg.";
+
+        long largo = new FileInfo(rutaArchivo).Length;
+        return largo is 0 or > Limites.LargoMaximoDeArchivo
+            ? $"La imagen tiene que pesar entre 1 y {Limites.LargoMaximoDeArchivo} bytes."
+            : null;
     }
 
     // La ruta viene de PreguntarRutaDeImagen: null significa que no se ofreció o se rechazó la imagen.
@@ -325,7 +346,12 @@ internal static class LectorDeConsola
         if (clave.Length == 0)
             return;
 
-        clave.Length--;
+        // Un emoji ocupa dos char (un par de surrogates): borrar solo uno dejaría medio carácter, que
+        // después no se puede codificar en UTF-8.
+        bool terminaEnPar = clave.Length >= 2
+                            && char.IsLowSurrogate(clave[clave.Length - 1])
+                            && char.IsHighSurrogate(clave[clave.Length - 2]);
+        clave.Length -= terminaEnPar ? 2 : 1;
         Console.Write("\b \b");
     }
 
