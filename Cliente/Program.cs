@@ -70,8 +70,7 @@ internal static class Program
         {
             conexion = await ConexionConServidor.ConectarAsync(configuracion);
         }
-        catch (SocketException excepcion) when (
-            excepcion.SocketErrorCode == SocketError.ConnectionRefused)
+        catch (SocketException excepcion) when (AmeritaReintento(excepcion.SocketErrorCode))
         {
             return ElegirSiReintentar();
         }
@@ -85,6 +84,14 @@ internal static class Program
 
         return false;
     }
+
+    // Fallas que pueden resolverse solas: el servidor todavía no escucha, o su nombre todavía no
+    // resuelve (en Docker, el contenedor del servidor aún no existe o no está en la red).
+    private static bool AmeritaReintento(SocketError error)
+        => error is SocketError.ConnectionRefused
+            or SocketError.HostNotFound
+            or SocketError.TryAgain
+            or SocketError.TimedOut;
 
     private static bool ElegirSiReintentar()
     {
