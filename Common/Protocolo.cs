@@ -102,15 +102,15 @@ public sealed class CodecDeTramas
     private const int LargoComando = 2;
     private const int LargoCampoLargo = 4;
 
-    public Trama Leer(Stream stream)
+    public async Task<Trama> LeerAsync(Stream stream, CancellationToken token = default)
     {
-        int comando = LeerComando(stream);
-        int largo = LeerLargo(stream);
-        byte[] datos = LeerExactamente(stream, largo, "DATOS");
+        int comando = await LeerComandoAsync(stream, token);
+        int largo = await LeerLargoAsync(stream, token);
+        byte[] datos = await LeerExactamenteAsync(stream, largo, "DATOS", token);
         return new Trama(comando, datos);
     }
 
-    public void Escribir(Stream stream, Trama trama)
+    public async Task EscribirAsync(Stream stream, Trama trama, CancellationToken token = default)
     {
         int largo = trama.Datos.Length;
         // La validación es previa a escribir: no se mandó nada todavía y la conexión puede seguir.
@@ -123,13 +123,13 @@ public sealed class CodecDeTramas
         salida[0] = (byte)('0' + trama.Comando / 10);
         salida[1] = (byte)('0' + trama.Comando % 10);
         BinaryPrimitives.WriteInt32BigEndian(salida.AsSpan(LargoComando, LargoCampoLargo), largo);
-        trama.Datos.Span.CopyTo(salida.AsSpan(LargoComando + LargoCampoLargo));
-        stream.Write(salida);
+        trama.Datos.CopyTo(salida.AsMemory(LargoComando + LargoCampoLargo));
+        await stream.WriteAsync(salida, token);
     }
 
-    private static int LeerComando(Stream stream)
+    private static async Task<int> LeerComandoAsync(Stream stream, CancellationToken token)
     {
-        byte[] comando = LeerInicioDeTrama(stream);
+        byte[] comando = await LeerInicioDeTramaAsync(stream, token);
         if (!EsDigito(comando[0]) || !EsDigito(comando[1]))
         {
             throw new ProtocoloException("CMD debe ser dos dígitos decimales");
@@ -139,13 +139,13 @@ public sealed class CodecDeTramas
     }
 
     // Cero bytes antes de empezar la trama: el otro lado cerró bien. A mitad de trama: quedó cortada.
-    private static byte[] LeerInicioDeTrama(Stream stream)
+    private static async Task<byte[]> LeerInicioDeTramaAsync(Stream stream, CancellationToken token)
     {
         byte[] buffer = new byte[LargoComando];
         int offset = 0;
         while (offset < buffer.Length)
         {
-            int recibidos = stream.Read(buffer, offset, buffer.Length - offset);
+            int recibidos = await stream.ReadAsync(buffer.AsMemory(offset), token);
             if (recibidos == 0 && offset == 0)
             {
                 throw new ConexionCerradaException();
@@ -162,9 +162,9 @@ public sealed class CodecDeTramas
         return buffer;
     }
 
-    private static int LeerLargo(Stream stream)
+    private static async Task<int> LeerLargoAsync(Stream stream, CancellationToken token)
     {
-        byte[] bytes = LeerExactamente(stream, LargoCampoLargo, "LARGO");
+        byte[] bytes = await LeerExactamenteAsync(stream, LargoCampoLargo, "LARGO", token);
         int largo = BinaryPrimitives.ReadInt32BigEndian(bytes);
         if (largo < 0 || largo > Limites.LargoMaximoDeDatos)
         {
@@ -174,20 +174,19 @@ public sealed class CodecDeTramas
         return largo;
     }
 
-    // Read puede devolver menos bytes de los pedidos, así que se insiste hasta completar el campo.
-    private static byte[] LeerExactamente(Stream stream, int cantidad, string campo)
+    // ReadExactlyAsync insiste hasta completar el campo. Si la conexión se cierra antes, lanza
+    // EndOfStreamException, que acá se traduce a trama truncada.
+    private static async Task<byte[]> LeerExactamenteAsync(
+        Stream stream, int cantidad, string campo, CancellationToken token)
     {
         byte[] buffer = new byte[cantidad];
-        int offset = 0;
-        while (offset < cantidad)
+        try
         {
-            int recibidos = stream.Read(buffer, offset, cantidad - offset);
-            if (recibidos == 0)
-            {
-                throw new TramaTruncadaException(campo);
-            }
-
-            offset += recibidos;
+            await stream.ReadExactlyAsync(buffer, token);
+        }
+        catch (EndOfStreamException)
+        {
+            throw new TramaTruncadaException(campo);
         }
 
         return buffer;
@@ -201,7 +200,7 @@ public sealed class CodecDeTramas
 
 // El DATOS de toda respuesta empieza con dos caracteres de estado y sigue con el contenido, que
 // siempre es texto UTF-8. Un archivo nunca va en DATOS: viaja después de la trama, en partes.
-public sealed class RespuestaDelServidor : IDisposable
+public sealed class RespuestaDelServidor : IAsyncDisposable
 {
     private readonly byte[] _contenido;
     // Stream.Null cuando la respuesta no lleva archivo: su largo es cero y no manda nada.
@@ -226,7 +225,7 @@ public sealed class RespuestaDelServidor : IDisposable
         return new RespuestaDelServidor(Estados.Ok, TextoUtf8.Codificar(contenido));
     }
 
-    // El contenido solo anuncia el nombre y el largo; las partes salen después, con EnviarArchivo.
+    // El contenido solo anuncia el nombre y el largo; las partes salen después, con EnviarArchivoAsync.
     public static RespuestaDelServidor OkConArchivo(string nombreArchivo, Stream archivo)
     {
         ArchivoAnunciado anuncio = new(nombreArchivo, archivo.Length);
@@ -274,13 +273,14 @@ public sealed class RespuestaDelServidor : IDisposable
         return TextoUtf8.Decodificar(_contenido);
     }
 
-    public void EnviarArchivo(TransferenciaPorPartes transferencia)
+    public Task EnviarArchivoAsync(
+        TransferenciaPorPartes transferencia, CancellationToken token = default)
     {
-        transferencia.Enviar(_archivo, _archivo.Length);
+        return transferencia.EnviarAsync(_archivo, _archivo.Length, token);
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
-        _archivo.Dispose();
+        return _archivo.DisposeAsync();
     }
 }

@@ -17,56 +17,57 @@ public sealed class TransferenciaPorPartes
 
     // Con el largo ya anunciado no hay vuelta atrás: si el archivo local falla a mitad, el otro
     // lado queda esperando bytes que no van a llegar y la conexión ya no se puede usar.
-    public void Enviar(Stream archivo, long largo)
+    public async Task EnviarAsync(Stream archivo, long largo, CancellationToken token = default)
     {
         long restante = largo;
         while (restante > 0)
         {
             int largoDeParte = LargoDeLaSiguienteParte(restante);
-            archivo.ReadExactly(_parte, 0, largoDeParte);
-            _red.Write(_parte, 0, largoDeParte);
+            await archivo.ReadExactlyAsync(_parte.AsMemory(0, largoDeParte), token);
+            await _red.WriteAsync(_parte.AsMemory(0, largoDeParte), token);
             restante -= largoDeParte;
         }
     }
 
     // Si el archivo local falla a mitad, igual se leen las partes que faltan: la conexión queda
     // sincronizada y quien recibe puede informar el error sin cortarla.
-    public void Recibir(Stream archivo, long largo)
+    public async Task RecibirAsync(Stream archivo, long largo, CancellationToken token = default)
     {
         long restante = largo;
         while (restante > 0)
         {
-            int largoDeParte = RecibirParte(restante);
+            int largoDeParte = await RecibirParteAsync(restante, token);
             restante -= largoDeParte;
             try
             {
-                archivo.Write(_parte, 0, largoDeParte);
+                await archivo.WriteAsync(_parte.AsMemory(0, largoDeParte), token);
             }
             catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
             {
-                Descartar(restante);
+                await DescartarAsync(restante, token);
                 throw new ArchivoLocalException(excepcion);
             }
         }
     }
 
-    private void Descartar(long largo)
+    private async Task DescartarAsync(long largo, CancellationToken token)
     {
         long restante = largo;
         while (restante > 0)
         {
-            restante -= RecibirParte(restante);
+            restante -= await RecibirParteAsync(restante, token);
         }
     }
 
-    // Read puede devolver menos bytes de los pedidos, así que se insiste hasta completar la parte.
-    private int RecibirParte(long restante)
+    // ReadAsync puede devolver menos bytes de los pedidos, así que se insiste hasta completar la parte.
+    private async Task<int> RecibirParteAsync(long restante, CancellationToken token)
     {
         int largoDeParte = LargoDeLaSiguienteParte(restante);
         int offset = 0;
         while (offset < largoDeParte)
         {
-            int recibidos = _red.Read(_parte, offset, largoDeParte - offset);
+            int recibidos = await _red.ReadAsync(
+                _parte.AsMemory(offset, largoDeParte - offset), token);
             if (recibidos == 0)
             {
                 throw new TramaTruncadaException("ARCHIVO");
