@@ -1,0 +1,171 @@
+@startuml clases-dominio
+title Dominio del servidor: servicios, entidades y puertos de persistencia
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+set separator none
+left to right direction
+hide empty members
+
+package "Dominio.Servicios" as PServicios {
+  class ServicioDeUsuarios {
+    +RegistrarAsync(nombre, clave) : Task<Usuario>
+    +IniciarSesionAsync(nombre, clave) : Task<Usuario>
+    +CerrarSesionAsync(usuario) : Task
+    +HistorialDeAsync(usuario) : Task<IReadOnlyList<Actividad>>
+  }
+  class ServicioDeModelos {
+    +AltaDeModeloAsync(ficha, creador) : Task
+    +ModificarModeloAsync(ficha, solicitante) : Task
+    +EliminarModeloAsync(nombre, solicitante, eliminarImagen) : Task
+    +CambiarImagenDeModeloAsync(nombre, archivo, solicitante) : Task<string>
+    +BuscarAsync(filtro) : Task<IReadOnlyList<LecturaDeModelo>>
+    +ConsultarLecturaAsync(nombre) : Task<LecturaDeModelo>
+  }
+  class ServicioDeReservas {
+    -plazoDeResolucion : TimeSpan
+    +ReprogramarPendientesAsync() : Task
+    +EsperarResolucionesEnCursoAsync(esperaMaxima) : Task
+    +SolicitarReservaAsync(modelo, solicitante) : Task<Guid>
+    +CancelarReservaAsync(id, solicitante) : Task
+    +ConsultarReservasDeAsync(usuario) : Task<IReadOnlyList<LecturaDeReserva>>
+    -ResolverReservaAsync(id) : Task
+  }
+  class ResolutorDeReservas <<fabricación pura>> {
+    -pendientes : ConcurrentDictionary<Guid, CancellationTokenSource>
+    -enCurso : ConcurrentDictionary<Task, byte>
+    -apagado : CancellationToken
+    +Programar(id, demora)
+    +Cancelar(id)
+    +EsperarResolucionesEnCursoAsync() : Task
+  }
+  class CandadoGlobal {
+    -semaforo : SemaphoreSlim(1, 1)
+    +TomarAsync() : Task
+    +Liberar()
+  }
+  interface IGeneradorDeComprobantes {
+    +GenerarAsync(reserva, precio) : Task
+  }
+}
+
+package "Dominio.Repositorios" as PRepositorios {
+  interface IRepositorioDeUsuarios {
+    +BuscarAsync(nombre) : Task<Usuario?>
+    +AgregarAsync(usuario) : Task
+  }
+  interface IRepositorioDeModelos {
+    +BuscarPorNombreAsync(nombre) : Task<VehiculoModelo?>
+    +BuscarPorIdAsync(id) : Task<VehiculoModelo?>
+    +ListarAsync() : Task<IReadOnlyList<ModeloConConfirmadas>>
+    +AgregarAsync(modelo, actividad, usuario) : Task
+    +ActualizarAsync(modelo, actividad, usuario) : Task
+    +EliminarAsync(modelo, actividad, usuario) : Task
+  }
+  interface IRepositorioDeReservas {
+    +AgregarAsync(reserva, actividad) : Task
+    +BuscarAsync(id) : Task<Reserva?>
+    +ActualizarEstadoAsync(reserva, actividad?) : Task
+    +ListarDeAsync(usuario) : Task<IReadOnlyList<Reserva>>
+    +ListarPendientesAsync() : Task<IReadOnlyList<Reserva>>
+    +ContarConfirmadasAsync(idModelo) : Task<int>
+    +ContarActivasAsync(idModelo) : Task<int>
+  }
+  interface IRepositorioDeActividades {
+    +RegistrarAsync(usuario, actividad) : Task
+    +ListarDeAsync(usuario) : Task<IReadOnlyList<Actividad>>
+  }
+}
+
+package "Dominio.Entidades" as PEntidades {
+  class Usuario {
+    +NombreUsuario : string
+    +SeLlama(nombre) : bool
+    +VerificarClave(clave) : bool
+  }
+  class Credencial {
+    -salt : byte[16]
+    -resumen : byte[32]
+    +Verifica(clave) : bool
+    ~{static} Restaurar(salt, resumen) : Credencial
+  }
+  class VehiculoModelo {
+    +Id : int
+    +Stock : int
+    +NombreCreador : string
+    +ModificarDatos(ficha, solicitante, confirmadas, activas)
+    +CambiarImagen(solicitante, archivo, confirmadas) : string
+    +ValidarBaja(solicitante, activas) : string
+    +TomarLectura(confirmadas) : LecturaDeModelo
+  }
+  class DatosDeModelo {
+    +Nombre : string
+    +Descripcion : string
+    +Precio : decimal
+    +FechaEntregaPrometida : DateTime
+    +NombreArchivoImagen : string
+  }
+  class Reserva {
+    +Id : Guid
+    +NombreSolicitante : string
+    +ModeloId : int?
+    +NombreModelo : string
+    {field} +FechaCreacion : DateTime (UTC)
+    {field} +UltimaActualizacion : DateTime (UTC)
+    +EstaPendiente : bool
+    +FueHechaPor(usuario) : bool
+    ~Confirmar()
+    ~Rechazar()
+    ~Cancelar()
+  }
+  enum EstadoDeReserva {
+    Pendiente
+    Confirmada
+    Rechazada
+    Cancelada
+  }
+  class Actividad {
+    +Tipo : TipoActividad
+    +Detalle : string
+    {field} +FechaHora : DateTime (UTC)
+  }
+  enum TipoActividad {
+    InicioSesion
+    CierreSesion
+    ModeloCreado
+    ModeloModificado
+    ModeloEliminado
+    ReservaCreada
+    ReservaCancelada
+    Compra
+  }
+}
+
+ServicioDeUsuarios --> IRepositorioDeUsuarios
+ServicioDeUsuarios --> IRepositorioDeActividades
+ServicioDeUsuarios --> CandadoGlobal
+ServicioDeModelos --> IRepositorioDeModelos
+ServicioDeModelos --> IRepositorioDeReservas
+ServicioDeModelos --> CandadoGlobal
+ServicioDeReservas --> IRepositorioDeReservas
+ServicioDeReservas --> IRepositorioDeModelos
+ServicioDeReservas --> CandadoGlobal
+ServicioDeReservas --> IGeneradorDeComprobantes
+ServicioDeReservas *-- ResolutorDeReservas
+
+Usuario *-- "1" Credencial
+VehiculoModelo *-- "1" DatosDeModelo
+Reserva --> "1" EstadoDeReserva
+Actividad --> "1" TipoActividad
+Reserva ..> VehiculoModelo : se crea a partir de >
+
+IRepositorioDeUsuarios ..> Usuario
+IRepositorioDeModelos ..> VehiculoModelo
+IRepositorioDeReservas ..> Reserva
+IRepositorioDeActividades ..> Actividad
+
+note bottom of Reserva
+  Guarda el nombre del modelo y no una referencia:
+  sigue mostrándose aunque el modelo se dé de baja
+  (en la base, modelo_id queda en NULL).
+end note
+@enduml
