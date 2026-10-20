@@ -290,10 +290,11 @@ internal sealed class EjecutorDeComandos
         {
             return await _modelos.CambiarImagenDeModeloAsync(nombreModelo, nombreArchivoNuevo, usuario);
         }
-        catch (Exception excepcion) when (excepcion is DominioException or DbException)
+        catch
         {
-            // Si el dominio rechaza el cambio o la base no lo guarda, la imagen recién guardada no
-            // debe quedar huérfana: ningún modelo apunta a ella.
+            // Si el cambio no se registró, por el motivo que sea (el dominio lo rechaza, la base no
+            // lo guarda o un error inesperado), la imagen recién guardada no debe quedar huérfana:
+            // ningún modelo apunta a ella.
             IntentarEliminarImagen(
                 nombreArchivoNuevo, "No se pudo compensar la imagen nueva tras rechazarse el cambio");
             throw;
