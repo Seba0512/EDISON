@@ -299,14 +299,48 @@ internal sealed class EjecutorDeComandos
         {
             return await _modelos.CambiarImagenDeModeloAsync(nombreModelo, nombreArchivoNuevo, usuario);
         }
-        catch
+        catch (DominioException)
         {
-            // Si el cambio no se registró, por el motivo que sea (el dominio lo rechaza, la base no
-            // lo guarda o un error inesperado), la imagen recién guardada no debe quedar huérfana:
-            // ningún modelo apunta a ella.
+            // El dominio lo rechazó antes de escribir: seguro que ningún modelo apunta a la imagen.
             IntentarEliminarImagen(
                 nombreArchivoNuevo, "No se pudo compensar la imagen nueva tras rechazarse el cambio");
             throw;
+        }
+        catch
+        {
+            await CompensarSiNoQuedoAsociadaAsync(nombreModelo, nombreArchivoNuevo);
+            throw;
+        }
+    }
+
+    // Cualquier otra falla pudo ocurrir después del commit (por ejemplo, la conexión se cortó mientras
+    // MySQL confirmaba). La imagen se borra solo si la base confirma que no quedó asociada: un archivo
+    // huérfano ocupa lugar y la reconciliación del arranque lo limpia, pero borrar uno en uso dejaría
+    // al modelo sin su imagen.
+    private async Task CompensarSiNoQuedoAsociadaAsync(string nombreModelo, string nombreArchivoNuevo)
+    {
+        bool asociada;
+        try
+        {
+            asociada = (await _modelos.ConsultarLecturaAsync(nombreModelo)).NombreArchivoImagen
+                       == nombreArchivoNuevo;
+        }
+        catch (DominioException)
+        {
+            asociada = false;
+        }
+        catch (DbException excepcion)
+        {
+            Console.Error.WriteLine(
+                $"No se pudo comprobar si la imagen '{nombreArchivoNuevo}' quedó asociada; se conserva " +
+                $"hasta la reconciliación del próximo arranque: {excepcion.Message}");
+            return;
+        }
+
+        if (!asociada)
+        {
+            IntentarEliminarImagen(
+                nombreArchivoNuevo, "No se pudo compensar la imagen nueva tras fallar el cambio");
         }
     }
 
