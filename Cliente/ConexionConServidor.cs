@@ -142,6 +142,11 @@ internal sealed class ConexionConServidor : IAsyncDisposable
 
     private static void ExigirTamañoPermitido(long largo)
     {
+        if (largo == 0)
+        {
+            throw new OperacionRechazadaException("El archivo está vacío: no es una imagen válida");
+        }
+
         if (largo > Limites.LargoMaximoDeArchivo)
         {
             throw new OperacionRechazadaException("El archivo supera el tamaño máximo permitido " +

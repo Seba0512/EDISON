@@ -341,7 +341,8 @@ public static class Mensajes
     private static long ALargoDeArchivo(string texto)
     {
         long largo = FormatoDeCampos.AEnteroLargo(texto);
-        if (largo < 0)
+        // Un archivo vacío no es una imagen: aceptarlo dejaría al modelo con una imagen de 0 bytes.
+        if (largo <= 0)
         {
             throw new ProtocoloException($"'{texto}' no es un largo de archivo válido");
         }
