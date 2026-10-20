@@ -1,0 +1,64 @@
+@startuml secuencia-aceptacion
+title Aceptación asíncrona de clientes y cierre ordenado del servidor
+skinparam shadowing false
+autonumber
+
+participant "Program" as Program
+participant "ServidorTcp" as Servidor
+participant "Task aceptador\nAceptarConexionesAsync" as Aceptador
+participant "Task del cliente\nAtenderAsync" as Atencion
+participant "SesionDeCliente" as Sesion
+participant "EjecutorDeComandos" as Ejecutor
+participant "ServicioDeReservas" as Reservas
+actor Cliente
+
+== Arranque ==
+Program -> Reservas : await ReprogramarPendientesAsync()
+Program -> Servidor : Iniciar()
+Servidor -> Servidor : Bind + Listen
+Servidor -> Aceptador ** : AceptarConexionesAsync(listener, token)
+note right of Servidor
+  El método async corre hasta su primer await y
+  devuelve el Task: no hace falta Task.Run.
+end note
+Program -> Program : await EsperarCierreAsync()\n(señal o "salir")
+
+== Un cliente se conecta (se repite por cada uno) ==
+loop mientras no se cancele el token de ejecución
+  Cliente -> Aceptador : connect
+  Aceptador -> Aceptador : socket = await AcceptAsync(token)
+  Aceptador -> Sesion ** : new SesionDeCliente(socket, n)
+  Aceptador -> Atencion ** : AtenderAsync(conexion, sesion, token)
+  note right of Atencion
+    El Task queda en un ConcurrentDictionary
+    (conexiones activas), sin lock.
+  end note
+end
+
+loop cada solicitud del cliente
+  Cliente -> Sesion : trama
+  Sesion -> Sesion : await LeerAsync(stream, token)
+  Sesion -> Ejecutor : await EjecutarAsync(trama)
+  Ejecutor --> Sesion : respuesta (OK / ER)
+  Sesion -> Cliente : await EscribirAsync(respuesta)
+end
+note over Atencion, Sesion
+  Mientras espera bytes, ninguna Task ocupa un hilo: los awaits sobre
+  el socket liberan el hilo al pool. Un cliente lento no frena a los demás.
+end note
+
+== Cierre (docker stop / Ctrl+C / "salir") ==
+Program -> Program : cancela el token de apagado\n(las reservas pendientes quedan Pendiente)
+Program -> Servidor : await DetenerAsync()
+Servidor -> Servidor : cancela el token de ejecución\ny cierra el listener
+Aceptador --> Servidor : termina (OperationCanceledException)
+Servidor -> Servidor : await aceptador.WaitAsync(5 s)
+Servidor -> Atencion : cierra cada socket
+Sesion --> Atencion : la lectura falla y la sesión termina
+Servidor -> Servidor : await Task.WhenAll(clientes).WaitAsync(5 s)
+Program -> Reservas : await EsperarResolucionesEnCursoAsync(3 s)
+note right of Reservas
+  Espera a las reservas que se estaban
+  confirmando, para no cortar un comprobante.
+end note
+@enduml
