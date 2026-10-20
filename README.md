@@ -33,7 +33,7 @@ se usa su valor por defecto, y con esos valores todo corre en una misma máquina
 | `SERVIDOR_PUERTO` | `8080` | Puerto TCP del servidor |
 | `DIRECTORIO_IMAGENES` | `imagenes` | Carpeta de las imágenes de los modelos |
 | `DIRECTORIO_COMPROBANTES` | `comprobantes` | Carpeta de los comprobantes: `<usuario>/<idReserva>.txt` |
-| `PLAZO_RESERVA_SEGUNDOS` | `30` | Tiempo hasta que una reserva pendiente se confirma o se rechaza |
+| `PLAZO_RESERVA_SEGUNDOS` | `30` | Tiempo hasta que una reserva pendiente se confirma o se rechaza (de 1 a 86400) |
 | `MYSQL_CADENA_CONEXION` | `Server=127.0.0.1;Port=3306;Database=edison;User=edison;Password=edison;CharSet=utf8mb4` | Conexión con MySQL |
 
 **Cliente**
