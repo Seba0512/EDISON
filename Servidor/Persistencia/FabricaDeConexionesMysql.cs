@@ -33,22 +33,32 @@ internal sealed class FabricaDeConexionesMysql
     public async Task EsperarDisponibilidadAsync(
         int intentos, TimeSpan demoraEntreIntentos, CancellationToken token)
     {
-        for (int intento = 1; ; intento++)
+        int intento = 1;
+        while (!await BaseRespondeAsync(intento, intentos, token))
         {
-            try
-            {
-                await using MySqlConnection conexion = await AbrirAsync(token);
-                await using MySqlCommand consulta = new("SELECT 1", conexion);
-                await consulta.ExecuteScalarAsync(token);
-                Console.WriteLine("Conexión con MySQL establecida.");
-                return;
-            }
-            catch (MySqlException excepcion) when (intento < intentos)
-            {
-                Console.WriteLine(
-                    $"MySQL no está disponible todavía (intento {intento} de {intentos}): {excepcion.Message}");
-                await Task.Delay(demoraEntreIntentos, token);
-            }
+            await Task.Delay(demoraEntreIntentos, token);
+            intento++;
+        }
+
+        Console.WriteLine("Conexión con MySQL establecida.");
+    }
+
+    // Devuelve false si la base no respondió y quedan intentos. En el último intento la excepción
+    // sigue de largo, así que el bucle de arriba siempre termina.
+    private async Task<bool> BaseRespondeAsync(int intento, int intentos, CancellationToken token)
+    {
+        try
+        {
+            await using MySqlConnection conexion = await AbrirAsync(token);
+            await using MySqlCommand consulta = new("SELECT 1", conexion);
+            await consulta.ExecuteScalarAsync(token);
+            return true;
+        }
+        catch (MySqlException excepcion) when (intento < intentos)
+        {
+            Console.WriteLine(
+                $"MySQL no está disponible todavía (intento {intento} de {intentos}): {excepcion.Message}");
+            return false;
         }
     }
 }
