@@ -115,7 +115,7 @@ internal sealed class MysqlRepositorioDeReservas : IRepositorioDeReservas
     private static Reserva Leer(MySqlDataReader lector)
     {
         return Reserva.Restaurar(
-            Guid.Parse(lector.GetString(0)),
+            lector.GetGuid(0),
             lector.GetString(1),
             lector.IsDBNull(2) ? null : lector.GetInt32(2),
             lector.GetString(3),
