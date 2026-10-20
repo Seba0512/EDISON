@@ -359,8 +359,10 @@ la cuenta de las esperas:
 7. **Cierre por consola.** La orden `salir` solo se acepta con una consola interactiva. En Docker, el
    servidor se cierra con `docker stop` (SIGTERM), como habilita la letra.
 8. **Tope del cierre.** El cierre espera hasta 5 s al aceptador, 5 s a las conexiones de los clientes
-   y 3 s a las reservas que se estaban confirmando. Así entra dentro de los 10 s que `docker stop`
-   espera antes de forzar la terminación.
+   y 3 s a las reservas que se estaban confirmando. Normalmente todo termina en milisegundos, y los
+   topes solo evitan que el cierre quede colgado. En el peor caso suman 13 s, más que los 10 s que
+   `docker stop` espera por defecto antes de forzar la terminación: si hiciera falta, se amplía con
+   `docker stop -t 15`.
 9. **Precio.** Como en la entrega 1, el precio de un modelo se redondea a un valor entero.
 
 ## 6. Errores conocidos
