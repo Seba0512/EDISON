@@ -55,10 +55,18 @@ internal static class Program
         IRepositorioDeReservas repositorioDeReservas = new MysqlRepositorioDeReservas(conexiones);
         IRepositorioDeActividades repositorioDeActividades = new MysqlRepositorioDeActividades(conexiones);
         CandadoGlobal candado = new();
+        // Se cancela al cerrar y corta las esperas de las reservas pendientes sin tocarlas.
+        using CancellationTokenSource apagado = new();
         ServicioDeUsuarios usuarios = new(repositorioDeUsuarios, repositorioDeActividades, candado);
         ServicioDeModelos modelos = new(repositorioDeModelos, repositorioDeReservas, candado);
+        ComprobantesEnDisco comprobantes = new(configuracion.ReceiptsDirectory);
         ServicioDeReservas reservas = new(
-            repositorioDeReservas, repositorioDeModelos, candado, configuracion.ReservationTimeout);
+            repositorioDeReservas,
+            repositorioDeModelos,
+            candado,
+            comprobantes,
+            configuracion.ReservationTimeout,
+            apagado.Token);
         // Las imágenes pertenecen a modelos guardados en la base: no se borran al arrancar ni al cerrar.
         ImagenesEnDisco imagenes = new(configuracion.ImagesDirectory);
         EjecutorDeComandos ejecutor = new(usuarios, modelos, reservas, imagenes);
@@ -66,11 +74,13 @@ internal static class Program
         await using ServidorTcp servidor = new(configuracion, ejecutor);
         try
         {
+            await reservas.ReprogramarPendientesAsync();
             servidor.Iniciar();
             await EsperarCierreAsync(cierre.Token);
         }
         finally
         {
+            await apagado.CancelAsync();
             await servidor.DetenerAsync();
         }
     }
