@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -28,15 +29,14 @@ internal sealed class ConexionConServidor : IDisposable
 
     public static ConexionConServidor Conectar(ConfiguracionCliente configuracion)
     {
+        // El host puede ser una IP o un nombre (en Docker, el del contenedor): se resuelve acá.
+        IPAddress direccion = Dns.GetHostAddresses(configuracion.ServerHost)[0];
         // Sin Bind local: el sistema operativo asigna el puerto efímero, así pueden abrirse varias
         // instancias del cliente y conectarse a un servidor en otra máquina sin tocar código.
-        Socket socket = new(
-            configuracion.ServerIp.AddressFamily,
-            SocketType.Stream,
-            ProtocolType.Tcp);
+        Socket socket = new(direccion.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         try
         {
-            socket.Connect(configuracion.Endpoint);
+            socket.Connect(new IPEndPoint(direccion, configuracion.ServerPort));
             return new ConexionConServidor(socket, configuracion);
         }
         catch

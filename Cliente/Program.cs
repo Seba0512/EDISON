@@ -1,4 +1,3 @@
-using System.Configuration;
 using System.Net.Sockets;
 using Common;
 
@@ -19,7 +18,7 @@ internal static class Program
             Ejecutar();
             return 0;
         }
-        catch (ConfigurationErrorsException excepcion)
+        catch (ConfiguracionInvalidaException excepcion)
         {
             Consola.ErrorFatal($"Configuración inválida: {excepcion.Message}");
         }
@@ -80,7 +79,7 @@ internal static class Program
         using (conexion)
         {
             Consola.Titulo("Sistema de Modelos y Reservas");
-            Consola.Exito($"Conectado a {configuracion.Endpoint}");
+            Consola.Exito($"Conectado a {configuracion.Destino}");
             new Menu(conexion).Ejecutar();
         }
 

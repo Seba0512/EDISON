@@ -6,14 +6,14 @@ namespace Servidor.Dominio.Servicios;
 // Ciclo de vida de las reservas: solicitud, resolución diferida y cancelación.
 public class ServicioDeReservas
 {
-    // Regla del negocio, no del entorno: toda reserva se resuelve este tiempo después de pedirla.
-    private static readonly TimeSpan PlazoDeResolucion = TimeSpan.FromSeconds(30);
-
     private readonly EstadoEnMemoria _estado;
+    // Toda reserva se resuelve este tiempo después de pedirla. Llega por configuración.
+    private readonly TimeSpan _plazoDeResolucion;
 
-    public ServicioDeReservas(EstadoEnMemoria estado)
+    public ServicioDeReservas(EstadoEnMemoria estado, TimeSpan plazoDeResolucion)
     {
         _estado = estado;
+        _plazoDeResolucion = plazoDeResolucion;
     }
 
     public Guid SolicitarReserva(string nombreModelo, Usuario solicitante)
@@ -67,7 +67,7 @@ public class ServicioDeReservas
     {
         try
         {
-            Thread.Sleep(PlazoDeResolucion);
+            Thread.Sleep(_plazoDeResolucion);
             ResolverReserva(idReserva);
         }
         catch (Exception exception)
