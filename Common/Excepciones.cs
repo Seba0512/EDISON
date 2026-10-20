@@ -46,3 +46,11 @@ public sealed class ArchivoLocalException : Exception
     {
     }
 }
+
+// Falta una variable de entorno obligatoria o su valor no es válido.
+public sealed class ConfiguracionInvalidaException : Exception
+{
+    public ConfiguracionInvalidaException(string mensaje) : base(mensaje)
+    {
+    }
+}
