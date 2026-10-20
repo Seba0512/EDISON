@@ -166,7 +166,7 @@ internal sealed class EjecutorDeComandos
 
     private async Task<RespuestaDelServidor> BajaDeModeloAsync(Trama solicitud, Usuario usuario)
     {
-        await _modelos.EliminarModeloAsync(solicitud.DatosComoTexto(), usuario, _imagenes.Eliminar);
+        await _modelos.EliminarModeloAsync(solicitud.DatosComoTexto(), usuario);
         return RespuestaDelServidor.Ok("Modelo eliminado correctamente.");
     }
 

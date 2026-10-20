@@ -1,4 +1,5 @@
 using Common;
+using Servidor.Dominio.Servicios;
 
 namespace Servidor;
 
@@ -12,7 +13,7 @@ internal sealed class AlmacenDeImagenesException : Exception
     }
 }
 
-internal sealed class ImagenesEnDisco
+internal sealed class ImagenesEnDisco : IImagenesDeModelos
 {
     private const string NoSePudoGuardar =
         "No se pudo guardar la imagen en el servidor. Intente nuevamente.";
@@ -21,6 +22,9 @@ internal sealed class ImagenesEnDisco
     private const int TamañoDeBuffer = 4096;
     private const int SinBuffer = 0;
     private const string SufijoTemporal = ".tmp";
+    // Distinto del de los temporales de subida: estos no se borran al arrancar, porque si el proceso
+    // murió en medio de una baja no se sabe si la base llegó a confirmarla.
+    private const string SufijoDeBaja = ".baja";
 
     private static readonly string[] ExtensionesPermitidas = { ".png", ".jpg", ".jpeg" };
 
@@ -137,6 +141,75 @@ internal sealed class ImagenesEnDisco
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
             throw new AlmacenDeImagenesException("No se pudo eliminar la imagen del servidor.", excepcion);
+        }
+    }
+
+    // Apartar es renombrar: es atómico y no copia nada, así la imagen sigue entera hasta saber si la
+    // baja se confirmó en la base.
+    public void Apartar(string nombreArchivo)
+    {
+        if (nombreArchivo.Length == 0)
+        {
+            return;
+        }
+
+        string ruta = RutaDe(nombreArchivo);
+        if (!File.Exists(ruta))
+        {
+            return;
+        }
+
+        try
+        {
+            File.Move(ruta, ruta + SufijoDeBaja, overwrite: true);
+        }
+        catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
+        {
+            throw new AlmacenDeImagenesException("No se pudo eliminar la imagen del servidor.", excepcion);
+        }
+    }
+
+    public void Descartar(string nombreArchivo)
+    {
+        if (nombreArchivo.Length == 0)
+        {
+            return;
+        }
+
+        string apartada = RutaDe(nombreArchivo) + SufijoDeBaja;
+        try
+        {
+            File.Delete(apartada);
+        }
+        catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
+        {
+            // El modelo ya no existe: el archivo apartado ocupa lugar pero ningún cliente puede verlo.
+            Console.Error.WriteLine($"No se pudo borrar la imagen apartada '{apartada}': {excepcion.Message}");
+        }
+    }
+
+    public void Restaurar(string nombreArchivo)
+    {
+        if (nombreArchivo.Length == 0)
+        {
+            return;
+        }
+
+        string ruta = RutaDe(nombreArchivo);
+        string apartada = ruta + SufijoDeBaja;
+        if (!File.Exists(apartada))
+        {
+            return;
+        }
+
+        try
+        {
+            File.Move(apartada, ruta, overwrite: false);
+        }
+        catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
+        {
+            // No se tapa el error de la base que provocó la restauración: solo se registra este.
+            Console.Error.WriteLine($"No se pudo restaurar la imagen '{nombreArchivo}': {excepcion.Message}");
         }
     }
 
