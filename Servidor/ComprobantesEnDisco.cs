@@ -56,7 +56,9 @@ internal sealed class ComprobantesEnDisco : IGeneradorDeComprobantes
     }
 
     // El nombre de usuario se usa como carpeta, así que no puede salirse del directorio ni ser
-    // un nombre que el sistema de archivos trate distinto.
+    // un nombre que el sistema de archivos trate distinto. Sin separadores, ".." solo es peligroso
+    // como nombre completo ("a..b" es una carpeta común), y los nombres como CON solo son
+    // especiales en Windows: en el contenedor Linux son carpetas como cualquier otra.
     public static string ValidarNombreDeUsuario(string nombreUsuario)
     {
         string nombre = (nombreUsuario ?? string.Empty).Trim();
@@ -64,10 +66,10 @@ internal sealed class ComprobantesEnDisco : IGeneradorDeComprobantes
             || Path.IsPathRooted(nombre)
             || nombre.Contains('/')
             || nombre.Contains('\\')
-            || nombre.Contains("..")
+            || nombre is "." or ".."
             || nombre.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
             || nombre.EndsWith('.')
-            || NombresReservados.Contains(nombre.Split('.')[0]))
+            || (OperatingSystem.IsWindows() && NombresReservados.Contains(nombre.Split('.')[0])))
         {
             throw new ProtocoloException(
                 "El nombre de usuario no se puede usar como carpeta de comprobantes");
