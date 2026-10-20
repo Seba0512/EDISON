@@ -1,4 +1,3 @@
-using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -29,15 +28,16 @@ internal sealed class ConexionConServidor : IAsyncDisposable
 
     public static async Task<ConexionConServidor> ConectarAsync(ConfiguracionCliente configuracion)
     {
-        // El host puede ser una IP o un nombre (en Docker, el del contenedor): se resuelve acá.
-        IPAddress[] direcciones = await Dns.GetHostAddressesAsync(configuracion.ServerHost);
-        IPAddress direccion = direcciones[0];
         // Sin Bind local: el sistema operativo asigna el puerto efímero, así pueden abrirse varias
         // instancias del cliente y conectarse a un servidor en otra máquina sin tocar código.
-        Socket socket = new(direccion.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        // Sin familia de direcciones el socket es dual (IPv4 e IPv6).
+        Socket socket = new(SocketType.Stream, ProtocolType.Tcp);
         try
         {
-            await socket.ConnectAsync(new IPEndPoint(direccion, configuracion.ServerPort));
+            // El host puede ser una IP o un nombre (en Docker, el del contenedor). ConnectAsync lo
+            // resuelve y prueba sus direcciones en orden hasta que una acepta: en Windows "localhost"
+            // da primero ::1, y el servidor por defecto escucha solo en IPv4.
+            await socket.ConnectAsync(configuracion.ServerHost, configuracion.ServerPort);
             return new ConexionConServidor(socket, configuracion);
         }
         catch

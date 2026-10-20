@@ -50,7 +50,7 @@ public static class ConfiguracionDeLaAplicacion
     }
 
     // Devuelve el texto tal cual: puede ser una IP o un nombre (por ejemplo el del contenedor
-    // del servidor). Se resuelve recién al conectar, con Dns.GetHostAddressesAsync.
+    // del servidor). Se resuelve recién al conectar, en ConexionConServidor.ConectarAsync.
     public static string LeerHost(string clave, string defecto)
     {
         return Leer(clave, defecto).Trim();
