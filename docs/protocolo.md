@@ -116,8 +116,8 @@ Cliente                                          Servidor
    | <---------  CMD 15  OK / ER (respuesta final) |
 ```
 
-- Si el anuncio se rechaza (extensión no permitida, largo fuera de rango), el servidor responde `ER`
-  en el primer paso y el cliente no envía ningún byte del archivo.
+- Si el anuncio se rechaza (extensión no permitida, archivo vacío o de más de 10 MiB), el servidor
+  responde `ER` en el primer paso y el cliente no envía ningún byte del archivo.
 - Si el disco falla a mitad de la recepción, el servidor igual consume las partes restantes. Así el
   stream queda sincronizado, responde `ER` y la conexión sigue.
 - Si el modelo no existe, no es del usuario o la base no registra el cambio, la imagen recién
@@ -147,4 +147,5 @@ Cliente                                          Servidor
 | Respuesta mayor a 1 MiB (por ejemplo, una búsqueda enorme) | `CodecDeTramas.EscribirAsync`, antes de escribir | `ER` "refine la búsqueda", la sesión sigue |
 | Excepción inesperada | `SesionDeCliente` | `IN` y cierre de la conexión |
 | El otro lado cierra entre dos tramas | Primer byte del CMD | Fin normal de la sesión (`ConexionCerradaException`) |
-| El otro lado cierra a mitad de una trama | Cualquier otro campo | `TramaTruncadaException` y cierre de la sesión |
+| El otro lado cierra a mitad de una trama o de un archivo | Cualquier otro campo, o las partes | `TramaTruncadaException` (es un corte de conexión, no un dato inválido) y cierre de la sesión |
+| Encabezado inválido: CMD no numérico, LARGO negativo o mayor a 1 MiB | `CodecDeTramas.LeerAsync` | Cierre de la conexión: ya no se puede saber dónde empieza la trama siguiente |
