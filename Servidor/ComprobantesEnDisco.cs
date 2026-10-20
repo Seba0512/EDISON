@@ -17,6 +17,10 @@ internal sealed class ComprobantesEnDisco : IGeneradorDeComprobantes
     private static readonly StringComparison ComparacionDeRutas =
         OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
+    // Los que Windows no admite en un nombre de carpeta, más el propio '%' de los escapes.
+    private static readonly HashSet<char> CaracteresQueSeEscapan =
+        new("<>:\"/\\|?*%".Concat(Enumerable.Range(0, 32).Select(valor => (char)valor)));
+
     private static readonly HashSet<string> NombresReservados = new(StringComparer.OrdinalIgnoreCase)
     {
         "CON", "PRN", "AUX", "NUL",
@@ -55,34 +59,53 @@ internal sealed class ComprobantesEnDisco : IGeneradorDeComprobantes
         }
     }
 
-    // El nombre de usuario se usa como carpeta, así que no puede salirse del directorio ni ser
-    // un nombre que el sistema de archivos trate distinto. Sin separadores, ".." solo es peligroso
-    // como nombre completo ("a..b" es una carpeta común), y los nombres como CON solo son
-    // especiales en Windows: en el contenedor Linux son carpetas como cualquier otra.
-    public static string ValidarNombreDeUsuario(string nombreUsuario)
-    {
-        string nombre = (nombreUsuario ?? string.Empty).Trim();
-        if (nombre.Length == 0
-            || Path.IsPathRooted(nombre)
-            || nombre.Contains('/')
-            || nombre.Contains('\\')
-            || nombre is "." or ".."
-            || nombre.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
-            || nombre.EndsWith('.')
-            || (OperatingSystem.IsWindows() && NombresReservados.Contains(nombre.Split('.')[0])))
-        {
-            throw new ProtocoloException(
-                "El nombre de usuario no se puede usar como carpeta de comprobantes");
-        }
-
-        return nombre;
-    }
-
     private string CarpetaDe(string nombreUsuario)
     {
-        string carpeta = Path.GetFullPath(Path.Combine(_directorio, ValidarNombreDeUsuario(nombreUsuario)));
+        string carpeta = Path.GetFullPath(Path.Combine(_directorio, CarpetaPara(nombreUsuario)));
         ExigirDentroDelDirectorio(carpeta);
         return carpeta;
+    }
+
+    // Toda identidad aceptada tiene su carpeta. Lo normal es usar el nombre tal cual, porque el
+    // registro solo acepta nombres que sirven como carpeta. Uno que no sirve (por ejemplo, de un
+    // usuario registrado antes de esa regla) se escribe con escapes %XXXX. Como el '%' también se
+    // escapa, un nombre usado tal cual nunca coincide con uno escapado.
+    private static string CarpetaPara(string nombreUsuario)
+    {
+        return EsCarpetaValida(nombreUsuario) ? nombreUsuario : ConEscapes(nombreUsuario);
+    }
+
+    // Criterio de Windows, el más estricto, en cualquier sistema: así la carpeta de un usuario es la
+    // misma corra donde corra el servidor.
+    private static bool EsCarpetaValida(string nombre)
+    {
+        return nombre.Length > 0
+               && !nombre.Any(CaracteresQueSeEscapan.Contains)
+               && nombre[0] is not ('.' or ' ')
+               && nombre[^1] is not ('.' or ' ')
+               && !EsReservado(nombre);
+    }
+
+    private static string ConEscapes(string nombre)
+    {
+        bool reservado = EsReservado(nombre);
+        StringBuilder carpeta = new(nombre.Length);
+        for (int indice = 0; indice < nombre.Length; indice++)
+        {
+            char caracter = nombre[indice];
+            bool enUnExtremo = indice == 0 || indice == nombre.Length - 1;
+            bool escapar = CaracteresQueSeEscapan.Contains(caracter)
+                           || (enUnExtremo && caracter is '.' or ' ')
+                           || (indice == 0 && reservado);
+            carpeta.Append(escapar ? $"%{(int)caracter:X4}" : caracter);
+        }
+
+        return carpeta.ToString();
+    }
+
+    private static bool EsReservado(string nombre)
+    {
+        return NombresReservados.Contains(nombre.Split('.')[0].TrimEnd());
     }
 
     // Segunda barrera: aunque la validación del nombre falle, la ruta final tiene que quedar adentro.
