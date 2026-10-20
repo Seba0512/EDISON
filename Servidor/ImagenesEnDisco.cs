@@ -17,6 +17,9 @@ internal sealed class ImagenesEnDisco
     private const string NoSePudoGuardar =
         "No se pudo guardar la imagen en el servidor. Intente nuevamente.";
 
+    // Los FileStream se abren con useAsync: true, así ReadAsync/WriteAsync son I/O asincrónico real.
+    private const int TamañoDeBuffer = 4096;
+
     private static readonly string[] ExtensionesPermitidas = { ".png", ".jpg", ".jpeg" };
 
     // Windows no permite estos nombres de archivo ni siquiera con extensión.
@@ -69,16 +72,16 @@ internal sealed class ImagenesEnDisco
 
     // El contenido lo escribe quien llama, directo sobre el archivo: en la subida, la sesión a
     // medida que llegan las partes. Así la imagen nunca se junta entera en memoria.
-    public void Guardar(string nombreArchivo, Action<Stream> escribirContenido)
+    public async Task GuardarAsync(string nombreArchivo, Func<Stream, Task> escribirContenido)
     {
         string ruta = RutaDe(nombreArchivo);
         // Se escribe a un .tmp y luego se mueve, para no dejar una imagen a medias si falla la copia.
         string rutaTemporal = ruta + ".tmp";
         try
         {
-            using (FileStream destino = CrearTemporal(rutaTemporal))
+            await using (FileStream destino = CrearTemporal(rutaTemporal))
             {
-                EscribirContenido(destino, escribirContenido);
+                await EscribirContenidoAsync(destino, escribirContenido);
             }
 
             Mover(rutaTemporal, ruta);
@@ -95,7 +98,8 @@ internal sealed class ImagenesEnDisco
         {
             // FileShare.Delete permite borrar la imagen mientras otro cliente todavía la descarga.
             return new FileStream(
-                RutaDe(nombreArchivo), FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+                RutaDe(nombreArchivo), FileMode.Open, FileAccess.Read,
+                FileShare.Read | FileShare.Delete, TamañoDeBuffer, useAsync: true);
         }
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
@@ -180,7 +184,9 @@ internal sealed class ImagenesEnDisco
     {
         try
         {
-            return File.Create(rutaTemporal);
+            return new FileStream(
+                rutaTemporal, FileMode.Create, FileAccess.Write, FileShare.None,
+                TamañoDeBuffer, useAsync: true);
         }
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
@@ -190,11 +196,12 @@ internal sealed class ImagenesEnDisco
 
     // Solo una falla del disco se informa como error del almacén. Un corte de red a mitad de la
     // subida sigue de largo, porque esa conexión ya no puede recibir una respuesta.
-    private static void EscribirContenido(Stream destino, Action<Stream> escribirContenido)
+    private static async Task EscribirContenidoAsync(
+        Stream destino, Func<Stream, Task> escribirContenido)
     {
         try
         {
-            escribirContenido(destino);
+            await escribirContenido(destino);
         }
         catch (ArchivoLocalException excepcion)
         {

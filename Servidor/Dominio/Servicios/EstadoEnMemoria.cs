@@ -5,10 +5,11 @@ namespace Servidor.Dominio.Servicios;
 
 // Todo el estado del sistema vive acá, en memoria, y los tres services lo comparten.
 // El candado es único y global, como recomienda el curso: quien opera sobre el estado lo toma
-// una vez y adentro solo hace leer-validar-modificar, nunca I/O ni esperas.
+// una vez y adentro solo hace leer-validar-modificar, nunca I/O ni esperas. Es un
+// SemaphoreSlim porque un lock no puede contener await: los servicios lo toman con WaitAsync.
 public sealed class EstadoEnMemoria
 {
-    public object Candado { get; } = new();
+    public SemaphoreSlim Candado { get; } = new(1, 1);
 
     public Dictionary<string, Usuario> Usuarios { get; } = new(StringComparer.OrdinalIgnoreCase);
 

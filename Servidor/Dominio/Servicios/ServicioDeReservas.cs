@@ -16,30 +16,32 @@ public class ServicioDeReservas
         _plazoDeResolucion = plazoDeResolucion;
     }
 
-    public Guid SolicitarReserva(string nombreModelo, Usuario solicitante)
+    public async Task<Guid> SolicitarReservaAsync(string nombreModelo, Usuario solicitante)
     {
         Reserva reserva;
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
         {
             VehiculoModelo modelo = _estado.ObtenerModelo(nombreModelo);
             reserva = new Reserva(solicitante, modelo);
             _estado.Reservas.Add(reserva.Id, reserva);
             solicitante.Registrar(Actividad.ReservaCreada(modelo.Nombre));
         }
-
-        // El modelo del curso: un Thread por reserva que duerme el plazo y después la resuelve.
-        Thread resolutor = new(() => DormirYResolver(reserva.Id))
+        finally
         {
-            IsBackground = true,
-            Name = $"Reserva {reserva.Id}"
-        };
-        resolutor.Start();
+            _estado.Candado.Release();
+        }
+
+        // La espera es un Task.Delay y no ocupa ningún hilo mientras dura. Nadie espera este
+        // Task: ResolverTrasDemoraAsync registra sus propios errores.
+        _ = ResolverTrasDemoraAsync(reserva.Id);
         return reserva.Id;
     }
 
-    public void CancelarReserva(Guid idReserva, Usuario solicitante)
+    public async Task CancelarReservaAsync(Guid idReserva, Usuario solicitante)
     {
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
         {
             Reserva reserva = _estado.ObtenerReserva(idReserva);
             if (!reserva.FueHechaPor(solicitante.NombreUsuario))
@@ -50,36 +52,47 @@ public class ServicioDeReservas
             reserva.Cancelar();
             solicitante.Registrar(Actividad.ReservaCancelada(reserva.NombreDelModelo()));
         }
+        finally
+        {
+            _estado.Candado.Release();
+        }
     }
 
-    public IReadOnlyList<LecturaDeReserva> ConsultarReservasDe(Usuario usuario)
+    public async Task<IReadOnlyList<LecturaDeReserva>> ConsultarReservasDeAsync(Usuario usuario)
     {
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
         {
             return _estado.Reservas.Values
                 .Where(reserva => reserva.FueHechaPor(usuario.NombreUsuario))
                 .Select(reserva => reserva.TomarLectura())
                 .ToList();
         }
+        finally
+        {
+            _estado.Candado.Release();
+        }
     }
 
-    private void DormirYResolver(Guid idReserva)
+    private async Task ResolverTrasDemoraAsync(Guid idReserva)
     {
         try
         {
-            Thread.Sleep(_plazoDeResolucion);
-            ResolverReserva(idReserva);
+            await Task.Delay(_plazoDeResolucion);
+            await ResolverReservaAsync(idReserva);
         }
         catch (Exception exception)
         {
-            // Sin este catch la excepción mataría el Thread en silencio y la reserva quedaría Pendiente.
+            // Nadie observa este Task, así que sin este catch la excepción se perdería en silencio
+            // y la reserva quedaría Pendiente.
             Console.Error.WriteLine($"No se pudo resolver la reserva {idReserva}: {exception}");
         }
     }
 
-    private void ResolverReserva(Guid idReserva)
+    private async Task ResolverReservaAsync(Guid idReserva)
     {
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
         {
             // Si la cancelaron antes de que venciera el plazo, ya no hay nada que resolver.
             if (!_estado.Reservas.TryGetValue(idReserva, out Reserva? reserva) || !reserva.EstaPendiente)
@@ -98,6 +111,10 @@ public class ServicioDeReservas
             {
                 reserva.Rechazar();
             }
+        }
+        finally
+        {
+            _estado.Candado.Release();
         }
     }
 }

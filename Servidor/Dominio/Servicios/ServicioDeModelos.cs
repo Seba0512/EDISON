@@ -23,11 +23,12 @@ public class ServicioDeModelos
         _estado = estado;
     }
 
-    public void AltaDeModelo(FichaDeModelo ficha, Usuario creador)
+    public async Task AltaDeModeloAsync(FichaDeModelo ficha, Usuario creador)
     {
         ExigirFechaDeEntregaFutura(ficha.Datos.FechaEntregaPrometida);
         VehiculoModelo modelo = new VehiculoModelo(ficha, creador);
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
         {
             if (_estado.Modelos.ContainsKey(modelo.Nombre))
             {
@@ -37,11 +38,16 @@ public class ServicioDeModelos
             _estado.Modelos.Add(modelo.Nombre, modelo);
             creador.Registrar(Actividad.ModeloCreado(ficha.Nombre));
         }
+        finally
+        {
+            _estado.Candado.Release();
+        }
     }
 
-    public void ModificarModelo(FichaDeModelo ficha, Usuario solicitante)
+    public async Task ModificarModeloAsync(FichaDeModelo ficha, Usuario solicitante)
     {
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
         {
             VehiculoModelo modelo = _estado.ObtenerModelo(ficha.Nombre);
             // Solo se exige futura si la fecha efectivamente cambió, para permitir la edición tardía
@@ -55,19 +61,28 @@ public class ServicioDeModelos
                 ficha, solicitante, _estado.ContarConfirmadas(modelo), _estado.ContarActivas(modelo));
             solicitante.Registrar(Actividad.ModeloModificado(ficha.Nombre));
         }
+        finally
+        {
+            _estado.Candado.Release();
+        }
     }
 
     // Se valida y bloquea el modelo bajo el candado; el archivo se borra fuera de él.
     // Solo después se quita el modelo y se registra la baja en el historial.
-    public void EliminarModelo(string nombreModelo, Usuario solicitante, Action<string> eliminarImagen)
+    public async Task EliminarModeloAsync(string nombreModelo, Usuario solicitante, Action<string> eliminarImagen)
     {
         VehiculoModelo modelo;
         string nombreArchivoImagen;
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
         {
             modelo = _estado.ObtenerModelo(nombreModelo);
             nombreArchivoImagen =
                 modelo.MarcarComoEliminado(solicitante, _estado.ContarActivas(modelo));
+        }
+        finally
+        {
+            _estado.Candado.Release();
         }
 
         try
@@ -76,26 +91,37 @@ public class ServicioDeModelos
         }
         catch
         {
-            lock (_estado.Candado)
+            await _estado.Candado.WaitAsync();
+            try
             {
                 modelo.RestaurarTrasBajaFallida();
+            }
+            finally
+            {
+                _estado.Candado.Release();
             }
 
             throw;
         }
 
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
         {
             _estado.Modelos.Remove(modelo.Nombre);
             solicitante.Registrar(Actividad.ModeloEliminado(modelo.Nombre));
         }
+        finally
+        {
+            _estado.Candado.Release();
+        }
     }
 
     // Devuelve el nombre de la imagen reemplazada para que la capa de arriba borre el archivo viejo.
-    public string CambiarImagenDeModelo(
+    public async Task<string> CambiarImagenDeModeloAsync(
         string nombreModelo, string nuevoNombreArchivoImagen, Usuario solicitante)
     {
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
         {
             VehiculoModelo modelo = _estado.ObtenerModelo(nombreModelo);
             string nombreArchivoAnterior = modelo.CambiarImagen(
@@ -103,11 +129,16 @@ public class ServicioDeModelos
             solicitante.Registrar(Actividad.ModeloModificado(modelo.Nombre));
             return nombreArchivoAnterior;
         }
+        finally
+        {
+            _estado.Candado.Release();
+        }
     }
 
-    public IReadOnlyList<LecturaDeModelo> Buscar(FiltroDeModelos filtro)
+    public async Task<IReadOnlyList<LecturaDeModelo>> BuscarAsync(FiltroDeModelos filtro)
     {
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
         {
             return _estado.Modelos.Values
                 .Where(modelo => !modelo.EstaEliminado)
@@ -116,14 +147,23 @@ public class ServicioDeModelos
                 .Where(modelo => Cumple(modelo, filtro))
                 .ToList();
         }
+        finally
+        {
+            _estado.Candado.Release();
+        }
     }
 
-    public LecturaDeModelo ConsultarLectura(string nombreModelo)
+    public async Task<LecturaDeModelo> ConsultarLecturaAsync(string nombreModelo)
     {
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
         {
             VehiculoModelo modelo = _estado.ObtenerModelo(nombreModelo);
             return modelo.TomarLectura(_estado.ContarConfirmadas(modelo));
+        }
+        finally
+        {
+            _estado.Candado.Release();
         }
     }
 

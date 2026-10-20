@@ -13,10 +13,11 @@ public class ServicioDeUsuarios
         _estado = estado;
     }
 
-    public Usuario Registrar(string nombreUsuario, string clave)
+    public async Task<Usuario> RegistrarAsync(string nombreUsuario, string clave)
     {
         Usuario usuario = new Usuario(nombreUsuario, clave);
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
         {
             if (_estado.Usuarios.ContainsKey(usuario.NombreUsuario))
             {
@@ -25,13 +26,18 @@ public class ServicioDeUsuarios
 
             _estado.Usuarios.Add(usuario.NombreUsuario, usuario);
         }
+        finally
+        {
+            _estado.Candado.Release();
+        }
 
         return usuario;
     }
 
-    public Usuario IniciarSesion(string nombreUsuario, string clave)
+    public async Task<Usuario> IniciarSesionAsync(string nombreUsuario, string clave)
     {
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
         {
             Usuario? usuario = _estado.BuscarUsuario(nombreUsuario);
             // Mismo error si no existe o la clave es incorrecta, para no revelar qué usuarios existen.
@@ -43,21 +49,35 @@ public class ServicioDeUsuarios
             usuario.Registrar(Actividad.InicioSesion());
             return usuario;
         }
-    }
-
-    public void CerrarSesion(Usuario usuario)
-    {
-        lock (_estado.Candado)
+        finally
         {
-            usuario.Registrar(Actividad.CierreSesion());
+            _estado.Candado.Release();
         }
     }
 
-    public IReadOnlyList<Actividad> HistorialDe(Usuario usuario)
+    public async Task CerrarSesionAsync(Usuario usuario)
     {
-        lock (_estado.Candado)
+        await _estado.Candado.WaitAsync();
+        try
+        {
+            usuario.Registrar(Actividad.CierreSesion());
+        }
+        finally
+        {
+            _estado.Candado.Release();
+        }
+    }
+
+    public async Task<IReadOnlyList<Actividad>> HistorialDeAsync(Usuario usuario)
+    {
+        await _estado.Candado.WaitAsync();
+        try
         {
             return usuario.Actividades();
+        }
+        finally
+        {
+            _estado.Candado.Release();
         }
     }
 }

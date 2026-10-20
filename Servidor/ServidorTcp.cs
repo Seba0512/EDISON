@@ -1,30 +1,30 @@
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 using Common;
 
 namespace Servidor;
 
-// El modelo del curso: un flag de ejecución, un Thread aceptador, un Thread por cliente y una
-// lista de conexiones con lock. Detener cierra el listener y los sockets activos, y eso
-// desbloquea los Accept y Receive pendientes para poder esperar cada Thread.
-internal sealed class ServidorTcp : IDisposable
+// Un Task aceptador y un Task por cliente. El cierre se coordina con un CancellationTokenSource:
+// DetenerAsync lo cancela, cierra el listener y los sockets, y espera a los Tasks con un tope.
+internal sealed class ServidorTcp : IAsyncDisposable
 {
     // Conexiones que el sistema operativo encola mientras el aceptador no las tomó con Accept.
     // No limita los clientes conectados, y como el aceptador las toma enseguida, alcanza con pocas.
     private const int ConexionesEnEspera = 10;
 
-    // Al cerrar se espera a cada Thread como mucho este tiempo: si alguno no termina, se informa
+    // Al cerrar se espera a los Tasks como mucho este tiempo: si alguno no termina, se informa
     // en vez de dejar el cierre colgado.
-    private static readonly TimeSpan EsperaMaximaPorThread = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan EsperaMaxima = TimeSpan.FromSeconds(5);
 
     private readonly ConfiguracionServidor _configuracion;
     private readonly EjecutorDeComandos _ejecutor;
     private readonly CodecDeTramas _codec;
-    private readonly List<ConexionDeCliente> _conexiones = new();
-    private readonly object _candado = new();
-    private volatile bool _ejecutando;
+    private readonly ConcurrentDictionary<int, ConexionDeCliente> _conexiones = new();
+    private readonly CancellationTokenSource _ejecucion = new();
     private Socket? _listener;
-    private Thread? _aceptador;
+    private Task _aceptador = Task.CompletedTask;
     private int _siguienteCliente;
+    private bool _detenido;
 
     public ServidorTcp(ConfiguracionServidor configuracion, EjecutorDeComandos ejecutor)
     {
@@ -54,39 +54,33 @@ internal sealed class ServidorTcp : IDisposable
         }
 
         _listener = listener;
-        _ejecutando = true;
-        _aceptador = new Thread(AceptarConexiones) { Name = "Aceptador TCP" };
-        _aceptador.Start();
+        // El método async corre hasta su primer await y devuelve el Task: no hace falta Task.Run.
+        _aceptador = AceptarConexionesAsync(listener, _ejecucion.Token);
         Console.WriteLine($"Servidor escuchando en {_configuracion.Endpoint}");
     }
 
-    public bool Detener()
+    public async Task<bool> DetenerAsync()
     {
-        if (_listener is null)
+        if (_listener is null || _detenido)
         {
             return true;
         }
 
+        _detenido = true;
         Console.WriteLine("Cerrando servidor...");
-        _ejecutando = false;
-        _listener?.Close();
+        await _ejecucion.CancelAsync();
+        _listener.Close();
 
-        bool cierreCompleto = UnirThread(_aceptador!, "aceptador");
-        ConexionDeCliente[] activas;
-        lock (_candado)
-        {
-            activas = _conexiones.ToArray();
-        }
-
+        // Primero el aceptador: después de que termina no puede aparecer ninguna conexión nueva.
+        bool cierreCompleto = await EsperarAsync(_aceptador, "aceptador");
+        ConexionDeCliente[] activas = _conexiones.Values.ToArray();
         foreach (ConexionDeCliente conexion in activas)
         {
             conexion.Cerrar();
         }
 
-        foreach (ConexionDeCliente conexion in activas)
-        {
-            cierreCompleto &= UnirThread(conexion.Thread, $"del cliente {conexion.Numero}");
-        }
+        cierreCompleto &= await EsperarAsync(
+            Task.WhenAll(activas.Select(conexion => conexion.Tarea)), "de los clientes");
 
         if (cierreCompleto)
         {
@@ -100,26 +94,31 @@ internal sealed class ServidorTcp : IDisposable
         return cierreCompleto;
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        Detener();
+        await DetenerAsync();
+        _ejecucion.Dispose();
     }
 
-    private void AceptarConexiones()
+    private async Task AceptarConexionesAsync(Socket listener, CancellationToken token)
     {
-        while (_ejecutando)
+        while (!token.IsCancellationRequested)
         {
             try
             {
-                Socket socket = _listener!.Accept();
-                IncorporarCliente(socket);
+                Socket socket = await listener.AcceptAsync(token);
+                IncorporarCliente(socket, token);
             }
-            catch (SocketException) when (!_ejecutando)
+            catch (OperationCanceledException)
             {
-                // Detener() cerró el listener. Este es el final esperado del bucle, no un error.
+                // DetenerAsync canceló el token. Este es el final esperado del bucle, no un error.
                 return;
             }
-            catch (ObjectDisposedException) when (!_ejecutando)
+            catch (ObjectDisposedException) when (token.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (SocketException) when (token.IsCancellationRequested)
             {
                 return;
             }
@@ -130,65 +129,66 @@ internal sealed class ServidorTcp : IDisposable
         }
     }
 
-    private void IncorporarCliente(Socket socket)
+    private void IncorporarCliente(Socket socket, CancellationToken token)
     {
-        int numero = ++_siguienteCliente;
-        // La sesión abre su stream acá y no en el Thread del cliente: Detener cierra los sockets
-        // recién después de esperar al aceptador, así que este todavía no pudo cerrarse.
+        int numero = Interlocked.Increment(ref _siguienteCliente);
+        // La sesión abre su stream acá y no en el Task del cliente: DetenerAsync cierra los
+        // sockets recién después de esperar al aceptador, así que este todavía no pudo cerrarse.
         SesionDeCliente sesion = new(socket, numero, _codec, _ejecutor);
-        ConexionDeCliente? conexion = null;
-        Thread thread = new(() => Atender(conexion!, sesion)) { Name = $"Cliente {numero}" };
-        conexion = new ConexionDeCliente(numero, socket, thread);
-        lock (_candado)
-        {
-            // Si el cierre ya empezó, esta conexión no entra: se despide acá y no arranca su Thread.
-            if (!_ejecutando)
-            {
-                conexion.Cerrar();
-                return;
-            }
-
-            _conexiones.Add(conexion);
-        }
-
-        thread.Start();
+        ConexionDeCliente conexion = new(numero, socket);
+        _conexiones[numero] = conexion;
+        conexion.Tarea = AtenderAsync(conexion, sesion, token);
     }
 
-    private void Atender(ConexionDeCliente conexion, SesionDeCliente sesion)
+    private async Task AtenderAsync(
+        ConexionDeCliente conexion, SesionDeCliente sesion, CancellationToken token)
     {
         try
         {
-            sesion.Atender();
+            await sesion.AtenderAsync(token);
         }
         finally
         {
             conexion.Cerrar();
-            lock (_candado)
-            {
-                _conexiones.Remove(conexion);
-            }
+            _conexiones.TryRemove(conexion.Numero, out _);
         }
     }
 
-    private bool UnirThread(Thread thread, string descripcion)
+    private static async Task<bool> EsperarAsync(Task tarea, string descripcion)
     {
-        if (thread.Join(EsperaMaximaPorThread))
+        try
         {
+            await tarea.WaitAsync(EsperaMaxima);
             return true;
         }
-
-        Console.Error.WriteLine($"El Thread {descripcion} no terminó dentro del timeout");
-        return false;
+        catch (TimeoutException)
+        {
+            Console.Error.WriteLine($"El Task {descripcion} no terminó dentro del timeout");
+            return false;
+        }
     }
 
-    private sealed record ConexionDeCliente(int Numero, Socket Socket, Thread Thread)
+    private sealed class ConexionDeCliente
     {
+        private readonly Socket _socket;
+
+        public ConexionDeCliente(int numero, Socket socket)
+        {
+            Numero = numero;
+            _socket = socket;
+        }
+
+        public int Numero { get; }
+
+        // Se asigna apenas se lanza la atención del cliente.
+        public Task Tarea { get; set; } = Task.CompletedTask;
+
         // Cerrar dos veces no es un error: el socket ya cerrado simplemente se ignora.
         public void Cerrar()
         {
             try
             {
-                Socket.Shutdown(SocketShutdown.Both);
+                _socket.Shutdown(SocketShutdown.Both);
             }
             catch (SocketException)
             {
@@ -197,7 +197,7 @@ internal sealed class ServidorTcp : IDisposable
             {
             }
 
-            Socket.Close();
+            _socket.Close();
         }
     }
 }
