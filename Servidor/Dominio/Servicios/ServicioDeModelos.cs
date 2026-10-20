@@ -143,6 +143,25 @@ public class ServicioDeModelos
         }
     }
 
+    // Al arrancar: la base dice qué imágenes están en uso y la carpeta se ajusta a eso. Cubre lo que
+    // pudo quedar desparejo tras un cierre forzado o un commit de resultado incierto.
+    public async Task ReconciliarImagenesAsync()
+    {
+        await _candado.TomarAsync();
+        try
+        {
+            HashSet<string> enUso = (await _modelos.ListarAsync())
+                .Select(item => item.Modelo.Datos.NombreArchivoImagen)
+                .Where(nombre => nombre.Length > 0)
+                .ToHashSet();
+            _imagenes.Reconciliar(enUso);
+        }
+        finally
+        {
+            _candado.Liberar();
+        }
+    }
+
     public async Task<IReadOnlyList<LecturaDeModelo>> BuscarAsync(FiltroDeModelos filtro)
     {
         await _candado.TomarAsync();

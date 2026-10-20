@@ -45,17 +45,6 @@ internal sealed class ImagenesEnDisco : IImagenesDeModelos
     {
         _directorio = Path.GetFullPath(directorio);
         Directory.CreateDirectory(_directorio);
-        EliminarTemporalesHuerfanos();
-    }
-
-    // Un .tmp sobrevive solo si el proceso terminó de golpe a mitad de una subida. Al arrancar todavía
-    // no hay subidas en curso, así que cualquier .tmp que quede es basura y se borra.
-    private void EliminarTemporalesHuerfanos()
-    {
-        foreach (string temporal in Directory.EnumerateFiles(_directorio, "*" + SufijoTemporal))
-        {
-            IntentarEliminarTemporal(temporal);
-        }
     }
 
     public static string ValidarNombre(string nombrePropuesto)
@@ -105,7 +94,7 @@ internal sealed class ImagenesEnDisco : IImagenesDeModelos
         }
         finally
         {
-            IntentarEliminarTemporal(rutaTemporal);
+            IntentarBorrarArchivo(rutaTemporal);
         }
     }
 
@@ -226,7 +215,7 @@ internal sealed class ImagenesEnDisco : IImagenesDeModelos
             else if (!imagenesEnUso.Contains(nombre))
             {
                 Console.WriteLine($"Se borra la imagen '{nombre}': ningún modelo la usa.");
-                IntentarEliminarTemporal(ruta);
+                IntentarBorrarArchivo(ruta);
             }
         }
     }
@@ -307,18 +296,19 @@ internal sealed class ImagenesEnDisco : IImagenesDeModelos
         }
     }
 
-    private static void IntentarEliminarTemporal(string rutaTemporal)
+    // Limpieza de mejor esfuerzo (temporales e imágenes sin uso): una falla solo se registra.
+    private static void IntentarBorrarArchivo(string ruta)
     {
         try
         {
-            if (File.Exists(rutaTemporal))
+            if (File.Exists(ruta))
             {
-                File.Delete(rutaTemporal);
+                File.Delete(ruta);
             }
         }
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
-            Console.Error.WriteLine($"No se pudo limpiar el archivo temporal '{rutaTemporal}': {excepcion}");
+            Console.Error.WriteLine($"No se pudo borrar el archivo '{ruta}': {excepcion.Message}");
         }
     }
 }

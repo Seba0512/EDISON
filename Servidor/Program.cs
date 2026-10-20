@@ -88,6 +88,9 @@ internal static class Program
         await using ServidorTcp servidor = new(configuracion, ejecutor);
         try
         {
+            // Antes de aceptar clientes: la carpeta de imágenes se ajusta a la base y las reservas que
+            // quedaron pendientes se reprograman.
+            await modelos.ReconciliarImagenesAsync();
             await reservas.ReprogramarPendientesAsync();
             servidor.Iniciar();
             await EsperarCierreAsync(cierre.Token);
