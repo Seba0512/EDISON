@@ -6,7 +6,7 @@ using Common;
 
 namespace Cliente;
 
-internal sealed class ConexionConServidor : IDisposable
+internal sealed class ConexionConServidor : IAsyncDisposable
 {
     private const string SufijoTemporal = ".tmp";
 
@@ -27,16 +27,17 @@ internal sealed class ConexionConServidor : IDisposable
         _downloadsDirectory = Path.GetFullPath(configuracion.DownloadsDirectory);
     }
 
-    public static ConexionConServidor Conectar(ConfiguracionCliente configuracion)
+    public static async Task<ConexionConServidor> ConectarAsync(ConfiguracionCliente configuracion)
     {
         // El host puede ser una IP o un nombre (en Docker, el del contenedor): se resuelve acá.
-        IPAddress direccion = Dns.GetHostAddresses(configuracion.ServerHost)[0];
+        IPAddress[] direcciones = await Dns.GetHostAddressesAsync(configuracion.ServerHost);
+        IPAddress direccion = direcciones[0];
         // Sin Bind local: el sistema operativo asigna el puerto efímero, así pueden abrirse varias
         // instancias del cliente y conectarse a un servidor en otra máquina sin tocar código.
         Socket socket = new(direccion.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         try
         {
-            socket.Connect(new IPEndPoint(direccion, configuracion.ServerPort));
+            await socket.ConnectAsync(new IPEndPoint(direccion, configuracion.ServerPort));
             return new ConexionConServidor(socket, configuracion);
         }
         catch
@@ -46,63 +47,64 @@ internal sealed class ConexionConServidor : IDisposable
         }
     }
 
-    public string Registrar(Credenciales credenciales)
-        => Enviar(Comandos.Registrar, Mensajes.DeCredenciales(credenciales));
+    public Task<string> RegistrarAsync(Credenciales credenciales)
+        => EnviarAsync(Comandos.Registrar, Mensajes.DeCredenciales(credenciales));
 
-    public string IniciarSesion(Credenciales credenciales)
-        => Enviar(Comandos.IniciarSesion, Mensajes.DeCredenciales(credenciales));
+    public Task<string> IniciarSesionAsync(Credenciales credenciales)
+        => EnviarAsync(Comandos.IniciarSesion, Mensajes.DeCredenciales(credenciales));
 
-    public string CerrarSesion()
-        => Enviar(Comandos.CerrarSesion, string.Empty);
+    public Task<string> CerrarSesionAsync()
+        => EnviarAsync(Comandos.CerrarSesion, string.Empty);
 
-    public string AltaDeModelo(DatosDeAltaDeModelo datos)
-        => Enviar(Comandos.AltaDeModelo, Mensajes.DeDatosDeModelo(datos));
+    public Task<string> AltaDeModeloAsync(DatosDeAltaDeModelo datos)
+        => EnviarAsync(Comandos.AltaDeModelo, Mensajes.DeDatosDeModelo(datos));
 
-    public string ModificarModelo(DatosDeAltaDeModelo datos)
-        => Enviar(Comandos.ModificarModelo, Mensajes.DeDatosDeModelo(datos));
+    public Task<string> ModificarModeloAsync(DatosDeAltaDeModelo datos)
+        => EnviarAsync(Comandos.ModificarModelo, Mensajes.DeDatosDeModelo(datos));
 
-    public string EliminarModelo(string nombreModelo)
-        => Enviar(Comandos.BajaDeModelo, nombreModelo);
+    public Task<string> EliminarModeloAsync(string nombreModelo)
+        => EnviarAsync(Comandos.BajaDeModelo, nombreModelo);
 
-    public IReadOnlyList<ModeloListado> Buscar(FiltrosDeBusqueda filtros)
-        => Mensajes.AModelosListados(Enviar(Comandos.BuscarModelos, Mensajes.DeFiltros(filtros)));
+    public async Task<IReadOnlyList<ModeloListado>> BuscarAsync(FiltrosDeBusqueda filtros)
+        => Mensajes.AModelosListados(
+            await EnviarAsync(Comandos.BuscarModelos, Mensajes.DeFiltros(filtros)));
 
-    public DetalleDeModelo Consultar(string nombreModelo)
-        => Mensajes.ADetalleDeModelo(Enviar(Comandos.ConsultarModelo, nombreModelo));
+    public async Task<DetalleDeModelo> ConsultarAsync(string nombreModelo)
+        => Mensajes.ADetalleDeModelo(await EnviarAsync(Comandos.ConsultarModelo, nombreModelo));
 
-    public string SolicitarReserva(string nombreModelo)
-        => Enviar(Comandos.SolicitarReserva, nombreModelo);
+    public Task<string> SolicitarReservaAsync(string nombreModelo)
+        => EnviarAsync(Comandos.SolicitarReserva, nombreModelo);
 
-    public string CancelarReserva(Guid idReserva)
-        => Enviar(Comandos.CancelarReserva, FormatoDeCampos.De(idReserva));
+    public Task<string> CancelarReservaAsync(Guid idReserva)
+        => EnviarAsync(Comandos.CancelarReserva, FormatoDeCampos.De(idReserva));
 
-    public IReadOnlyList<ReservaListada> MisReservas()
-        => Mensajes.AReservasListadas(Enviar(Comandos.ConsultarMisReservas, string.Empty));
+    public async Task<IReadOnlyList<ReservaListada>> MisReservasAsync()
+        => Mensajes.AReservasListadas(await EnviarAsync(Comandos.ConsultarMisReservas, string.Empty));
 
-    public IReadOnlyList<ActividadListada> Historial()
-        => Mensajes.AActividades(Enviar(Comandos.ConsultarHistorial, string.Empty));
+    public async Task<IReadOnlyList<ActividadListada>> HistorialAsync()
+        => Mensajes.AActividades(await EnviarAsync(Comandos.ConsultarHistorial, string.Empty));
 
     // La subida va en dos pasos: se anuncia la imagen y solo con el OK del servidor se mandan sus
     // partes, así un rechazo de entrada no hace viajar ningún byte del archivo.
-    public string SubirImagen(string nombreModelo, string rutaArchivo)
+    public async Task<string> SubirImagenAsync(string nombreModelo, string rutaArchivo)
     {
-        using FileStream imagen = AbrirArchivoLocal(rutaArchivo);
+        await using FileStream imagen = AbrirArchivoLocal(rutaArchivo);
         ExigirTamañoPermitido(imagen.Length);
         SubidaDeImagen subida = new(nombreModelo, Path.GetFileName(rutaArchivo), imagen.Length);
-        Enviar(Comandos.SubirImagen, Mensajes.DeSubidaDeImagen(subida));
-        _archivos.Enviar(imagen, subida.Largo);
-        return RecibirRespuesta(Comandos.SubirImagen).ContenidoComoTexto();
+        await EnviarAsync(Comandos.SubirImagen, Mensajes.DeSubidaDeImagen(subida));
+        await _archivos.EnviarAsync(imagen, subida.Largo);
+        return (await RecibirRespuestaAsync(Comandos.SubirImagen)).ContenidoComoTexto();
     }
 
     // El OK anuncia nombre y largo, y las partes llegan a continuación: cada una se escribe
     // directo al archivo temporal, sin juntar la imagen entera en memoria.
-    public string DescargarImagen(string nombreModelo)
+    public async Task<string> DescargarImagenAsync(string nombreModelo)
     {
         string rutaTemporal =
             Path.Combine(_downloadsDirectory, $"{Guid.NewGuid():N}{SufijoTemporal}");
         try
         {
-            ArchivoAnunciado imagen = RecibirImagen(nombreModelo, rutaTemporal);
+            ArchivoAnunciado imagen = await RecibirImagenAsync(nombreModelo, rutaTemporal);
             return MoverADescargas(rutaTemporal, imagen);
         }
         finally
@@ -111,14 +113,14 @@ internal sealed class ConexionConServidor : IDisposable
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         if (_cerrada)
             return;
 
         _cerrada = true;
         IntentarShutdown();
-        _stream.Dispose();
+        await _stream.DisposeAsync();
         _socket.Dispose();
     }
 
@@ -149,14 +151,14 @@ internal sealed class ConexionConServidor : IDisposable
 
     // El archivo local se crea antes de pedir la imagen: si falla, todavía no viajó nada por la
     // red. Si falla a mitad, Recibir igual consume las partes y la conexión queda sana.
-    private ArchivoAnunciado RecibirImagen(string nombreModelo, string rutaTemporal)
+    private async Task<ArchivoAnunciado> RecibirImagenAsync(string nombreModelo, string rutaTemporal)
     {
-        using FileStream destino = CrearArchivoLocal(rutaTemporal);
-        string anuncio = Enviar(Comandos.DescargarImagen, nombreModelo);
+        await using FileStream destino = CrearArchivoLocal(rutaTemporal);
+        string anuncio = await EnviarAsync(Comandos.DescargarImagen, nombreModelo);
         ArchivoAnunciado imagen = Mensajes.AArchivoAnunciado(anuncio);
         try
         {
-            _archivos.Recibir(destino, imagen.Largo);
+            await _archivos.RecibirAsync(destino, imagen.Largo);
         }
         catch (ArchivoLocalException)
         {
@@ -171,7 +173,8 @@ internal sealed class ConexionConServidor : IDisposable
         try
         {
             Directory.CreateDirectory(_downloadsDirectory);
-            return File.Create(ruta);
+            return new FileStream(
+                ruta, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true);
         }
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
         {
@@ -203,20 +206,20 @@ internal sealed class ConexionConServidor : IDisposable
             "tenga permisos de escritura y que el archivo no esté abierto en otro programa.");
     }
 
-    private string Enviar(int comando, string mensaje)
-        => Solicitar(comando, TextoUtf8.Codificar(mensaje)).ContenidoComoTexto();
+    private async Task<string> EnviarAsync(int comando, string mensaje)
+        => (await SolicitarAsync(comando, TextoUtf8.Codificar(mensaje))).ContenidoComoTexto();
 
-    private RespuestaDelServidor Solicitar(int comando, byte[] datos)
+    private async Task<RespuestaDelServidor> SolicitarAsync(int comando, byte[] datos)
     {
         ObjectDisposedException.ThrowIf(_cerrada, this);
-        _codec.Escribir(_stream, new Trama(comando, datos));
-        return RecibirRespuesta(comando);
+        await _codec.EscribirAsync(_stream, new Trama(comando, datos));
+        return await RecibirRespuestaAsync(comando);
     }
 
     // La subida espera dos respuestas al mismo comando: la que habilita las partes y la final.
-    private RespuestaDelServidor RecibirRespuesta(int comando)
+    private async Task<RespuestaDelServidor> RecibirRespuestaAsync(int comando)
     {
-        Trama respuesta = _codec.Leer(_stream);
+        Trama respuesta = await _codec.LeerAsync(_stream);
         // Sin header REQ/RES la única verificación es que la respuesta traiga el comando enviado.
         if (respuesta.Comando != comando)
         {
