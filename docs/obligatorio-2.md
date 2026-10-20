@@ -65,6 +65,7 @@ aparecieron estos problemas. Cada uno se corrigió en su propia rama:
 
 | Problema | Corrección | Commits |
 |---|---|---|
+| Al pasar a MySQL volvió a aparecer un bucle sin condición de corte (`for (int intento = 1; ; intento++)`, en los reintentos de conexión), justo lo que había marcado la devolución | El bucle sigue mientras la base no responda. El último intento deja pasar la excepción, así que siempre termina | `24f6adf` |
 | Un error de MySQL durante una solicitud terminaba en `IN`: el servidor cortaba la conexión y el cliente se cerraba | `EjecutorDeComandos` atrapa `DbException`, responde `ER` y la sesión sigue. Si la base no registra una imagen subida, el archivo recién recibido se borra | `d7dd926`, `7c8ed2d` |
 | Al cancelar, la espera de la reserva se cortaba antes de guardar el estado: si el UPDATE fallaba, la reserva quedaba Pendiente y sin nada que la resolviera | La espera se cancela recién después de persistir la cancelación | `5f77130` |
 | El cierre del servidor no esperaba a las reservas que se estaban confirmando, y podía cortar un comprobante a medias | `ResolutorDeReservas` sigue sus Tasks y el cierre las espera, con un tope de 3 s | `4f2cca1`, `5017b87` |
