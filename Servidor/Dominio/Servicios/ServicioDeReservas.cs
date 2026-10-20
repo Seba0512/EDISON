@@ -82,15 +82,15 @@ public class ServicioDeReservas
 
             bool estabaPendiente = reserva.EstaPendiente;
             reserva.Cancelar();
-            if (estabaPendiente)
-            {
-                // Se corta la espera antes de persistir. Si la resolución ya había arrancado, espera
-                // este candado y al entrar ve que la reserva dejó de estar pendiente.
-                _resolutor.Cancelar(idReserva);
-            }
-
             await _reservas.ActualizarEstadoAsync(
                 reserva, Actividad.ReservaCancelada(reserva.NombreDelModelo()));
+            if (estabaPendiente)
+            {
+                // La espera se corta recién con la cancelación guardada: si la base falla, la reserva
+                // sigue Pendiente y su espera sigue viva para resolverla. Si la resolución ya había
+                // arrancado, espera este candado y al entrar ve que la reserva dejó de estar pendiente.
+                _resolutor.Cancelar(idReserva);
+            }
         }
         finally
         {
