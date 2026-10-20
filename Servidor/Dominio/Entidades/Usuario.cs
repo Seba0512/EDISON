@@ -10,6 +10,13 @@ public class Usuario
     private const int LargoMaximoNombre = 20;
     private const string SeparadoresPermitidos = " .-_";
 
+    private static readonly HashSet<string> NombresReservados = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+    };
+
     private readonly Credencial _credencial;
 
     public string NombreUsuario { get; }
@@ -65,7 +72,20 @@ public class Usuario
                 "y tiene que empezar y terminar con una letra o un número");
         }
 
+        if (EsNombreReservado(nombreSinEspacios))
+        {
+            throw new DominioException($"El nombre de usuario '{nombreSinEspacios}' está reservado");
+        }
+
         return nombreSinEspacios;
+    }
+
+    // Windows reserva estos nombres para dispositivos y no deja crear carpetas con ellos (tampoco con
+    // extensión, como "con.txt"). Se rechazan en cualquier sistema, así el servidor genera los
+    // comprobantes igual corra donde corra.
+    private static bool EsNombreReservado(string nombre)
+    {
+        return NombresReservados.Contains(nombre.Split('.')[0].TrimEnd());
     }
 
     // El nombre también es la carpeta de los comprobantes del usuario (comprobantes/<usuario>/): solo
