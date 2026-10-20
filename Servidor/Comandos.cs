@@ -26,11 +26,12 @@ internal sealed class EjecutorDeComandos
         _imagenes = imagenes;
     }
 
-    public RespuestaDelServidor Ejecutar(Trama solicitud, SesionDeCliente sesion)
+    public async Task<RespuestaDelServidor> EjecutarAsync(
+        Trama solicitud, SesionDeCliente sesion, CancellationToken token)
     {
         try
         {
-            return Responder(solicitud, sesion);
+            return await ResponderAsync(solicitud, sesion, token);
         }
         catch (DominioException excepcion)
         {
@@ -50,7 +51,8 @@ internal sealed class EjecutorDeComandos
         }
     }
 
-    private RespuestaDelServidor Responder(Trama solicitud, SesionDeCliente sesion)
+    private async Task<RespuestaDelServidor> ResponderAsync(
+        Trama solicitud, SesionDeCliente sesion, CancellationToken token)
     {
         if (ExigeSesion(solicitud.Comando) && sesion.UsuarioAutenticado is null)
         {
@@ -60,33 +62,33 @@ internal sealed class EjecutorDeComandos
         switch (solicitud.Comando)
         {
             case Comandos.Registrar:
-                return Registrar(solicitud);
+                return await RegistrarAsync(solicitud);
             case Comandos.IniciarSesion:
-                return IniciarSesion(solicitud, sesion);
+                return await IniciarSesionAsync(solicitud, sesion);
             case Comandos.CerrarSesion:
-                return CerrarSesion(solicitud, sesion);
+                return await CerrarSesionAsync(solicitud, sesion);
             case Comandos.AltaDeModelo:
-                return AltaDeModelo(solicitud, sesion.UsuarioAutenticado!);
+                return await AltaDeModeloAsync(solicitud, sesion.UsuarioAutenticado!);
             case Comandos.ModificarModelo:
-                return ModificarModelo(solicitud, sesion.UsuarioAutenticado!);
+                return await ModificarModeloAsync(solicitud, sesion.UsuarioAutenticado!);
             case Comandos.BajaDeModelo:
-                return BajaDeModelo(solicitud, sesion.UsuarioAutenticado!);
+                return await BajaDeModeloAsync(solicitud, sesion.UsuarioAutenticado!);
             case Comandos.BuscarModelos:
-                return BuscarModelos(solicitud);
+                return await BuscarModelosAsync(solicitud);
             case Comandos.ConsultarModelo:
-                return ConsultarModelo(solicitud);
+                return await ConsultarModeloAsync(solicitud);
             case Comandos.SubirImagen:
-                return SubirImagen(solicitud, sesion);
+                return await SubirImagenAsync(solicitud, sesion, token);
             case Comandos.DescargarImagen:
-                return DescargarImagen(solicitud);
+                return await DescargarImagenAsync(solicitud);
             case Comandos.SolicitarReserva:
-                return SolicitarReserva(solicitud, sesion.UsuarioAutenticado!);
+                return await SolicitarReservaAsync(solicitud, sesion.UsuarioAutenticado!);
             case Comandos.CancelarReserva:
-                return CancelarReserva(solicitud, sesion.UsuarioAutenticado!);
+                return await CancelarReservaAsync(solicitud, sesion.UsuarioAutenticado!);
             case Comandos.ConsultarMisReservas:
-                return ConsultarMisReservas(solicitud, sesion.UsuarioAutenticado!);
+                return await ConsultarMisReservasAsync(solicitud, sesion.UsuarioAutenticado!);
             case Comandos.ConsultarHistorial:
-                return ConsultarHistorial(solicitud, sesion.UsuarioAutenticado!);
+                return await ConsultarHistorialAsync(solicitud, sesion.UsuarioAutenticado!);
             default:
                 return RespuestaDelServidor.Rechazo("CMD no soportado");
         }
@@ -102,14 +104,14 @@ internal sealed class EjecutorDeComandos
             or Comandos.ConsultarHistorial;
     }
 
-    private RespuestaDelServidor Registrar(Trama solicitud)
+    private async Task<RespuestaDelServidor> RegistrarAsync(Trama solicitud)
     {
         Credenciales credenciales = Mensajes.ACredenciales(solicitud.DatosComoTexto());
-        Usuario usuario = _usuarios.Registrar(credenciales.NombreUsuario, credenciales.Clave);
+        Usuario usuario = await _usuarios.RegistrarAsync(credenciales.NombreUsuario, credenciales.Clave);
         return RespuestaDelServidor.Ok($"Usuario '{usuario.NombreUsuario}' registrado");
     }
 
-    private RespuestaDelServidor IniciarSesion(Trama solicitud, SesionDeCliente sesion)
+    private async Task<RespuestaDelServidor> IniciarSesionAsync(Trama solicitud, SesionDeCliente sesion)
     {
         if (sesion.UsuarioAutenticado is not null)
         {
@@ -117,38 +119,38 @@ internal sealed class EjecutorDeComandos
         }
 
         Credenciales credenciales = Mensajes.ACredenciales(solicitud.DatosComoTexto());
-        Usuario usuario = _usuarios.IniciarSesion(credenciales.NombreUsuario, credenciales.Clave);
+        Usuario usuario = await _usuarios.IniciarSesionAsync(credenciales.NombreUsuario, credenciales.Clave);
         sesion.UsuarioAutenticado = usuario;
         return RespuestaDelServidor.Ok($"Bienvenido, {usuario.NombreUsuario}");
     }
 
-    private RespuestaDelServidor CerrarSesion(Trama solicitud, SesionDeCliente sesion)
+    private async Task<RespuestaDelServidor> CerrarSesionAsync(Trama solicitud, SesionDeCliente sesion)
     {
         ExigirDatosVacios(solicitud);
-        _usuarios.CerrarSesion(sesion.UsuarioAutenticado!);
+        await _usuarios.CerrarSesionAsync(sesion.UsuarioAutenticado!);
         sesion.UsuarioAutenticado = null;
         return RespuestaDelServidor.Ok("Sesión cerrada");
     }
 
-    private RespuestaDelServidor AltaDeModelo(Trama solicitud, Usuario usuario)
+    private async Task<RespuestaDelServidor> AltaDeModeloAsync(Trama solicitud, Usuario usuario)
     {
-        _modelos.AltaDeModelo(FichaRecibida(solicitud), usuario);
+        await _modelos.AltaDeModeloAsync(FichaRecibida(solicitud), usuario);
         return RespuestaDelServidor.Ok("Modelo creado correctamente.");
     }
 
-    private RespuestaDelServidor ModificarModelo(Trama solicitud, Usuario usuario)
+    private async Task<RespuestaDelServidor> ModificarModeloAsync(Trama solicitud, Usuario usuario)
     {
-        _modelos.ModificarModelo(FichaRecibida(solicitud), usuario);
+        await _modelos.ModificarModeloAsync(FichaRecibida(solicitud), usuario);
         return RespuestaDelServidor.Ok("Modelo modificado correctamente.");
     }
 
-    private RespuestaDelServidor BajaDeModelo(Trama solicitud, Usuario usuario)
+    private async Task<RespuestaDelServidor> BajaDeModeloAsync(Trama solicitud, Usuario usuario)
     {
-        _modelos.EliminarModelo(solicitud.DatosComoTexto(), usuario, _imagenes.Eliminar);
+        await _modelos.EliminarModeloAsync(solicitud.DatosComoTexto(), usuario, _imagenes.Eliminar);
         return RespuestaDelServidor.Ok("Modelo eliminado correctamente.");
     }
 
-    private RespuestaDelServidor BuscarModelos(Trama solicitud)
+    private async Task<RespuestaDelServidor> BuscarModelosAsync(Trama solicitud)
     {
         FiltrosDeBusqueda filtros = Mensajes.AFiltros(solicitud.DatosComoTexto());
         FiltroDeModelos filtro = new(
@@ -159,7 +161,7 @@ internal sealed class EjecutorDeComandos
             filtros.MinimoDisponibles);
 
         List<ModeloListado> listado = new();
-        foreach (LecturaDeModelo modelo in _modelos.Buscar(filtro))
+        foreach (LecturaDeModelo modelo in await _modelos.BuscarAsync(filtro))
         {
             listado.Add(new ModeloListado(
                 modelo.Nombre, modelo.Precio, modelo.FechaEntregaPrometida, modelo.UnidadesDisponibles));
@@ -168,9 +170,9 @@ internal sealed class EjecutorDeComandos
         return RespuestaDelServidor.Ok(Mensajes.DeModelosListados(listado));
     }
 
-    private RespuestaDelServidor ConsultarModelo(Trama solicitud)
+    private async Task<RespuestaDelServidor> ConsultarModeloAsync(Trama solicitud)
     {
-        LecturaDeModelo modelo = _modelos.ConsultarLectura(solicitud.DatosComoTexto());
+        LecturaDeModelo modelo = await _modelos.ConsultarLecturaAsync(solicitud.DatosComoTexto());
         DetalleDeModelo detalle = new(
             modelo.Nombre,
             modelo.Descripcion,
@@ -185,26 +187,27 @@ internal sealed class EjecutorDeComandos
 
     // La subida va en dos pasos: validado el anuncio, la sesión confirma que puede recibir y
     // recién entonces el cliente manda las partes, que se escriben directo al archivo temporal.
-    private RespuestaDelServidor SubirImagen(Trama solicitud, SesionDeCliente sesion)
+    private async Task<RespuestaDelServidor> SubirImagenAsync(
+        Trama solicitud, SesionDeCliente sesion, CancellationToken token)
     {
         SubidaDeImagen subida = Mensajes.ASubidaDeImagen(solicitud.DatosComoTexto());
         string extension = Path.GetExtension(ImagenesEnDisco.ValidarNombre(subida.NombreArchivo));
         string nombreArchivoNuevo = $"{Guid.NewGuid():N}{extension}";
-        _imagenes.Guardar(
+        await _imagenes.GuardarAsync(
             nombreArchivoNuevo,
-            destino => sesion.RecibirArchivo(solicitud.Comando, destino, subida.Largo));
+            destino => sesion.RecibirArchivoAsync(solicitud.Comando, destino, subida.Largo, token));
 
         string nombreArchivoAnterior =
-            CambiarImagen(subida.NombreModelo, nombreArchivoNuevo, sesion.UsuarioAutenticado!);
+            await CambiarImagenAsync(subida.NombreModelo, nombreArchivoNuevo, sesion.UsuarioAutenticado!);
         IntentarEliminarImagen(nombreArchivoAnterior, "No se pudo limpiar la imagen reemplazada");
         return RespuestaDelServidor.Ok("Imagen actualizada correctamente.");
     }
 
     // La respuesta solo anuncia nombre y largo: la sesión manda las partes después de la trama,
     // leyéndolas del disco de a una. La subida ya garantizó que la imagen no supera el máximo.
-    private RespuestaDelServidor DescargarImagen(Trama solicitud)
+    private async Task<RespuestaDelServidor> DescargarImagenAsync(Trama solicitud)
     {
-        LecturaDeModelo modelo = _modelos.ConsultarLectura(solicitud.DatosComoTexto());
+        LecturaDeModelo modelo = await _modelos.ConsultarLecturaAsync(solicitud.DatosComoTexto());
         if (!modelo.TieneImagen)
         {
             return RespuestaDelServidor.Rechazo($"El modelo {modelo.Nombre} no tiene imagen");
@@ -215,25 +218,25 @@ internal sealed class EjecutorDeComandos
             nombreSugerido, _imagenes.AbrirLectura(modelo.NombreArchivoImagen));
     }
 
-    private RespuestaDelServidor SolicitarReserva(Trama solicitud, Usuario usuario)
+    private async Task<RespuestaDelServidor> SolicitarReservaAsync(Trama solicitud, Usuario usuario)
     {
-        Guid idReserva = _reservas.SolicitarReserva(solicitud.DatosComoTexto(), usuario);
+        Guid idReserva = await _reservas.SolicitarReservaAsync(solicitud.DatosComoTexto(), usuario);
         return RespuestaDelServidor.Ok(
             $"Reserva {FormatoDeCampos.De(idReserva)} creada, pendiente de aprobación");
     }
 
-    private RespuestaDelServidor CancelarReserva(Trama solicitud, Usuario usuario)
+    private async Task<RespuestaDelServidor> CancelarReservaAsync(Trama solicitud, Usuario usuario)
     {
         Guid idReserva = FormatoDeCampos.AGuid(solicitud.DatosComoTexto());
-        _reservas.CancelarReserva(idReserva, usuario);
+        await _reservas.CancelarReservaAsync(idReserva, usuario);
         return RespuestaDelServidor.Ok($"Reserva '{idReserva}' cancelada");
     }
 
-    private RespuestaDelServidor ConsultarMisReservas(Trama solicitud, Usuario usuario)
+    private async Task<RespuestaDelServidor> ConsultarMisReservasAsync(Trama solicitud, Usuario usuario)
     {
         ExigirDatosVacios(solicitud);
         List<ReservaListada> listado = new();
-        foreach (LecturaDeReserva reserva in _reservas.ConsultarReservasDe(usuario))
+        foreach (LecturaDeReserva reserva in await _reservas.ConsultarReservasDeAsync(usuario))
         {
             listado.Add(new ReservaListada(
                 reserva.Id,
@@ -246,11 +249,11 @@ internal sealed class EjecutorDeComandos
         return RespuestaDelServidor.Ok(Mensajes.DeReservasListadas(listado));
     }
 
-    private RespuestaDelServidor ConsultarHistorial(Trama solicitud, Usuario usuario)
+    private async Task<RespuestaDelServidor> ConsultarHistorialAsync(Trama solicitud, Usuario usuario)
     {
         ExigirDatosVacios(solicitud);
         List<ActividadListada> listado = new();
-        foreach (Actividad actividad in _usuarios.HistorialDe(usuario))
+        foreach (Actividad actividad in await _usuarios.HistorialDeAsync(usuario))
         {
             listado.Add(new ActividadListada(
                 actividad.Tipo.ToString(), actividad.Detalle, actividad.FechaHora));
@@ -270,11 +273,11 @@ internal sealed class EjecutorDeComandos
         return new FichaDeModelo(datosDeModelo, datos.Stock);
     }
 
-    private string CambiarImagen(string nombreModelo, string nombreArchivoNuevo, Usuario usuario)
+    private async Task<string> CambiarImagenAsync(string nombreModelo, string nombreArchivoNuevo, Usuario usuario)
     {
         try
         {
-            return _modelos.CambiarImagenDeModelo(nombreModelo, nombreArchivoNuevo, usuario);
+            return await _modelos.CambiarImagenDeModeloAsync(nombreModelo, nombreArchivoNuevo, usuario);
         }
         catch (DominioException)
         {

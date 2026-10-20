@@ -9,13 +9,13 @@ internal static class Program
     private const string ConexionPerdida =
         "Se perdió la conexión con el servidor. Es posible que se haya apagado.";
 
-    private static int Main()
+    private static async Task<int> Main()
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
         Console.InputEncoding = System.Text.Encoding.UTF8;
         try
         {
-            Ejecutar();
+            await EjecutarAsync();
             return 0;
         }
         catch (ConfiguracionInvalidaException excepcion)
@@ -53,22 +53,22 @@ internal static class Program
         return 1;
     }
 
-    private static void Ejecutar()
+    private static async Task EjecutarAsync()
     {
         ConfiguracionCliente configuracion = ConfiguracionCliente.Cargar();
         bool reintentar;
         do
         {
-            reintentar = IntentarConexionYContinuar(configuracion);
+            reintentar = await IntentarConexionYContinuarAsync(configuracion);
         } while (reintentar);
     }
 
-    private static bool IntentarConexionYContinuar(ConfiguracionCliente configuracion)
+    private static async Task<bool> IntentarConexionYContinuarAsync(ConfiguracionCliente configuracion)
     {
         ConexionConServidor conexion;
         try
         {
-            conexion = ConexionConServidor.Conectar(configuracion);
+            conexion = await ConexionConServidor.ConectarAsync(configuracion);
         }
         catch (SocketException excepcion) when (
             excepcion.SocketErrorCode == SocketError.ConnectionRefused)
@@ -76,11 +76,11 @@ internal static class Program
             return ElegirSiReintentar();
         }
 
-        using (conexion)
+        await using (conexion)
         {
             Consola.Titulo("Sistema de Modelos y Reservas");
             Consola.Exito($"Conectado a {configuracion.Destino}");
-            new Menu(conexion).Ejecutar();
+            await new Menu(conexion).EjecutarAsync();
         }
 
         return false;

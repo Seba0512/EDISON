@@ -158,13 +158,13 @@ internal static class LectorDeConsola
     }
 
     // La ruta viene de PreguntarRutaDeImagen: null significa que no se ofreció o se rechazó la imagen.
-    public static void SubirImagenSiHayRuta(
+    public static async Task SubirImagenSiHayRutaAsync(
         ConexionConServidor conexion, string nombreModelo, string? rutaArchivo)
     {
         if (rutaArchivo is null)
             return;
 
-        Consola.Exito(conexion.SubirImagen(nombreModelo, rutaArchivo));
+        Consola.Exito(await conexion.SubirImagenAsync(nombreModelo, rutaArchivo));
     }
 
     public static void EsperarEnter()

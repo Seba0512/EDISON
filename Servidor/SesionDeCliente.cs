@@ -25,15 +25,15 @@ internal sealed class SesionDeCliente
     // La sesión de la conexión, como la plantea el curso: null hasta un login exitoso.
     public Usuario? UsuarioAutenticado { get; set; }
 
-    public void Atender()
+    public async Task AtenderAsync(CancellationToken token)
     {
         try
         {
             bool conexionAbierta = true;
             while (conexionAbierta)
             {
-                Trama solicitud = _codec.Leer(_stream);
-                conexionAbierta = AtenderSolicitud(solicitud);
+                Trama solicitud = await _codec.LeerAsync(_stream, token);
+                conexionAbierta = await AtenderSolicitudAsync(solicitud, token);
             }
         }
         catch (Exception exception)
@@ -42,57 +42,65 @@ internal sealed class SesionDeCliente
         }
         finally
         {
-            _stream.Dispose();
+            await _stream.DisposeAsync();
         }
     }
 
     // Paso intermedio de una subida: el OK le avisa al cliente que ya puede mandar las partes,
     // que se escriben en el destino a medida que llegan.
-    public void RecibirArchivo(int comando, Stream destino, long largo)
+    public async Task RecibirArchivoAsync(
+        int comando, Stream destino, long largo, CancellationToken token)
     {
-        EscribirRespuesta(comando, RespuestaDelServidor.Ok("Listo para recibir el archivo"));
+        await using RespuestaDelServidor listo = RespuestaDelServidor.Ok("Listo para recibir el archivo");
+        await EscribirRespuestaAsync(comando, listo, token);
         Informar($"CMD {comando:D2} -> recibiendo {largo} bytes por partes");
-        _archivos.Recibir(destino, largo);
+        await _archivos.RecibirAsync(destino, largo, token);
     }
 
-    private bool AtenderSolicitud(Trama solicitud)
+    private async Task<bool> AtenderSolicitudAsync(Trama solicitud, CancellationToken token)
     {
         try
         {
-            using RespuestaDelServidor respuesta = _ejecutor.Ejecutar(solicitud, this);
+            await using RespuestaDelServidor respuesta =
+                await _ejecutor.EjecutarAsync(solicitud, this, token);
             Informar($"CMD {solicitud.Comando:D2} -> {respuesta.Estado}");
-            EscribirRespuesta(solicitud.Comando, respuesta);
+            await EscribirRespuestaAsync(solicitud.Comando, respuesta, token);
             return true;
         }
         catch (PayloadDemasiadoGrandeException)
         {
             // La validación de tamaño es previa a escribir: no se mandó nada y la conexión sigue.
             Informar($"CMD {solicitud.Comando:D2} -> respuesta demasiado grande, se rechaza sin cerrar la conexión");
-            EscribirRespuesta(solicitud.Comando, RespuestaDelServidor.Rechazo(
-                "El resultado supera el tamaño máximo de respuesta; refine la búsqueda"));
+            await using RespuestaDelServidor rechazo = RespuestaDelServidor.Rechazo(
+                "El resultado supera el tamaño máximo de respuesta; refine la búsqueda");
+            await EscribirRespuestaAsync(solicitud.Comando, rechazo, token);
             return true;
         }
-        catch (Exception exception) when (exception is not IOException and not SocketException)
+        catch (Exception exception) when (
+            exception is not (IOException or SocketException or OperationCanceledException))
         {
             Informar($"provocó un error inesperado procesando CMD {solicitud.Comando:D2}: {exception}");
-            IntentarResponderErrorInterno(solicitud.Comando);
+            await IntentarResponderErrorInternoAsync(solicitud.Comando, token);
             return false;
         }
     }
 
     // Si la respuesta lleva un archivo, sus partes salen inmediatamente después de la trama. Una
     // falla del disco a mitad del envío ya no se puede avisar: la conexión se corta.
-    private void EscribirRespuesta(int comando, RespuestaDelServidor respuesta)
+    private async Task EscribirRespuestaAsync(
+        int comando, RespuestaDelServidor respuesta, CancellationToken token)
     {
-        _codec.Escribir(_stream, new Trama(comando, respuesta.Codificar()));
-        respuesta.EnviarArchivo(_archivos);
+        await _codec.EscribirAsync(_stream, new Trama(comando, respuesta.Codificar()), token);
+        await respuesta.EnviarArchivoAsync(_archivos, token);
     }
 
-    private void IntentarResponderErrorInterno(int comando)
+    private async Task IntentarResponderErrorInternoAsync(int comando, CancellationToken token)
     {
         try
         {
-            EscribirRespuesta(comando, RespuestaDelServidor.Interno("Error interno del servidor"));
+            await using RespuestaDelServidor interno =
+                RespuestaDelServidor.Interno("Error interno del servidor");
+            await EscribirRespuestaAsync(comando, interno, token);
         }
         catch (IOException)
         {
@@ -105,7 +113,7 @@ internal sealed class SesionDeCliente
 
     private void Informar(string mensaje)
     {
-        Console.WriteLine($"[{Identidad()} | Thread {Environment.CurrentManagedThreadId}] {mensaje}");
+        Console.WriteLine($"[{Identidad()} | Task {Task.CurrentId?.ToString() ?? "-"}] {mensaje}");
     }
 
     // Con sesión iniciada identifica por nombre de usuario. El número cambia en cada reconexión.
@@ -121,7 +129,8 @@ internal sealed class SesionDeCliente
             ConexionCerradaException => "cerró la conexión",
             TramaTruncadaException => $"envió una trama truncada: {exception.Message}",
             ProtocoloException => $"provocó un error de protocolo: {exception.Message}",
-            ObjectDisposedException => "finalizó la comunicación durante el cierre solicitado",
+            ObjectDisposedException or OperationCanceledException =>
+                "finalizó la comunicación durante el cierre solicitado",
             IOException or SocketException => "finalizó la comunicación",
             _ => $"provocó un error inesperado: {exception}"
         };

@@ -16,28 +16,28 @@ internal sealed class Menu
         _conexion = conexion;
         _opcionesAnonimas = new List<Opcion>
         {
-            new("Registrarse", Registrarse, RequierePausa: true),
+            new("Registrarse", RegistrarseAsync, RequierePausa: true),
             // Sin pausa porque enseguida se muestra el menú de la sesión nueva.
-            new("Iniciar sesión", IniciarSesion, RequierePausa: false),
-            new("Salir", Salir, RequierePausa: true)
+            new("Iniciar sesión", IniciarSesionAsync, RequierePausa: false),
+            new("Salir", SalirAsync, RequierePausa: true)
         };
         _opcionesAutenticadas = new List<Opcion>
         {
-            new("Alta de modelo", AltaDeModelo, RequierePausa: true),
-            new("Modificar modelo", ModificarModelo, RequierePausa: true),
-            new("Eliminar modelo", EliminarModelo, RequierePausa: true),
-            new("Buscar modelos", BuscarModelos, RequierePausa: true),
-            new("Consultar modelo", ConsultarModelo, RequierePausa: true),
-            new("Solicitar reserva", SolicitarReserva, RequierePausa: true),
-            new("Cancelar reserva", CancelarReserva, RequierePausa: true),
-            new("Mis reservas", MisReservas, RequierePausa: true),
-            new("Historial", Historial, RequierePausa: true),
-            new("Cerrar sesión", CerrarSesion, RequierePausa: true)
+            new("Alta de modelo", AltaDeModeloAsync, RequierePausa: true),
+            new("Modificar modelo", ModificarModeloAsync, RequierePausa: true),
+            new("Eliminar modelo", EliminarModeloAsync, RequierePausa: true),
+            new("Buscar modelos", BuscarModelosAsync, RequierePausa: true),
+            new("Consultar modelo", ConsultarModeloAsync, RequierePausa: true),
+            new("Solicitar reserva", SolicitarReservaAsync, RequierePausa: true),
+            new("Cancelar reserva", CancelarReservaAsync, RequierePausa: true),
+            new("Mis reservas", MisReservasAsync, RequierePausa: true),
+            new("Historial", HistorialAsync, RequierePausa: true),
+            new("Cerrar sesión", CerrarSesionAsync, RequierePausa: true)
         };
         _opcionesActuales = _opcionesAnonimas;
     }
 
-    public void Ejecutar()
+    public async Task EjecutarAsync()
     {
         while (_seguirEjecutando)
         {
@@ -48,7 +48,7 @@ internal sealed class Menu
                 return;
 
             Console.WriteLine();
-            bool requierePausa = EjecutarOpcion(_opcionesActuales[indice.Value]);
+            bool requierePausa = await EjecutarOpcionAsync(_opcionesActuales[indice.Value]);
             if (_seguirEjecutando && requierePausa)
                 LectorDeConsola.EsperarEnter();
         }
@@ -65,11 +65,11 @@ internal sealed class Menu
     }
 
     // Ante un rechazo se pausa igual para que el error alcance a leerse antes de redibujar el menú.
-    private bool EjecutarOpcion(Opcion opcion)
+    private async Task<bool> EjecutarOpcionAsync(Opcion opcion)
     {
         try
         {
-            opcion.Ejecutar();
+            await opcion.Ejecutar();
             return opcion.RequierePausa;
         }
         catch (OperacionRechazadaException excepcion)
@@ -79,35 +79,35 @@ internal sealed class Menu
         }
     }
 
-    private void Registrarse()
+    private async Task RegistrarseAsync()
     {
         Credenciales? credenciales = LectorDeConsola.LeerCredenciales(
             Validaciones.NombreUsuario, Validaciones.Clave);
         if (credenciales is null)
             return;
 
-        Consola.Exito(_conexion.Registrar(credenciales.Value));
+        Consola.Exito(await _conexion.RegistrarAsync(credenciales.Value));
     }
 
     // Al iniciar sesión solo se exige que las credenciales no rompan el protocolo. Las reglas
     // de largo quedan para el registro y acá decide el servidor.
-    private void IniciarSesion()
+    private async Task IniciarSesionAsync()
     {
         Credenciales? credenciales = LectorDeConsola.LeerCredenciales(
             Validaciones.SinSeparador, Validaciones.SinSeparador);
         if (credenciales is null)
             return;
 
-        Consola.Exito(_conexion.IniciarSesion(credenciales.Value));
+        Consola.Exito(await _conexion.IniciarSesionAsync(credenciales.Value));
         _nombreUsuario = credenciales.Value.NombreUsuario;
         _opcionesActuales = _opcionesAutenticadas;
     }
 
-    private void CerrarSesion()
+    private async Task CerrarSesionAsync()
     {
         try
         {
-            Consola.Exito(_conexion.CerrarSesion());
+            Consola.Exito(await _conexion.CerrarSesionAsync());
         }
         catch (OperacionRechazadaException excepcion)
         {
@@ -119,16 +119,19 @@ internal sealed class Menu
         _opcionesActuales = _opcionesAnonimas;
     }
 
-    private void Salir()
-        => _seguirEjecutando = false;
+    private Task SalirAsync()
+    {
+        _seguirEjecutando = false;
+        return Task.CompletedTask;
+    }
 
-    private void AltaDeModelo()
+    private async Task AltaDeModeloAsync()
     {
         string? nombre = LectorDeConsola.LeerTexto("Nombre del modelo:", Validaciones.NombreDeModelo);
         if (nombre is null)
             return;
 
-        if (ExisteModelo(nombre))
+        if (await ExisteModeloAsync(nombre))
         {
             Consola.Error($"Ya existe un modelo llamado '{nombre}'.");
             return;
@@ -139,11 +142,11 @@ internal sealed class Menu
             return;
 
         string? rutaImagen = LectorDeConsola.PreguntarRutaDeImagen();
-        Consola.Exito(_conexion.AltaDeModelo(datos.Value));
-        LectorDeConsola.SubirImagenSiHayRuta(_conexion, datos.Value.Nombre, rutaImagen);
+        Consola.Exito(await _conexion.AltaDeModeloAsync(datos.Value));
+        await LectorDeConsola.SubirImagenSiHayRutaAsync(_conexion, datos.Value.Nombre, rutaImagen);
     }
 
-    private void ModificarModelo()
+    private async Task ModificarModeloAsync()
     {
         string? nombre = LectorDeConsola.LeerTexto("Nombre del modelo a modificar:");
         if (nombre is null)
@@ -151,47 +154,47 @@ internal sealed class Menu
 
         // Se consulta antes de pedir el resto de los datos. Si el modelo no existe, lanza y no
         // sigue. Además el detalle trae la fecha actual para validar la nueva.
-        DetalleDeModelo detalleActual = _conexion.Consultar(nombre);
+        DetalleDeModelo detalleActual = await _conexion.ConsultarAsync(nombre);
 
         DatosDeAltaDeModelo? datos = LeerDatosParaModificacion(nombre, detalleActual);
         if (datos is null)
             return;
 
         string? rutaImagen = LectorDeConsola.PreguntarRutaDeImagen();
-        Consola.Exito(_conexion.ModificarModelo(datos.Value));
-        LectorDeConsola.SubirImagenSiHayRuta(_conexion, datos.Value.Nombre, rutaImagen);
+        Consola.Exito(await _conexion.ModificarModeloAsync(datos.Value));
+        await LectorDeConsola.SubirImagenSiHayRutaAsync(_conexion, datos.Value.Nombre, rutaImagen);
     }
 
-    private void EliminarModelo()
+    private async Task EliminarModeloAsync()
     {
         string? nombreModelo = LectorDeConsola.LeerTexto("Nombre del modelo a eliminar:");
         if (nombreModelo is null)
             return;
 
-        Consola.Exito(_conexion.EliminarModelo(nombreModelo));
+        Consola.Exito(await _conexion.EliminarModeloAsync(nombreModelo));
     }
 
-    private void BuscarModelos()
+    private async Task BuscarModelosAsync()
     {
         FiltrosDeBusqueda? filtros = LectorDeConsola.LeerFiltros();
         if (filtros is null)
             return;
 
-        Presentadores.MostrarModelos(_conexion.Buscar(filtros.Value));
+        Presentadores.MostrarModelos(await _conexion.BuscarAsync(filtros.Value));
     }
 
-    private void ConsultarModelo()
+    private async Task ConsultarModeloAsync()
     {
         string? nombreModelo = LectorDeConsola.LeerTexto("Nombre del modelo a consultar:");
         if (nombreModelo is null)
             return;
 
-        DetalleDeModelo detalle = _conexion.Consultar(nombreModelo);
+        DetalleDeModelo detalle = await _conexion.ConsultarAsync(nombreModelo);
         Presentadores.MostrarDetalle(detalle);
-        OfrecerDescargaDeImagen(nombreModelo, detalle);
+        await OfrecerDescargaDeImagenAsync(nombreModelo, detalle);
     }
 
-    private void OfrecerDescargaDeImagen(string nombreModelo, DetalleDeModelo detalle)
+    private async Task OfrecerDescargaDeImagenAsync(string nombreModelo, DetalleDeModelo detalle)
     {
         if (detalle.NombreArchivoImagen.Length == 0)
             return;
@@ -199,21 +202,21 @@ internal sealed class Menu
         if (!LectorDeConsola.Confirmar("¿Desea descargar la imagen? (s/n):"))
             return;
 
-        Consola.Exito(_conexion.DescargarImagen(nombreModelo));
+        Consola.Exito(await _conexion.DescargarImagenAsync(nombreModelo));
     }
 
-    private void SolicitarReserva()
+    private async Task SolicitarReservaAsync()
     {
         string? nombreModelo = LectorDeConsola.LeerTexto("Nombre del modelo a reservar:");
         if (nombreModelo is null)
             return;
 
-        Consola.Exito(_conexion.SolicitarReserva(nombreModelo));
+        Consola.Exito(await _conexion.SolicitarReservaAsync(nombreModelo));
     }
 
-    private void CancelarReserva()
+    private async Task CancelarReservaAsync()
     {
-        IReadOnlyList<ReservaListada> reservas = _conexion.MisReservas();
+        IReadOnlyList<ReservaListada> reservas = await _conexion.MisReservasAsync();
         Presentadores.MostrarReservas(reservas);
         if (reservas.Count == 0)
             return;
@@ -222,21 +225,21 @@ internal sealed class Menu
         if (idReserva is null)
             return;
 
-        Consola.Exito(_conexion.CancelarReserva(idReserva.Value));
+        Consola.Exito(await _conexion.CancelarReservaAsync(idReserva.Value));
     }
 
-    private void MisReservas()
-        => Presentadores.MostrarReservas(_conexion.MisReservas());
+    private async Task MisReservasAsync()
+        => Presentadores.MostrarReservas(await _conexion.MisReservasAsync());
 
-    private void Historial()
-        => Presentadores.MostrarHistorial(_conexion.Historial());
+    private async Task HistorialAsync()
+        => Presentadores.MostrarHistorial(await _conexion.HistorialAsync());
 
     // La única causa realista de rechazo de una consulta por nombre es que el modelo no existe.
-    private bool ExisteModelo(string nombre)
+    private async Task<bool> ExisteModeloAsync(string nombre)
     {
         try
         {
-            _conexion.Consultar(nombre);
+            await _conexion.ConsultarAsync(nombre);
             return true;
         }
         catch (OperacionRechazadaException)
@@ -339,5 +342,5 @@ internal sealed class Menu
         return null;
     }
 
-    private sealed record Opcion(string Titulo, Action Ejecutar, bool RequierePausa);
+    private sealed record Opcion(string Titulo, Func<Task> Ejecutar, bool RequierePausa);
 }
