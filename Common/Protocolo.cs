@@ -79,9 +79,18 @@ public static class TextoUtf8
     private static readonly Encoding Codificacion = new UTF8Encoding(
         encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
+    // Un texto con medio carácter (un surrogate suelto) no tiene representación UTF-8: igual que al
+    // decodificar, se informa como error de protocolo y no como una excepción de .NET sin manejar.
     public static byte[] Codificar(string texto)
     {
-        return Codificacion.GetBytes(texto);
+        try
+        {
+            return Codificacion.GetBytes(texto);
+        }
+        catch (EncoderFallbackException excepcion)
+        {
+            throw new ProtocoloException("El texto contiene caracteres que no se pueden enviar", excepcion);
+        }
     }
 
     public static string Decodificar(ReadOnlySpan<byte> bytes)
