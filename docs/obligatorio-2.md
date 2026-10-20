@@ -321,3 +321,59 @@ la cuenta de las esperas:
 - Una cancelación libera de inmediato el recurso de la espera.
 - El apagado no pierde reservas.
 - Cada reserva aprobada deja un comprobante que se puede ver desde el host (sección 4).
+
+## 4. Docker
+
+> **Pendiente:** esta sección la completa quien implementa los Dockerfile y la guía (fase 5).
+> Tiene que cubrir lo que pide la letra:
+
+- `Servidor/Dockerfile` y `Cliente/Dockerfile` de una sola etapa (sin multi-stage builds), con la
+  raíz del repositorio como contexto de build, porque los dos dependen de `Common/`.
+- MySQL 8.4 en su propio contenedor, con `db/init.sql` montado en `/docker-entrypoint-initdb.d/` y
+  un volumen nombrado para los datos.
+- Acceso desde el host a las imágenes de los modelos y a los comprobantes, con bind mounts de
+  `/app/imagenes` y `/app/comprobantes` a carpetas del host. Hay que documentar cómo verlos.
+- `TZ=America/Montevideo` en los contenedores del cliente y del servidor: las fechas viajan en UTC y
+  cada uno las muestra en su hora local, que dentro de un contenedor es UTC salvo que se configure.
+- El cliente usa `SERVIDOR_HOST=<nombre del contenedor del servidor>` y se ejecuta con `-it`.
+- Guía paso a paso sin docker-compose, y opcionalmente con compose.
+
+## 5. Supuestos
+
+1. **Una sola instancia del servidor.** El `CandadoGlobal` vive en memoria y alcanza para serializar
+   las operaciones sobre la base mientras haya un único proceso servidor (sección 3.2).
+2. **Reservas pendientes durante un apagado.** No se cancelan ni se rechazan: quedan Pendiente y, al
+   volver el servidor, se reprograman con el tiempo que les quedaba. Si el plazo venció mientras el
+   servidor estaba apagado, se resuelven apenas arranca.
+3. **El comprobante no revierte la confirmación.** Se genera después de confirmar la reserva en la
+   base. Si escribirlo falla (por ejemplo, disco lleno), el error se registra en la consola del
+   servidor y la reserva sigue Confirmada.
+4. **Cancelar una reserva ya confirmada no borra su comprobante.** Como en la entrega 1, una reserva
+   confirmada se puede cancelar. El comprobante documenta que la aprobación ocurrió, y el estado
+   vigente se consulta en *Mis reservas* (CR9).
+5. **Nombres de usuario.** Tienen entre 3 y 20 caracteres: letras (con tildes y ñ), números,
+   espacios, `.`, `-` y `_`, y empiezan y terminan con letra o número. No distinguen mayúsculas pero
+   sí tildes. La restricción de caracteres es nueva en esta entrega: el nombre también es la carpeta
+   de los comprobantes del usuario.
+6. **Plazo de resolución configurable** con `PLAZO_RESERVA_SEGUNDOS`, 30 s por defecto (sección 3.3).
+7. **Cierre por consola.** La orden `salir` solo se acepta con una consola interactiva. En Docker, el
+   servidor se cierra con `docker stop` (SIGTERM), como habilita la letra.
+8. **Tope del cierre.** El cierre espera hasta 5 s al aceptador, 5 s a las conexiones de los clientes
+   y 3 s a las reservas que se estaban confirmando. Así entra dentro de los 10 s que `docker stop`
+   espera antes de forzar la terminación.
+9. **Precio.** Como en la entrega 1, el precio de un modelo se redondea a un valor entero.
+
+## 6. Errores conocidos
+
+1. **MySQL caído al vencer el plazo de una reserva.** La resolución falla, el error se registra en
+   la consola y la reserva queda Pendiente hasta el próximo arranque del servidor, que la reprograma.
+   No se reintenta mientras el servidor sigue corriendo.
+2. **Terminación forzada entre la confirmación y el comprobante.** Si el proceso muere de golpe
+   (SIGKILL o corte de energía) justo después de confirmar una reserva en la base, el comprobante
+   puede no escribirse, y no se regenera.
+3. **Subida de imagen a un modelo ajeno o inexistente.** El modelo y el permiso se validan cuando
+   termina la recepción del archivo, no con el anuncio. Un usuario puede transferir hasta 10 MiB que
+   después se descartan con un `ER`: el archivo se borra y no queda huérfano.
+4. **Nombres reservados en Windows.** Si el servidor corre en Windows, un usuario llamado `CON`,
+   `NUL`, `COM1`, etc. no obtiene comprobantes (se registra en la consola). En el contenedor Linux no
+   ocurre.
