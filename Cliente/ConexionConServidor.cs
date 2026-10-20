@@ -163,7 +163,9 @@ internal sealed class ConexionConServidor : IAsyncDisposable
     {
         await using FileStream destino = CrearArchivoLocal(rutaTemporal);
         string anuncio = await EnviarAsync(Comandos.DescargarImagen, nombreModelo);
-        ArchivoAnunciado imagen = Mensajes.AArchivoAnunciado(anuncio);
+        ArchivoAnunciado anunciado = Mensajes.AArchivoAnunciado(anuncio);
+        // El nombre se valida con el anuncio, antes de recibir: si no sirve, no se baja ningún byte.
+        ArchivoAnunciado imagen = anunciado with { Nombre = NombreDeDescargaSeguro.Crear(anunciado.Nombre) };
         try
         {
             await _archivos.RecibirAsync(destino, imagen.Largo);
@@ -193,8 +195,7 @@ internal sealed class ConexionConServidor : IAsyncDisposable
     // Se recibe a un .tmp y recién completo se mueve, para no dejar una imagen a medias.
     private string MoverADescargas(string rutaTemporal, ArchivoAnunciado imagen)
     {
-        string nombreArchivo = NombreDeDescargaSeguro.Crear(imagen.Nombre);
-        string rutaDestino = Path.Combine(_downloadsDirectory, nombreArchivo);
+        string rutaDestino = Path.Combine(_downloadsDirectory, imagen.Nombre);
         try
         {
             File.Move(rutaTemporal, rutaDestino, overwrite: true);
