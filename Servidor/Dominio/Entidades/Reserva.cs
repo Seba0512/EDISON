@@ -15,7 +15,8 @@ public sealed record LecturaDeReserva(
     string NombreModelo,
     EstadoDeReserva Estado,
     DateTime FechaCreacion,
-    DateTime UltimaActualizacion);
+    DateTime UltimaActualizacion,
+    string NombreSolicitante);
 
 // Las transiciones las coordinan los servicios bajo el candado global. Pendiente puede confirmarse,
 // rechazarse o cancelarse. Confirmada solo puede cancelarse. Rechazada y Cancelada son finales.
@@ -102,7 +103,8 @@ public class Reserva
 
     public LecturaDeReserva TomarLectura()
     {
-        return new LecturaDeReserva(Id, NombreModelo, Estado, FechaCreacion, UltimaActualizacion);
+        return new LecturaDeReserva(
+            Id, NombreModelo, Estado, FechaCreacion, UltimaActualizacion, NombreSolicitante);
     }
 
     internal void Confirmar()

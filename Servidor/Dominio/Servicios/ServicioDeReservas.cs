@@ -10,6 +10,8 @@ public class ServicioDeReservas
     private readonly IRepositorioDeReservas _reservas;
     private readonly IRepositorioDeModelos _modelos;
     private readonly CandadoGlobal _candado;
+    private readonly IGeneradorDeComprobantes _comprobantes;
+    private readonly ResolutorDeReservas _resolutor;
     // Toda reserva se resuelve este tiempo después de pedirla. Llega por configuración.
     private readonly TimeSpan _plazoDeResolucion;
 
@@ -17,12 +19,33 @@ public class ServicioDeReservas
         IRepositorioDeReservas reservas,
         IRepositorioDeModelos modelos,
         CandadoGlobal candado,
-        TimeSpan plazoDeResolucion)
+        IGeneradorDeComprobantes comprobantes,
+        TimeSpan plazoDeResolucion,
+        CancellationToken apagado)
     {
         _reservas = reservas;
         _modelos = modelos;
         _candado = candado;
+        _comprobantes = comprobantes;
         _plazoDeResolucion = plazoDeResolucion;
+        _resolutor = new ResolutorDeReservas(ResolverReservaAsync, apagado);
+    }
+
+    // Con la base persistente, un reinicio no puede dejar reservas pendientes para siempre: las
+    // que quedaron esperando se reprograman con la demora que les falte, en UTC.
+    public async Task ReprogramarPendientesAsync()
+    {
+        IReadOnlyList<Reserva> pendientes = await _reservas.ListarPendientesAsync();
+        foreach (Reserva reserva in pendientes)
+        {
+            TimeSpan demora = reserva.FechaCreacion + _plazoDeResolucion - DateTime.UtcNow;
+            _resolutor.Programar(reserva.Id, demora > TimeSpan.Zero ? demora : TimeSpan.Zero);
+        }
+
+        if (pendientes.Count > 0)
+        {
+            Console.WriteLine($"{pendientes.Count} reserva(s) pendiente(s) reprogramada(s).");
+        }
     }
 
     public async Task<Guid> SolicitarReservaAsync(string nombreModelo, Usuario solicitante)
@@ -40,9 +63,8 @@ public class ServicioDeReservas
             _candado.Liberar();
         }
 
-        // La espera es un Task.Delay y no ocupa ningún hilo mientras dura. Nadie espera este
-        // Task: ResolverTrasDemoraAsync registra sus propios errores.
-        _ = ResolverTrasDemoraAsync(reserva.Id);
+        // La espera es un Task.Delay cancelable y no ocupa ningún hilo mientras dura.
+        _resolutor.Programar(reserva.Id, _plazoDeResolucion);
         return reserva.Id;
     }
 
@@ -58,7 +80,15 @@ public class ServicioDeReservas
                 throw new DominioException("Solo se pueden cancelar las reservas propias");
             }
 
+            bool estabaPendiente = reserva.EstaPendiente;
             reserva.Cancelar();
+            if (estabaPendiente)
+            {
+                // Se corta la espera antes de persistir. Si la resolución ya había arrancado, espera
+                // este candado y al entrar ve que la reserva dejó de estar pendiente.
+                _resolutor.Cancelar(idReserva);
+            }
+
             await _reservas.ActualizarEstadoAsync(
                 reserva, Actividad.ReservaCancelada(reserva.NombreDelModelo()));
         }
@@ -83,23 +113,10 @@ public class ServicioDeReservas
         }
     }
 
-    private async Task ResolverTrasDemoraAsync(Guid idReserva)
-    {
-        try
-        {
-            await Task.Delay(_plazoDeResolucion);
-            await ResolverReservaAsync(idReserva);
-        }
-        catch (Exception exception)
-        {
-            // Nadie observa este Task, así que sin este catch la excepción se perdería en silencio
-            // y la reserva quedaría Pendiente.
-            Console.Error.WriteLine($"No se pudo resolver la reserva {idReserva}: {exception}");
-        }
-    }
-
     private async Task ResolverReservaAsync(Guid idReserva)
     {
+        LecturaDeReserva? confirmada = null;
+        decimal precio = 0;
         await _candado.TomarAsync();
         try
         {
@@ -120,6 +137,8 @@ public class ServicioDeReservas
                 // Solo una confirmación cuenta como compra en el historial. Un rechazo no registra nada.
                 await _reservas.ActualizarEstadoAsync(
                     reserva, Actividad.Compra(reserva.NombreDelModelo()));
+                confirmada = reserva.TomarLectura();
+                precio = modelo.Datos.Precio;
             }
             else
             {
@@ -130,6 +149,26 @@ public class ServicioDeReservas
         finally
         {
             _candado.Liberar();
+        }
+
+        if (confirmada is not null)
+        {
+            await GenerarComprobanteAsync(confirmada, precio);
+        }
+    }
+
+    // Se genera después de confirmar en la base y fuera del candado. Si falla, la confirmación no
+    // se revierte: se registra en consola (supuesto declarado en la documentación).
+    private async Task GenerarComprobanteAsync(LecturaDeReserva reserva, decimal precio)
+    {
+        try
+        {
+            await _comprobantes.GenerarAsync(reserva, precio);
+        }
+        catch (Exception excepcion)
+        {
+            Console.Error.WriteLine(
+                $"No se pudo generar el comprobante de la reserva {reserva.Id}: {excepcion.Message}");
         }
     }
 }
