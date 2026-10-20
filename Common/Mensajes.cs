@@ -367,7 +367,9 @@ public static class Mensajes
             _camposPorElemento = camposPorElemento;
             _elementosRestantes = FormatoDeCampos.AEntero(_campos[0]);
             _posicion = 1;
-            int camposEsperados = 1 + _elementosRestantes * camposPorElemento;
+            // En long: una cantidad enorme desbordaría el int y podría coincidir por casualidad con
+            // los campos recibidos, y la lectura terminaría fuera de rango.
+            long camposEsperados = 1L + (long)_elementosRestantes * camposPorElemento;
             bool listaVaciaBienFormada = _elementosRestantes == 0 && _campos.Length == 2
                 && _campos[1].Length == 0;
             if (_elementosRestantes < 0
