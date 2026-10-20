@@ -213,6 +213,38 @@ internal sealed class ImagenesEnDisco : IImagenesDeModelos
         }
     }
 
+    // Corre antes de aceptar clientes, así ninguna subida o baja está en curso mientras tanto.
+    public void Reconciliar(IReadOnlySet<string> imagenesEnUso)
+    {
+        foreach (string ruta in Directory.EnumerateFiles(_directorio))
+        {
+            string nombre = Path.GetFileName(ruta);
+            if (nombre.EndsWith(SufijoDeBaja, StringComparison.Ordinal))
+            {
+                ResolverBajaInterrumpida(nombre[..^SufijoDeBaja.Length], imagenesEnUso);
+            }
+            else if (!imagenesEnUso.Contains(nombre))
+            {
+                Console.WriteLine($"Se borra la imagen '{nombre}': ningún modelo la usa.");
+                IntentarEliminarTemporal(ruta);
+            }
+        }
+    }
+
+    // Si el modelo sigue apuntando a la imagen, la baja no llegó a confirmarse y se restaura; si no,
+    // la baja se confirmó y la imagen apartada ya no le sirve a nadie.
+    private void ResolverBajaInterrumpida(string nombreOriginal, IReadOnlySet<string> imagenesEnUso)
+    {
+        if (imagenesEnUso.Contains(nombreOriginal))
+        {
+            Restaurar(nombreOriginal);
+        }
+        else
+        {
+            Descartar(nombreOriginal);
+        }
+    }
+
     private string RutaDe(string nombreArchivo)
     {
         string ruta = Path.GetFullPath(Path.Combine(_directorio, nombreArchivo));
