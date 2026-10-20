@@ -221,6 +221,13 @@ internal sealed class Menu
         if (reservas.Count == 0)
             return;
 
+        // Sin esto, con todas las reservas Rechazadas o Canceladas, el id se pediría para siempre.
+        if (!reservas.Any(reserva => EstadosDeReserva.SePuedeCancelar(reserva.Estado)))
+        {
+            Consola.Info("No tenés reservas que se puedan cancelar.");
+            return;
+        }
+
         Guid? idReserva = LeerIdDeReservaCancelable(reservas);
         if (idReserva is null)
             return;
