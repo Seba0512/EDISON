@@ -74,6 +74,44 @@ aparecieron estos problemas. Cada uno se corrigió en su propia rama:
 | Un nombre de usuario como `a/b` se podía registrar, pero sus reservas aprobadas nunca generaban comprobante | El registro solo acepta letras, números, espacios, `.`, `-` y `_`, empezando y terminando con letra o número (validado en dominio y cliente) | `1dc8401`, `90005b1`, `728a2ea` |
 | El historial se guardaba sin tildes, y la base no tomaba la colación del script cuando la creaba la imagen de MySQL | Textos con tildes y `ALTER DATABASE` en `init.sql` | `18941e1`, `9c9e0f7` |
 
+### 2.3 Auditoría completa del código
+
+Antes de la entrega se auditó todo el código por áreas: protocolo, red y comandos del servidor,
+dominio y persistencia, y consola del cliente. Cada hallazgo se verificó contra el código y se
+corrigió solo si era un error real. Los arreglos se probaron contra el servidor real con MySQL y con
+el cliente manejado por entrada estándar.
+
+| Área | Problema | Corrección | Commits |
+|---|---|---|---|
+| Protocolo | Una lista con una cantidad enorme desbordaba la validación (`int`) y terminaba en una excepción no controlada | Cálculo en `long` | `343ce9f` |
+| Protocolo | `"1,5"` se leía como 15: el parser aceptaba separador de miles | Solo signo y punto decimal | `db8e7bb` |
+| Protocolo | Se podía subir un archivo de 0 bytes como imagen | El largo tiene que ser mayor a cero, en cliente y servidor | `b9560f1` |
+| Protocolo | Un corte a mitad de trama se trataba como dato inválido: el servidor respondía `ER` sobre una conexión muerta y el cliente decía "error de protocolo" | `TramaTruncadaException` pasa a ser una `IOException` (corte de conexión) | `56b5858` |
+| Archivos | Una falla de disco en la última parte de un archivo aparecía recién al cerrarlo, sin envolver, y cortaba una conexión que estaba sincronizada | Los archivos recibidos se escriben sin buffer | `d0749ef` |
+| Protocolo | Un texto con medio carácter (un surrogate suelto) tiraba una excepción de .NET sin manejar | Se informa como error de protocolo; además el borrado de la clave elimina el carácter completo | `3253cbd`, `5b5a348` |
+| Cliente | El nombre anunciado de una imagen se validaba después de descargarla | Se valida con el anuncio | `34d9940` |
+| Servidor | Un plazo de reserva enorme hacía fallar todas las esperas, y una cadena de conexión mal formada daba una excepción de .NET | Plazo entre 1 s y un día; cadena validada al arrancar, como configuración inválida | `338a26e` |
+| Servidor | Ctrl+C o `docker stop` mientras se esperaba a MySQL, o una carpeta sin permisos, tiraban el proceso con una excepción | `Main` los maneja con un mensaje claro | `3388f5a` |
+| Servidor | Un error al incorporar un cliente mataba al aceptador; un `Accept` que fallaba siempre giraba sin pausa; un Task con error cortaba el cierre | El aceptador sigue, pausa ante fallas repetidas y el cierre tolera Tasks fallidos | `767eb7a`, `ac84201` |
+| Servidor | La primera parte de cada sesión corría en el hilo del aceptador: un cliente que no paraba de enviar demoraba la conexión de los demás | `await Task.Yield()` al empezar a atender | `1acf044` |
+| Servidor | Una imagen subida quedaba huérfana ante un error inesperado al asignarla | Se compensa ante cualquier falla | `8d1182d` |
+| Servidor | Si el historial no se podía registrar al cerrar sesión (base caída), el servidor conservaba la sesión y el cliente, ya en el menú anónimo, no podía volver a entrar | La sesión se cierra igual | `66c734f` |
+| Servidor | Un cierre forzado podía dejar archivos `.tmp` para siempre | Se borran al arrancar | `e67fe64` |
+| Dominio | Un precio mayor a lo que admite `DECIMAL(12,2)` fallaba en MySQL con un mensaje engañoso | Tope de 9.999.999.999 en dominio y cliente | `3cfeaaf`, `fa0a50f` |
+| Dominio | Con el servidor en Windows, un usuario llamado `CON`, `NUL`, etc. no recibía comprobantes | Esos nombres se rechazan al registrarse | `877565e` |
+| Dominio | Una falla pasajera al resolver una reserva la dejaba Pendiente hasta el próximo arranque | Hasta 5 intentos con 10 s de pausa (probado apagando MySQL durante el plazo) | `88d5a3e` |
+| Cliente | Con todas las reservas Rechazadas o Canceladas, "Cancelar reserva" pedía un id para siempre | Avisa y vuelve al menú | `d25a614` |
+| Cliente | Al modificar un modelo, dejar vacía la descripción la borraba sin aviso | Se conserva la actual y se muestran los valores vigentes | `e090be6` |
+| Cliente | Con una ruta de imagen inválida (inexistente, `.gif`, demasiado grande), el modelo se creaba igual sin imagen | La ruta se valida antes del alta y se vuelve a pedir | `9c60a59` |
+| Cliente | Sin entrada estándar (Docker sin `-it`) el cliente terminaba en silencio, y no ofrecía reintentar ante un host o una red inalcanzables | Aviso explícito y reintento | `afe2c78`, `7a2dfed` |
+
+Se revisaron y se dejaron como están, a propósito:
+
+- la regla de stock de la entrega 1: el stock nuevo tiene que superar las reservas activas, incluidas
+  las pendientes;
+- el orden de la baja de un modelo (imagen antes que la fila), que la entrega 1 eligió para
+  garantizar SR3. Si la base falla después de borrar la imagen, reintentar la baja la completa.
+
 ## 3. Modificaciones al código y su motivación
 
 Cada modificación se presenta como problema → alternativas → decisión → beneficio frente al código
@@ -301,6 +339,9 @@ la cuenta de las esperas:
   relee la reserva dentro del candado y, si ya no está Pendiente, no hace nada.
 - **Cierre:** el resolutor sigue sus Tasks y el cierre espera, con un tope de 3 s, a las reservas que
   se estaban confirmando.
+- **Fallas pasajeras:** si la resolución falla (por ejemplo, con MySQL caído), se reprograma hasta 5
+  veces con 10 s de pausa. Cada reintento tiene su propio CTS, así que el usuario puede cancelarlo
+  igual que la espera original.
 
 **Comprobante** (`Servidor/ComprobantesEnDisco.cs`, detrás del puerto `IGeneradorDeComprobantes`):
 
@@ -352,10 +393,12 @@ la cuenta de las esperas:
    confirmada se puede cancelar. El comprobante documenta que la aprobación ocurrió, y el estado
    vigente se consulta en *Mis reservas* (CR9).
 5. **Nombres de usuario.** Tienen entre 3 y 20 caracteres: letras (con tildes y ñ), números,
-   espacios, `.`, `-` y `_`, y empiezan y terminan con letra o número. No distinguen mayúsculas pero
-   sí tildes. La restricción de caracteres es nueva en esta entrega: el nombre también es la carpeta
-   de los comprobantes del usuario.
-6. **Plazo de resolución configurable** con `PLAZO_RESERVA_SEGUNDOS`, 30 s por defecto (sección 3.3).
+   espacios, `.`, `-` y `_`, y empiezan y terminan con letra o número. Tampoco pueden ser un nombre
+   que Windows reserva para dispositivos (`CON`, `NUL`, `COM1`, …). No distinguen mayúsculas pero sí
+   tildes. Estas restricciones son nuevas en esta entrega: el nombre también es la carpeta de los
+   comprobantes del usuario, y así el servidor puede generarlos en cualquier sistema operativo.
+6. **Plazo de resolución configurable** con `PLAZO_RESERVA_SEGUNDOS`: 30 s por defecto, entre 1 s y
+   un día (sección 3.3).
 7. **Cierre por consola.** La orden `salir` solo se acepta con una consola interactiva. En Docker, el
    servidor se cierra con `docker stop` (SIGTERM), como habilita la letra.
 8. **Tope del cierre.** El cierre espera hasta 5 s al aceptador, 5 s a las conexiones de los clientes
@@ -363,22 +406,23 @@ la cuenta de las esperas:
    topes solo evitan que el cierre quede colgado. En el peor caso suman 13 s, más que los 10 s que
    `docker stop` espera por defecto antes de forzar la terminación: si hiciera falta, se amplía con
    `docker stop -t 15`.
-9. **Precio.** Como en la entrega 1, el precio de un modelo se redondea a un valor entero.
+9. **Precio.** Como en la entrega 1, el precio de un modelo se redondea a un valor entero. El máximo
+   es 9.999.999.999, el mayor entero que entra en la columna `DECIMAL(12,2)`.
+10. **Modificar un modelo.** El cliente muestra los valores vigentes. Dejar la descripción vacía
+    conserva la actual, y el resto de los campos se vuelve a ingresar.
+11. **Falla al resolver una reserva.** Si la resolución falla, por ejemplo con MySQL caído justo al
+    vencer el plazo, se reintenta hasta 5 veces, con 10 s entre cada intento.
 
 ## 6. Errores conocidos
 
-1. **MySQL caído al vencer el plazo de una reserva.** La resolución falla, el error se registra en
-   la consola y la reserva queda Pendiente hasta el próximo arranque del servidor, que la reprograma.
-   No se reintenta mientras el servidor sigue corriendo.
+1. **MySQL caído durante más de 40 s al vencer el plazo de una reserva.** Agotados los 5 intentos,
+   la reserva queda Pendiente hasta el próximo arranque del servidor, que la reprograma.
 2. **Terminación forzada entre la confirmación y el comprobante.** Si el proceso muere de golpe
    (SIGKILL o corte de energía) justo después de confirmar una reserva en la base, el comprobante
    puede no escribirse, y no se regenera.
 3. **Subida de imagen a un modelo ajeno o inexistente.** El modelo y el permiso se validan cuando
    termina la recepción del archivo, no con el anuncio. Un usuario puede transferir hasta 10 MiB que
    después se descartan con un `ER`: el archivo se borra y no queda huérfano.
-4. **Nombres reservados en Windows.** Si el servidor corre en Windows, un usuario llamado `CON`,
-   `NUL`, `COM1`, etc. no obtiene comprobantes (se registra en la consola). En el contenedor Linux no
-   ocurre.
 
 ## 7. Declaración de uso de IA
 
@@ -393,7 +437,8 @@ contenido generado con IA fue revisado y verificado por el equipo, que es respon
 |---|---|---|
 | Análisis | Revisión del repositorio contra la letra y el plan de trabajo, para detectar faltantes y errores en lo ya integrado | Se discutió cada hallazgo antes de corregirlo. Uno se descartó: invertir el orden de la baja de imagen rompía la garantía de SR3 |
 | Asistencia de git | Resolución de los conflictos de un `git pull` entre los cambios locales y las fases 1 a 4 | Se verificó que el código resultante quedara idéntico al de `develop` |
-| Implementación asistida | Las correcciones de la sección 2.2 | Cada cambio se compiló en Release sin advertencias y se probó contra el servidor real con MySQL en Docker: registro con ñ, reservas confirmadas, rechazadas y canceladas, comprobante, base caída con la sesión viva, reinicio con una reserva pendiente, nombres de usuario inválidos |
+| Auditoría | Revisión de todo el código por áreas (protocolo, servidor, dominio y persistencia, cliente), con subagentes de Claude Code en modo solo lectura | Cada hallazgo se contrastó con el código antes de corregirlo. Se descartaron los que no eran errores (por ejemplo, la regla de stock de la entrega 1) |
+| Implementación asistida | Las correcciones de las secciones 2.2 y 2.3 | Cada cambio se compiló en Release sin advertencias y se probó contra el servidor real con MySQL en Docker: registro con ñ, reservas confirmadas, rechazadas y canceladas, comprobante, base caída con la sesión viva, reinicio con una reserva pendiente, nombres de usuario inválidos |
 | Herramienta de prueba | Un cliente de prueba descartable que habla el protocolo usando `Common` (no forma parte de la entrega) | Se usó solo para ejecutar los escenarios anteriores |
 | Borrador de documentación | `README.md`, `docs/protocolo.md`, los diagramas PlantUML de `docs/uml/` y este documento | Se revisaron contra el código; los diagramas se exportaron y se controlaron visualmente |
 
