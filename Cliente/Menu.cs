@@ -43,9 +43,13 @@ internal sealed class Menu
         {
             Mostrar();
             int? indice = LectorDeConsola.LeerOpcion(_opcionesActuales.Count);
-            // Se acabó la entrada y eso es una salida normal, no un error.
+            // Se acabó la entrada y eso es una salida normal, no un error. Igual se avisa: en Docker
+            // pasa si el cliente se ejecuta sin -it, y sin el aviso parecería que se cerró solo.
             if (indice is null)
+            {
+                Consola.Info("Se terminó la entrada estándar: el cliente se cierra. En Docker, ejecútelo con -it.");
                 return;
+            }
 
             Console.WriteLine();
             bool requierePausa = await EjecutarOpcionAsync(_opcionesActuales[indice.Value]);
