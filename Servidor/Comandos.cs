@@ -138,8 +138,17 @@ internal sealed class EjecutorDeComandos
     private async Task<RespuestaDelServidor> CerrarSesionAsync(Trama solicitud, SesionDeCliente sesion)
     {
         ExigirDatosVacios(solicitud);
-        await _usuarios.CerrarSesionAsync(sesion.UsuarioAutenticado!);
-        sesion.UsuarioAutenticado = null;
+        try
+        {
+            await _usuarios.CerrarSesionAsync(sesion.UsuarioAutenticado!);
+        }
+        finally
+        {
+            // La sesión se cierra aunque no se haya podido registrar en el historial: si quedara
+            // abierta, el cliente (que ya volvió al menú anónimo) no podría volver a iniciar sesión.
+            sesion.UsuarioAutenticado = null;
+        }
+
         return RespuestaDelServidor.Ok("Sesión cerrada");
     }
 
