@@ -15,6 +15,7 @@ internal sealed class ServidorTcp : IAsyncDisposable
     // Al cerrar se espera a los Tasks como mucho este tiempo: si alguno no termina, se informa
     // en vez de dejar el cierre colgado.
     private static readonly TimeSpan EsperaMaxima = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan PausaTrasFallaDeAccept = TimeSpan.FromMilliseconds(200);
 
     private readonly ConfiguracionServidor _configuracion;
     private readonly EjecutorDeComandos _ejecutor;
@@ -125,7 +126,22 @@ internal sealed class ServidorTcp : IAsyncDisposable
             catch (SocketException exception)
             {
                 Console.Error.WriteLine($"Accept falló: {exception.Message}");
+                await PausarTrasFallaAsync(token);
             }
+        }
+    }
+
+    // Un error que se repite enseguida (por ejemplo, sin descriptores de archivo libres) no puede
+    // dejar al aceptador girando y llenando la consola.
+    private static async Task PausarTrasFallaAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(PausaTrasFallaDeAccept, token);
+        }
+        catch (OperationCanceledException)
+        {
+            // El cierre corta la pausa; el while del aceptador ve el token cancelado y termina.
         }
     }
 
@@ -134,7 +150,20 @@ internal sealed class ServidorTcp : IAsyncDisposable
         int numero = Interlocked.Increment(ref _siguienteCliente);
         // La sesión abre su stream acá y no en el Task del cliente: DetenerAsync cierra los
         // sockets recién después de esperar al aceptador, así que este todavía no pudo cerrarse.
-        SesionDeCliente sesion = new(socket, numero, _codec, _ejecutor);
+        SesionDeCliente sesion;
+        try
+        {
+            sesion = new SesionDeCliente(socket, numero, _codec, _ejecutor);
+        }
+        catch (IOException exception)
+        {
+            // El cliente se fue entre el Accept y la creación de su stream: se lo descarta y el
+            // aceptador sigue atendiendo a los demás.
+            Console.Error.WriteLine($"No se pudo atender al cliente {numero}: {exception.Message}");
+            socket.Dispose();
+            return;
+        }
+
         ConexionDeCliente conexion = new(numero, socket);
         _conexiones[numero] = conexion;
         conexion.Tarea = AtenderAsync(conexion, sesion, token);
