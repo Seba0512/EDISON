@@ -132,7 +132,10 @@ internal sealed class ConexionConServidor : IAsyncDisposable
     {
         try
         {
-            return File.OpenRead(rutaArchivo);
+            // useAsync: true, igual que el resto de los archivos, para que las lecturas de cada parte
+            // sean asíncronas de verdad y no ocupen un hilo del pool mientras esperan al disco.
+            return new FileStream(
+                rutaArchivo, FileMode.Open, FileAccess.Read, FileShare.Read, SinBuffer, useAsync: true);
         }
         // El Message de .NET viene en inglés y es técnico: al usuario se le dice qué revisar.
         catch (Exception excepcion) when (excepcion is IOException or UnauthorizedAccessException)
