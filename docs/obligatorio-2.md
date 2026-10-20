@@ -73,3 +73,106 @@ aparecieron estos problemas. Cada uno se corrigió en su propia rama:
 | El log del servidor mostraba `Task -` en todas las líneas, porque `Task.CurrentId` es nulo en métodos async, y no se distinguía a cada cliente | Cada línea identifica la conexión y el usuario: `[Cliente 2 \| ana]` | `e7f1435` |
 | Un nombre de usuario como `a/b` se podía registrar, pero sus reservas aprobadas nunca generaban comprobante | El registro solo acepta letras, números, espacios, `.`, `-` y `_`, empezando y terminando con letra o número (validado en dominio y cliente) | `1dc8401`, `90005b1`, `728a2ea` |
 | El historial se guardaba sin tildes, y la base no tomaba la colación del script cuando la creaba la imagen de MySQL | Textos con tildes y `ALTER DATABASE` en `init.sql` | `18941e1`, `9c9e0f7` |
+
+## 3. Modificaciones al código y su motivación
+
+Cada modificación se presenta como problema → alternativas → decisión → beneficio frente al código
+de la entrega 1. Los diagramas están en `docs/uml/`:
+
+- componentes: `componentes.png`;
+- clases del dominio: `clases-dominio.png`;
+- aceptación y cierre: `secuencia-aceptacion.png`;
+- reserva: `secuencia-reserva.png`.
+
+### 3.1 De Threads a Tasks con async/await
+
+**Antes.**
+
+- El servidor creaba un `Thread` aceptador, que se bloqueaba en `Accept()`, y un `Thread` por cada
+  cliente, que se bloqueaba en `Read()` sobre su socket.
+- Cada reserva tenía su propio `Thread`, que dormía el plazo con `Thread.Sleep`.
+- El cierre usaba un `volatile bool`, cerraba los sockets para despertar a los hilos bloqueados y los
+  esperaba con `Join` y un timeout.
+- Las conexiones activas estaban en una `List` protegida con `lock`.
+
+**Problema.**
+
+- Cada `Thread` reserva su propia pila y pasa casi todo el tiempo bloqueado esperando la red, así que
+  el modelo no escala con la cantidad de clientes.
+- `Thread.Sleep` no se puede cancelar.
+- La letra prohíbe la clase `Thread`.
+
+**Alternativas.**
+
+1. Envolver el código sincrónico en `Task.Run`. Desaparece la palabra `Thread`, pero cada espera
+   sigue bloqueando un hilo, ahora del pool, lo que es peor porque lo comparte todo el proceso.
+2. Usar `async`/`await` con las APIs asíncronas reales de .NET.
+
+**Decisión: la alternativa 2.**
+
+- **Red:** `AcceptAsync`, `ReadAsync` / `ReadExactlyAsync`, `WriteAsync` y `ConnectAsync`.
+- **Disco:** `FileStream` con `useAsync: true`.
+- **Base:** MySqlConnector, con API asíncrona real.
+
+Dos reglas para toda la migración:
+
+- nunca bloquear sobre una Task (no hay `.Result`, `.Wait()` ni `GetAwaiter().GetResult()`);
+- no usar `Task.Run` para disfrazar código sincrónico. El único `Task.Run` es el que aísla
+  `Console.ReadLine` en la consola del servidor, porque no tiene versión asíncrona.
+
+| Pieza | Entrega 1 | Entrega 2 |
+|---|---|---|
+| Aceptador | `Thread` + `Accept()` | Task `AceptarConexionesAsync` + `await AcceptAsync(token)`. El método async devuelve su Task al primer `await`, sin `Task.Run` |
+| Atención de cada cliente | `Thread` por cliente | Task `AtenderAsync` por cliente |
+| Conexiones activas | `List` + `lock` | `ConcurrentDictionary<int, ConexionDeCliente>` |
+| Señal de ejecución | `volatile bool` | `CancellationTokenSource` |
+| Espera del cierre | `Join(timeout)` por hilo | `await Task.WhenAll(...).WaitAsync(5 s)` |
+| Espera de una reserva | `Thread.Sleep(plazo)` | `await Task.Delay(plazo, token)`, cancelable (sección 3.5) |
+| Códec y transferencia de archivos | `Read`/`Write` bloqueantes | `LeerAsync`/`EscribirAsync`, `EnviarAsync`/`RecibirAsync` con `CancellationToken` |
+
+**Beneficio.**
+
+- Mientras una conexión espera bytes no ocupa ningún hilo: el `await` devuelve el hilo al pool, y un
+  cliente lento no frena a los demás ni consume memoria de pila.
+- La cancelación es cooperativa, con `CancellationToken`, en vez de cerrar sockets para provocar
+  excepciones.
+- El cierre es más simple y tiene un tope de tiempo explícito.
+- Se mantuvieron la distinción entre `ConexionCerradaException` (el otro lado cerró entre dos tramas)
+  y `TramaTruncadaException` (cerró a mitad de una), y la lectura exacta de cada campo.
+
+**Cierre en Docker.** `docker stop` envía SIGTERM, y el servidor lo atiende con
+`PosixSignalRegistration` (también Ctrl+C / SIGINT). La orden `salir` se lee solo si la consola es
+interactiva (`!Console.IsInputRedirected`). Sin esa condición, en un contenedor sin `-i`,
+`ReadLine()` devuelve `null` enseguida y el servidor se cerraría al arrancar.
+
+### 3.2 De `lock` a un candado asíncrono (`CandadoGlobal`)
+
+**Antes.** Un `lock` global (`EstadoEnMemoria.Candado`). Cada operación lo tomaba una vez y adentro
+hacía leer → validar → modificar de forma atómica: por ejemplo, contar las reservas confirmadas y
+confirmar una más sin pasarse del stock.
+
+**Problema.** Ahora los datos están en MySQL y su acceso es asíncrono. Un bloque `lock` no puede
+contener un `await`: el compilador lo prohíbe, porque el código después del `await` puede seguir en
+otro hilo, y un monitor tiene que liberarlo el mismo hilo que lo tomó.
+
+**Alternativas.**
+
+1. `SemaphoreSlim(1, 1)` en memoria, con `await WaitAsync()` y `Release()` en un `finally`. Mantiene
+   la semántica que se defendió en la entrega 1.
+2. Sin candado en memoria: transacciones con `SELECT … FOR UPDATE` o un nivel de aislamiento
+   serializable, y que MySQL coordine la concurrencia.
+3. Un candado por modelo.
+
+**Decisión: la alternativa 1** (`Servidor/Dominio/Servicios/CandadoGlobal.cs`).
+
+- Es el cambio mínimo que preserva la corrección de la entrega 1: cada servicio sigue tomando el
+  candado una sola vez, y las reglas de stock y estado se validan con los datos que se van a
+  modificar.
+- La alternativa 2 permitiría varias instancias del servidor, pero agrega complejidad (bloqueos de
+  filas, deadlocks de la base, reintentos) sin beneficio para el alcance del obligatorio.
+- La alternativa 3 complica el razonamiento cuando una operación toca varios modelos.
+
+**Supuesto:** hay una sola instancia del servidor (sección 5).
+
+**Costo:** las operaciones que toman el candado se ejecutan de a una. Es aceptable para la carga del
+obligatorio, y como el candado se espera con `await`, mientras tanto no se bloquea ningún hilo.
