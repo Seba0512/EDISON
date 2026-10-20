@@ -8,6 +8,8 @@ namespace Servidor.Dominio.Servicios;
 public sealed class ResolutorDeReservas
 {
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _pendientes = new();
+    // Esperas lanzadas que todavía no terminaron. Se usa como conjunto: el valor no importa.
+    private readonly ConcurrentDictionary<Task, byte> _enCurso = new();
     private readonly Func<Guid, Task> _resolver;
     private readonly CancellationToken _apagado;
 
@@ -23,8 +25,15 @@ public sealed class ResolutorDeReservas
     {
         CancellationTokenSource cancelacion = CancellationTokenSource.CreateLinkedTokenSource(_apagado);
         _pendientes[idReserva] = cancelacion;
-        // Nadie espera este Task: ResolverTrasDemoraAsync registra sus propios errores.
-        _ = ResolverTrasDemoraAsync(idReserva, demora, cancelacion);
+        // ResolverTrasDemoraAsync registra sus propios errores: el Task solo se sigue para el cierre.
+        Seguir(ResolverTrasDemoraAsync(idReserva, demora, cancelacion));
+    }
+
+    // Al apagar, las esperas se cortan solas con el token de apagado. Las que ya estaban resolviendo
+    // no lo miran: terminan de escribir en la base y de generar el comprobante, y eso se espera acá.
+    public Task EsperarResolucionesEnCursoAsync()
+    {
+        return Task.WhenAll(_enCurso.Keys);
     }
 
     // Cancelación del usuario: corta la espera si la reserva todavía estaba esperando.
@@ -35,6 +44,15 @@ public sealed class ResolutorDeReservas
             cancelacion.Cancel();
             cancelacion.Dispose();
         }
+    }
+
+    // La continuación corre aunque la espera ya haya terminado al registrarla, así que ninguna
+    // espera terminada queda en el conjunto.
+    private void Seguir(Task espera)
+    {
+        _enCurso.TryAdd(espera, 0);
+        _ = espera.ContinueWith(
+            terminada => _enCurso.TryRemove(terminada, out _), TaskScheduler.Default);
     }
 
     private async Task ResolverTrasDemoraAsync(

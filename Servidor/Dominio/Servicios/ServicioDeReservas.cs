@@ -48,6 +48,20 @@ public class ServicioDeReservas
         }
     }
 
+    // Parte del cierre: con el token de apagado ya cancelado, espera con un tope a las reservas que
+    // estaban confirmándose, para que el proceso no termine con un comprobante a medio escribir.
+    public async Task EsperarResolucionesEnCursoAsync(TimeSpan esperaMaxima)
+    {
+        try
+        {
+            await _resolutor.EsperarResolucionesEnCursoAsync().WaitAsync(esperaMaxima);
+        }
+        catch (TimeoutException)
+        {
+            Console.Error.WriteLine("Hay reservas que no terminaron de resolverse antes del cierre.");
+        }
+    }
+
     public async Task<Guid> SolicitarReservaAsync(string nombreModelo, Usuario solicitante)
     {
         Reserva reserva;
