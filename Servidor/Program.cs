@@ -13,6 +13,8 @@ internal static class Program
     private const string OrdenDeSalida = "salir";
     private const int IntentosDeConexionConLaBase = 15;
     private static readonly TimeSpan DemoraEntreIntentos = TimeSpan.FromSeconds(2);
+    // Corto a propósito: docker stop manda SIGKILL a los 10 s y el cierre de las conexiones va antes.
+    private static readonly TimeSpan EsperaMaximaDeResoluciones = TimeSpan.FromSeconds(3);
 
     private static async Task<int> Main()
     {
@@ -82,6 +84,8 @@ internal static class Program
         {
             await apagado.CancelAsync();
             await servidor.DetenerAsync();
+            // Con los clientes ya cerrados no entran reservas nuevas: solo quedan las que se resolvían.
+            await reservas.EsperarResolucionesEnCursoAsync(EsperaMaximaDeResoluciones);
         }
     }
 
