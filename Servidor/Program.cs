@@ -39,6 +39,18 @@ internal static class Program
             Console.Error.WriteLine($"No se pudo conectar con la base de datos: {exception.Message}");
             return 1;
         }
+        catch (OperationCanceledException)
+        {
+            // Se pidió el cierre (Ctrl+C, docker stop) mientras todavía se esperaba a MySQL.
+            Console.WriteLine("Servidor detenido antes de terminar de arrancar.");
+            return 0;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine(
+                $"No se pudieron preparar las carpetas de imágenes o comprobantes: {exception.Message}");
+            return 1;
+        }
     }
 
     private static async Task EjecutarAsync()
