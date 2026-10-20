@@ -1,5 +1,5 @@
-using System.Configuration;
 using System.Net.Sockets;
+using Common;
 using Servidor.Dominio.Servicios;
 
 namespace Servidor;
@@ -16,7 +16,7 @@ internal static class Program
             Ejecutar();
             return 0;
         }
-        catch (ConfigurationErrorsException exception)
+        catch (ConfiguracionInvalidaException exception)
         {
             Console.Error.WriteLine($"Configuración inválida: {exception.Message}");
             return 1;
@@ -34,7 +34,7 @@ internal static class Program
         EstadoEnMemoria estado = new();
         ServicioDeUsuarios usuarios = new(estado);
         ServicioDeModelos modelos = new(estado);
-        ServicioDeReservas reservas = new(estado);
+        ServicioDeReservas reservas = new(estado, configuracion.ReservationTimeout);
         ImagenesEnDisco imagenes = new(configuracion.ImagesDirectory);
         // Si una sesión anterior terminó de golpe (cierre de consola, Ctrl+C) sus imágenes siguen en disco.
         imagenes.EliminarTodas();
